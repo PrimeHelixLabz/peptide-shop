@@ -1,0 +1,126 @@
+"use client"
+
+import { useState } from "react"
+import Image from "next/image"
+import Link from "next/link"
+import { ShoppingCart, Check, Heart } from "lucide-react"
+import { useCart } from "@/lib/cart-context"
+import { useWishlist } from "@/lib/wishlist-context"
+import { Badge } from "@/components/common/badge"
+import { PriceDisplay } from "@/components/common/price-display"
+import { getProductImageUrl } from "@/lib/storage/image-utils"
+
+export interface Product {
+  id: string
+  slug: string
+  name: string
+  price: number
+  description: string
+  image: string // Keep for backward compatibility, will use first image from images if available
+  images?: string[] // Array of image URLs
+  category?: string
+  inStock: boolean
+  specifications?: Record<string, string | number> // Dynamic specifications (e.g., { purity: "99.1%", weight: "5mg", form: "Lyophilized" })
+}
+
+export function ProductCard({ product }: { product: Product }) {
+  const [added, setAdded] = useState(false)
+  const { addItem } = useCart()
+  const { toggleItem, isInWishlist } = useWishlist()
+  const isWishlisted = isInWishlist(product.id)
+
+  function handleAddToCart(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    addItem(product, 1)
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }
+
+  function handleToggleWishlist(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    toggleItem(product)
+  }
+
+  return (
+    <Link
+      href={`/shop/${product.slug}`}
+      className="group block"
+    >
+      <article className="rounded-3xl bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:scale-[1.02]">
+        {/* Image */}
+        <div className="relative aspect-square overflow-hidden rounded-2xl bg-gray-100">
+          <Image
+            src={getProductImageUrl(product.image, product.images)}
+            alt={`${product.name} peptide vial`}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            unoptimized={getProductImageUrl(product.image, product.images).includes("supabase")}
+          />
+          {!product.inStock && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-2xl">
+              <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Out of Stock
+              </span>
+            </div>
+          )}
+          {product.category && (
+            <div className="absolute left-3 top-3">
+              <Badge variant="category">{product.category}</Badge>
+            </div>
+          )}
+          <button
+            onClick={handleToggleWishlist}
+            className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm text-muted-foreground transition-all duration-300 hover:bg-white hover:scale-110 active:scale-95 min-h-[48px] min-w-[48px]"
+            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          >
+            <Heart
+              className={`h-4 w-4 transition-all duration-300 ${
+                isWishlisted
+                  ? "fill-red-500 text-red-500"
+                  : "text-muted-foreground hover:text-red-500"
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="mt-4 space-y-2">
+          <h3 className="text-lg font-semibold text-foreground">
+            {product.name}
+          </h3>
+          {product.category && (
+            <p className="text-sm text-muted-foreground">
+              {product.category}
+            </p>
+          )}
+
+          {/* Price & CTA */}
+          <div className="flex items-center justify-between pt-2">
+            <PriceDisplay price={product.price} size="lg" />
+            <button
+              onClick={handleAddToCart}
+              disabled={!product.inStock || added}
+              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-4 py-2 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 min-h-[48px]"
+              aria-label={`Add ${product.name} to cart`}
+            >
+              {added ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Added
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-3.5 w-3.5" />
+                  Add
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </article>
+    </Link>
+  )
+}

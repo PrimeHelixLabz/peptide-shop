@@ -1,0 +1,84 @@
+import { NextRequest, NextResponse } from "next/server"
+import { requireAdminMiddleware } from "@/lib/auth/middleware"
+import { createClient } from "@/lib/supabase/server"
+
+export const GET = requireAdminMiddleware(async (req) => {
+  try {
+    const supabase = await createClient()
+
+    // Get recent orders (including email column for guest orders)
+    const { data: ordersData, error: ordersError } = await supabase
+      .from("orders")
+      .select("id, order_number, status, total, items, created_at, user_id, email, shipping_address")
+      .order("created_at", { ascending: false })
+      .limit(10)
+
+    if (ordersError) {
+      console.error("Error fetching recent orders:", ordersError)
+      return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 })
+    }
+
+    if (!ordersData || ordersData.length === 0) {
+      return NextResponse.json({ orders: [] })
+    }
+
+    // Get unique user IDs (filter out nulls for guest orders)
+    const userIds = [...new Set(ordersData.map((o: any) => o.user_id).filter((id: any) => id !== null))]
+
+    // Fetch profiles for authenticated users only
+    const { data: profilesData } = await supabase
+      .from("profiles")
+      .select("id, name, email")
+      .in("id", userIds)
+
+    // Create a map of user_id -> profile
+    const profilesMap = new Map(
+      (profilesData || []).map((p: any) => [p.id, p])
+    )
+
+    // Transform orders to match the RecentOrder interface
+    const recentOrders = ordersData.map((order: any) => {
+      // For guest orders (user_id is null), use email from orders table or shipping_address
+      // For authenticated orders, use profile data
+      const isGuestOrder = order.user_id === null
+      const profile = profilesMap.get(order.user_id) || {}
+      
+      // Get customer name and email
+      let customerName = "Guest Customer"
+      let customerEmail = order.email || "No email"
+      
+      if (!isGuestOrder && profile.name) {
+        customerName = profile.name
+        customerEmail = profile.email || customerEmail
+      } else if (isGuestOrder && order.shipping_address) {
+        // Try to get name from shipping address for guest orders
+        const shippingAddr = order.shipping_address
+        if (shippingAddr.firstName && shippingAddr.lastName) {
+          customerName = `${shippingAddr.firstName} ${shippingAddr.lastName}`
+        }
+        customerEmail = order.email || shippingAddr.email || customerEmail
+      }
+      
+      const itemsCount = Array.isArray(order.items) ? order.items.length : 0
+
+      return {
+        id: order.order_number || order.id,
+        customer: customerName,
+        email: customerEmail,
+        items: itemsCount,
+        total: `$${parseFloat(order.total || "0").toFixed(2)}`,
+        status: order.status || "pending",
+        date: new Date(order.created_at).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }),
+      }
+    })
+
+    return NextResponse.json({ orders: recentOrders })
+  } catch (error) {
+    console.error("Get recent orders error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+})
