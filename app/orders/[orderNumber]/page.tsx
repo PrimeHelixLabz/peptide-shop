@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { OrderConfirmation } from "@/components/order-confirmation"
@@ -22,7 +23,9 @@ export default async function OrderConfirmationPage({
       <main className="flex-1 flex flex-col gap-20 py-12 md:py-20">
         <Section background="muted" padding="md">
           <Container>
-            <OrderConfirmation orderNumber={orderNumber} />
+            <Suspense fallback={<div className="text-center text-muted-foreground">Loading order details...</div>}>
+              <OrderConfirmation orderNumber={orderNumber} />
+            </Suspense>
           </Container>
         </Section>
       </main>

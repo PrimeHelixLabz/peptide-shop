@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import { SignInForm } from "@/components/auth/signin-form"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -23,7 +24,9 @@ export default function SignInPage() {
                 Enter your credentials to access your account
               </p>
             </div>
-            <SignInForm />
+            <Suspense fallback={<div className="text-center text-muted-foreground">Loading...</div>}>
+              <SignInForm />
+            </Suspense>
           </div>
         </div>
       </main>
