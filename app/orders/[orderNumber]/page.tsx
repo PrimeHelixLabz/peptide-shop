@@ -23,7 +23,14 @@ export default async function OrderConfirmationPage({
       <main className="flex-1 flex flex-col gap-20 py-12 md:py-20">
         <Section background="muted" padding="md">
           <Container>
-            <Suspense fallback={<div className="text-center text-muted-foreground">Loading order details...</div>}>
+            <Suspense fallback={
+              <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground">Loading order details...</p>
+                </div>
+              </div>
+            }>
               <OrderConfirmation orderNumber={orderNumber} />
             </Suspense>
           </Container>
