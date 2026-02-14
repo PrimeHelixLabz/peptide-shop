@@ -45,6 +45,7 @@ export interface Product {
   createdAt: string
   updatedAt: string
   createdBy?: string // User ID
+  isArchived?: boolean // Soft delete flag - archived products are hidden from store but kept for order history
 }
 
 export interface CartItem {

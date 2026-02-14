@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { Search, Eye, ChevronDown } from "lucide-react"
+import { Pagination } from "./pagination"
+import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -21,19 +23,19 @@ export interface AdminOrder {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Badge styles                                                       */
+/*  Status mapping                                                      */
 /* ------------------------------------------------------------------ */
 
-const paymentStyles: Record<AdminOrder["paymentStatus"], string> = {
-  Paid: "bg-gradient-to-r from-emerald-500 to-green-600 text-white",
-  Pending: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
-  Refunded: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
+const paymentStatusMap: Record<AdminOrder["paymentStatus"], StatusVariant> = {
+  Paid: "success",
+  Pending: "warning",
+  Refunded: "neutral",
 }
 
-const shippingStyles: Record<AdminOrder["shippingStatus"], string> = {
-  Shipped: "bg-gradient-to-r from-emerald-500 to-green-600 text-white",
-  Processing: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
-  Delivered: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
+const shippingStatusMap: Record<AdminOrder["shippingStatus"], StatusVariant> = {
+  Shipped: "success",
+  Processing: "warning",
+  Delivered: "neutral",
 }
 
 /* ------------------------------------------------------------------ */
@@ -41,12 +43,20 @@ const shippingStyles: Record<AdminOrder["shippingStatus"], string> = {
 /* ------------------------------------------------------------------ */
 
 type PaymentFilter = "all" | "Paid" | "Pending" | "Refunded"
+type ShippingFilter = "all" | "Processing" | "Shipped" | "Delivered"
 
-const filterOptions: { value: PaymentFilter; label: string }[] = [
-  { value: "all", label: "All Orders" },
+const paymentFilterOptions: { value: PaymentFilter; label: string }[] = [
+  { value: "all", label: "All Payments" },
   { value: "Paid", label: "Paid" },
   { value: "Pending", label: "Pending" },
   { value: "Refunded", label: "Refunded" },
+]
+
+const shippingFilterOptions: { value: ShippingFilter; label: string }[] = [
+  { value: "all", label: "All Shipping" },
+  { value: "Processing", label: "Processing" },
+  { value: "Shipped", label: "Shipped" },
+  { value: "Delivered", label: "Delivered" },
 ]
 
 /* ------------------------------------------------------------------ */
@@ -56,8 +66,11 @@ const filterOptions: { value: PaymentFilter; label: string }[] = [
 export function AdminOrdersTable() {
   const [query, setQuery] = useState("")
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all")
+  const [shippingFilter, setShippingFilter] = useState<ShippingFilter>("all")
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
 
   useEffect(() => {
     async function fetchOrders() {
@@ -84,6 +97,10 @@ export function AdminOrdersTable() {
       result = result.filter((o) => o.paymentStatus === paymentFilter)
     }
 
+    if (shippingFilter !== "all") {
+      result = result.filter((o) => o.shippingStatus === shippingFilter)
+    }
+
     if (query.trim()) {
       const q = query.toLowerCase()
       result = result.filter(
@@ -95,7 +112,21 @@ export function AdminOrdersTable() {
     }
 
     return result
-  }, [query, paymentFilter])
+  }, [orders, query, paymentFilter, shippingFilter])
+
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query, paymentFilter, shippingFilter])
+
+  // Paginate filtered results
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage
+    const end = start + itemsPerPage
+    return filtered.slice(start, end)
+  }, [filtered, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage)
 
   return (
     <div className="flex flex-col gap-6">
@@ -109,7 +140,7 @@ export function AdminOrdersTable() {
             placeholder="Search orders..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-11 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/20"
+            className="h-12 w-full rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-11 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20"
             aria-label="Search orders"
           />
         </div>
@@ -117,7 +148,8 @@ export function AdminOrdersTable() {
         {/* Filter + count */}
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">
-            {filtered.length} of {orders.length} orders
+            {filtered.length} {filtered.length === 1 ? 'order' : 'orders'}
+            {filtered.length !== orders.length && ` of ${orders.length}`}
           </span>
           <div className="relative">
             <select
@@ -125,10 +157,27 @@ export function AdminOrdersTable() {
               onChange={(e) =>
                 setPaymentFilter(e.target.value as PaymentFilter)
               }
-              className="h-12 appearance-none rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
               aria-label="Filter by payment status"
             >
-              {filterOptions.map((opt) => (
+              {paymentFilterOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          <div className="relative">
+            <select
+              value={shippingFilter}
+              onChange={(e) =>
+                setShippingFilter(e.target.value as ShippingFilter)
+              }
+              className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
+              aria-label="Filter by shipping status"
+            >
+              {shippingFilterOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -140,7 +189,7 @@ export function AdminOrdersTable() {
       </div>
 
       {/* Table card */}
-      <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">
+      <div className="rounded-3xl bg-card text-card-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -169,10 +218,10 @@ export function AdminOrdersTable() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((order) => (
+              {paginated.map((order) => (
                 <tr
                   key={order.id}
-                  className="border-b border-border/50 transition-colors last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                  className="border-b border-border/50 transition-colors last:border-0 hover:bg-accent"
                 >
                   {/* Order ID */}
                   <td className="px-6 py-4 text-sm font-medium text-foreground">
@@ -201,27 +250,23 @@ export function AdminOrdersTable() {
 
                   {/* Payment Status */}
                   <td className="hidden px-6 py-4 text-right sm:table-cell">
-                    <span
-                      className={`inline-block rounded-xl px-3 py-1 text-xs font-semibold uppercase tracking-wider ${paymentStyles[order.paymentStatus]}`}
-                    >
+                    <StatusBadge variant={paymentStatusMap[order.paymentStatus]}>
                       {order.paymentStatus}
-                    </span>
+                    </StatusBadge>
                   </td>
 
                   {/* Shipping Status */}
                   <td className="hidden px-6 py-4 text-right lg:table-cell">
-                    <span
-                      className={`inline-block rounded-xl px-3 py-1 text-xs font-semibold uppercase tracking-wider ${shippingStyles[order.shippingStatus]}`}
-                    >
+                    <StatusBadge variant={shippingStatusMap[order.shippingStatus]}>
                       {order.shippingStatus}
-                    </span>
+                    </StatusBadge>
                   </td>
 
                   {/* View */}
                   <td className="px-6 py-4 text-right">
                     <Link
                       href={`/admin/orders/${order.orderId || order.id}`}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-foreground"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                       aria-label={`View order ${order.id}`}
                       title={`View order ${order.id}`}
                     >
@@ -233,6 +278,21 @@ export function AdminOrdersTable() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {!loading && filtered.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filtered.length}
+            onItemsPerPageChange={(newItemsPerPage) => {
+              setItemsPerPage(newItemsPerPage)
+              setCurrentPage(1)
+            }}
+          />
+        )}
 
         {/* Loading state */}
         {loading && (
@@ -253,11 +313,12 @@ export function AdminOrdersTable() {
                 ? "No orders found"
                 : "No orders found for this filter"}
             </p>
-            {query.trim() || paymentFilter !== "all" ? (
+            {query.trim() || paymentFilter !== "all" || shippingFilter !== "all" ? (
               <button
                 onClick={() => {
                   setQuery("")
                   setPaymentFilter("all")
+                  setShippingFilter("all")
                 }}
                 className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-muted-foreground transition-colors"
               >

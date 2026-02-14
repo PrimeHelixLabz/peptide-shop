@@ -45,6 +45,16 @@
     --sidebar-ring: 221 60% 32%;
     --success: 160 60% 28%;
     --success-foreground: 210 20% 98%;
+    /* Brand colors - emerald/green gradient */
+    --brand-primary: 142 76% 36%;
+    --brand-primary-foreground: 0 0% 100%;
+    --brand-secondary: 142 71% 45%;
+    --brand-secondary-foreground: 0 0% 100%;
+    /* Status colors */
+    --warning: 43 96% 56%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
   }
 }
 

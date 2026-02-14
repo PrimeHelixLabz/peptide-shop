@@ -9,6 +9,7 @@ export interface AdminProduct {
   purity: string
   stock: number
   status: "Active" | "Inactive"
+  isArchived?: boolean
 }
 
 /** Map product catalog data into admin-table shape */
@@ -28,5 +29,6 @@ export function toAdminProduct(p: ProductDetail): AdminProduct {
     purity,
     stock: p.stockQuantity || 0,
     status: p.inStock ? "Active" : "Inactive",
+    isArchived: p.isArchived || false,
   }
 }

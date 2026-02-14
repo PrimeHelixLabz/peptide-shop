@@ -49,6 +49,7 @@ function rowToProduct(row: any): Product {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     createdBy: row.created_by,
+    isArchived: row.is_archived || false,
   }
 }
 
@@ -171,9 +172,9 @@ export async function updateUser(
 }
 
 // Products (public data - use public client)
-export async function getProducts(): Promise<Product[]> {
+export async function getProducts(options?: { includeArchived?: boolean }): Promise<Product[]> {
   const supabase = createPublicClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
     .select(`
       *,
@@ -183,7 +184,13 @@ export async function getProducts(): Promise<Product[]> {
         slug
       )
     `)
-    .order("created_at", { ascending: false })
+  
+  // Filter out archived products by default
+  if (!options?.includeArchived) {
+    query = query.eq("is_archived", false)
+  }
+  
+  const { data, error } = await query.order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching products:", error)
@@ -285,45 +292,27 @@ export async function updateProduct(
   return rowToProduct(data)
 }
 
-export async function deleteProduct(id: string): Promise<boolean> {
+export async function archiveProduct(id: string): Promise<boolean> {
   const supabase = await createClient()
   
-  // Get product images before deleting
-  const { data: productData } = await supabase
+  // Archive product (soft delete) instead of hard delete
+  // This preserves order history while hiding the product from the store
+  const { error } = await supabase
     .from("products")
-    .select("image, images")
+    .update({ is_archived: true, in_stock: false })
     .eq("id", id)
-    .single()
-
-  // Delete product from database
-  const { error } = await supabase.from("products").delete().eq("id", id)
 
   if (error) {
+    console.error("Error archiving product:", error)
     return false
   }
 
-  // Delete product's image directory from storage
-  if (productData) {
-    try {
-      // List all files in the product's directory
-      const { data: files } = await supabase.storage
-        .from("products")
-        .list(id, {
-          limit: 100,
-          offset: 0,
-        })
-
-      if (files && files.length > 0) {
-        const filePaths = files.map((file) => `${id}/${file.name}`)
-        await supabase.storage.from("products").remove(filePaths)
-      }
-    } catch (storageError) {
-      // Log but don't fail - product is already deleted from DB
-      console.warn("Failed to delete product images from storage:", storageError)
-    }
-  }
-
   return true
+}
+
+// Keep deleteProduct for backward compatibility, but it now archives
+export async function deleteProduct(id: string): Promise<boolean> {
+  return archiveProduct(id)
 }
 
 // Cart

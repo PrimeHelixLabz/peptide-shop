@@ -4,16 +4,19 @@ import { requireAdminMiddleware, optionalAuthMiddleware } from "@/lib/auth/middl
 import { z } from "zod"
 
 const productSchema = z.object({
-  name: z.string().min(1),
-  price: z.number().positive(),
-  description: z.string().min(1),
+  name: z.string().min(1, "Product name is required"),
+  price: z.number().positive("Price must be a positive number"),
+  description: z.string().min(1, "Description is required"),
   longDescription: z.string().optional(),
-  image: z.string().url(),
+  image: z.string().refine(
+    (val) => val === "" || z.string().url().safeParse(val).success,
+    { message: "Image must be a valid URL or empty" }
+  ),
   images: z.array(z.string().url()).optional(),
   category: z.string().optional(),
-  categoryId: z.string().uuid().optional(),
+  categoryId: z.string().uuid("Invalid category ID").optional(),
   inStock: z.boolean(),
-  stockQuantity: z.number().int().min(0),
+  stockQuantity: z.number().int("Stock quantity must be an integer").min(0, "Stock quantity cannot be negative"),
   specifications: z.record(z.union([z.string(), z.number()])).optional(),
   usage: z.string().optional(),
   shipping: z.string().optional(),

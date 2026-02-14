@@ -1,8 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import Link from "next/link"
+import { toast } from "sonner"
+import { Pagination } from "@/components/admin/pagination"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Category {
   id: string
@@ -20,6 +32,8 @@ export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
   const [showForm, setShowForm] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState({
@@ -28,6 +42,9 @@ export default function AdminCategoriesPage() {
     display_order: 0,
     is_active: true,
   })
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     loadCategories()
@@ -62,34 +79,56 @@ export default function AdminCategoriesPage() {
       })
 
       if (response.ok) {
+        toast.success("Category saved successfully")
         setShowForm(false)
         setEditingCategory(null)
         setFormData({ name: "", description: "", display_order: 0, is_active: true })
         loadCategories()
       } else {
         const error = await response.json()
-        alert(error.error || "Failed to save category")
+        toast.error("Failed to save category", {
+          description: error.error || "An unexpected error occurred",
+        })
       }
     } catch (error) {
       console.error("Error saving category:", error)
-      alert("Failed to save category")
+      toast.error("Failed to save category", {
+        description: "An unexpected error occurred. Please try again.",
+      })
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this category?")) return
+  function handleDeleteClick(category: Category) {
+    setCategoryToDelete(category)
+    setDeleteDialogOpen(true)
+  }
 
+  async function confirmDelete() {
+    if (!categoryToDelete) return
+
+    setDeleting(true)
     try {
-      const response = await fetch(`/api/categories/${id}`, { method: "DELETE" })
+      const response = await fetch(`/api/categories/${categoryToDelete.id}`, {
+        method: "DELETE",
+      })
       if (response.ok) {
+        toast.success("Category deleted successfully")
+        setDeleteDialogOpen(false)
+        setCategoryToDelete(null)
         loadCategories()
       } else {
         const error = await response.json()
-        alert(error.error || "Failed to delete category")
+        toast.error("Failed to delete category", {
+          description: error.error || "An unexpected error occurred",
+        })
       }
     } catch (error) {
       console.error("Error deleting category:", error)
-      alert("Failed to delete category")
+      toast.error("Failed to delete category", {
+        description: "An unexpected error occurred. Please try again.",
+      })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -110,9 +149,25 @@ export default function AdminCategoriesPage() {
     setFormData({ name: "", description: "", display_order: 0, is_active: true })
   }
 
-  const filtered = categories.filter((cat) =>
-    cat.name.toLowerCase().includes(query.toLowerCase())
-  )
+  const filtered = useMemo(() => {
+    return categories.filter((cat) =>
+      cat.name.toLowerCase().includes(query.toLowerCase())
+    )
+  }, [categories, query])
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query])
+
+  // Paginate filtered results
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage
+    const end = start + itemsPerPage
+    return filtered.slice(start, end)
+  }, [filtered, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage)
 
   return (
     <div className="flex flex-col gap-6">
@@ -263,7 +318,7 @@ export default function AdminCategoriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((category) => (
+                {paginated.map((category) => (
                   <tr
                     key={category.id}
                     className="border-b border-border/50 transition-colors last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -301,7 +356,7 @@ export default function AdminCategoriesPage() {
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(category.id)}
+                          onClick={() => handleDeleteClick(category)}
                           className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
                           aria-label={`Delete ${category.name}`}
                         >
@@ -315,7 +370,51 @@ export default function AdminCategoriesPage() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        {!loading && filtered.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filtered.length}
+            onItemsPerPageChange={(newItemsPerPage) => {
+              setItemsPerPage(newItemsPerPage)
+              setCurrentPage(1)
+            }}
+          />
+        )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-0">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-foreground">
+              Delete Category
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              Are you sure you want to delete <strong>{categoryToDelete?.name}</strong>? This action cannot be undone. If there are products using this category, the deletion will fail.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <AlertDialogCancel
+              disabled={deleting}
+              className="rounded-2xl border border-gray-300 dark:border-gray-700 px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground hover:text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="rounded-2xl bg-gradient-to-r from-red-500 to-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              {deleting ? "Deleting..." : "Delete Category"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

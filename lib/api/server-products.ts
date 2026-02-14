@@ -10,8 +10,8 @@ import type { ProductDetail } from "./types"
 /**
  * Fetch all products (server-side)
  */
-export async function getAllProducts(): Promise<ProductDetail[]> {
-  const products = await getProducts()
+export async function getAllProducts(options?: { includeArchived?: boolean }): Promise<ProductDetail[]> {
+  const products = await getProducts(options)
   return products.map((p) => ({
     ...p,
     longDescription: p.longDescription || "",

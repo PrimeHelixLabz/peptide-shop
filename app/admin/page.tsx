@@ -7,6 +7,7 @@ import {
   Clock,
   Package,
   Info,
+  Loader2,
 } from "lucide-react"
 import { StatCard } from "@/components/admin/stat-card"
 import type { StatCardData } from "@/components/admin/stat-card"
@@ -56,6 +57,7 @@ export default function AdminDashboard() {
     start.setHours(0, 0, 0, 0)
     return { from: start, to: end }
   })
+  const [selectedPreset, setSelectedPreset] = useState<"7d" | "30d" | "90d" | "all" | "custom">("30d")
   const [groupBy, setGroupBy] = useState<GroupBy>("daily")
   const [data, setData] = useState<DashboardData | null>(null)
   const [recentOrders, setRecentOrders] = useState<Array<{
@@ -68,6 +70,7 @@ export default function AdminDashboard() {
     date: string
   }>>([])
   const [loading, setLoading] = useState(true)
+  const [fetching, setFetching] = useState(false)
   const [chartType, setChartType] = useState<"revenue" | "orders">("revenue")
 
   useEffect(() => {
@@ -83,7 +86,13 @@ export default function AdminDashboard() {
   async function loadDashboardData() {
     if (!dateRange.from || !dateRange.to) return
     
-    setLoading(true)
+    // Only show full loading on initial load
+    if (!data) {
+      setLoading(true)
+    } else {
+      setFetching(true)
+    }
+    
     try {
       const response = await fetch(
         `/api/admin/stats?start=${dateRange.from.toISOString()}&end=${dateRange.to.toISOString()}`
@@ -96,6 +105,7 @@ export default function AdminDashboard() {
       console.error("Error loading dashboard data:", error)
     } finally {
       setLoading(false)
+      setFetching(false)
     }
   }
 
@@ -156,12 +166,41 @@ export default function AdminDashboard() {
     },
   ]
 
-  const dateRangeText = dateRange.from && dateRange.to
-    ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
-    : "Select date range"
+  // Get period display text based on preset
+  const getPeriodText = () => {
+    if (selectedPreset === "custom" && dateRange.from && dateRange.to) {
+      return `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
+    }
+    switch (selectedPreset) {
+      case "7d":
+        return "Last 7 days"
+      case "30d":
+        return "Last 30 days"
+      case "90d":
+        return "Last 90 days"
+      case "all":
+        return "All time"
+      default:
+        return dateRange.from && dateRange.to
+          ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
+          : "Select date range"
+    }
+  }
+
+  const dateRangeText = getPeriodText()
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 relative">
+      {/* Loading overlay when fetching new data */}
+      {fetching && (
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-50 flex items-center justify-center rounded-3xl">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Loading data...</span>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -173,7 +212,8 @@ export default function AdminDashboard() {
           <DateRangePicker
             value={dateRange}
             onChange={setDateRange}
-            preset="30d"
+            preset={selectedPreset === "custom" ? "30d" : selectedPreset}
+            onPresetChange={(preset) => setSelectedPreset(preset)}
           />
           
           {/* Group By Toggle */}

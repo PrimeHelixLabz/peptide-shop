@@ -3,7 +3,8 @@ import { getAllProducts } from "@/lib/api/server-products"
 import { toAdminProduct } from "@/lib/api/admin-utils"
 
 export default async function AdminProductsPage() {
-  const products = await getAllProducts()
+  // Include archived products for admin view
+  const products = await getAllProducts({ includeArchived: true })
   const adminProducts = products.map(toAdminProduct)
 
   return <AdminProductsTable products={adminProducts} />

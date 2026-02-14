@@ -73,15 +73,15 @@ export const DELETE = requireAdminMiddleware(async (
 ) => {
   try {
     const { id } = await params
-    const deleted = await deleteProduct(id)
+    const archived = await deleteProduct(id) // This now archives instead of deleting
 
-    if (!deleted) {
+    if (!archived) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: "Product archived successfully" })
   } catch (error) {
-    console.error("Delete product error:", error)
+    console.error("Archive product error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 })

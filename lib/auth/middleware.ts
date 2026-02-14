@@ -19,14 +19,14 @@ export interface AuthenticatedRequest extends NextRequest {
  * Middleware to require authentication
  */
 export function requireAuthMiddleware(
-  handler: (req: AuthenticatedRequest) => Promise<NextResponse>
+  handler: (req: AuthenticatedRequest, context?: any) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest) => {
+  return async (req: NextRequest, context?: any) => {
     try {
       const user = await requireAuth()
       const authReq = req as AuthenticatedRequest
       authReq.user = user
-      return handler(authReq)
+      return handler(authReq, context)
     } catch (error) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -37,14 +37,14 @@ export function requireAuthMiddleware(
  * Middleware to require admin role
  */
 export function requireAdminMiddleware(
-  handler: (req: AuthenticatedRequest) => Promise<NextResponse>
+  handler: (req: AuthenticatedRequest, context?: any) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest) => {
+  return async (req: NextRequest, context?: any) => {
     try {
       const user = await requireAdminAuth()
       const authReq = req as AuthenticatedRequest
       authReq.user = user
-      return handler(authReq)
+      return handler(authReq, context)
     } catch (error) {
       if (error instanceof Error && error.message === "Forbidden") {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -58,14 +58,14 @@ export function requireAdminMiddleware(
  * Optional auth - adds user if authenticated, but doesn't require it
  */
 export function optionalAuthMiddleware(
-  handler: (req: AuthenticatedRequest) => Promise<NextResponse>
+  handler: (req: AuthenticatedRequest, context?: any) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest) => {
+  return async (req: NextRequest, context?: any) => {
     const authReq = req as AuthenticatedRequest
     const user = await getCurrentUser()
     if (user) {
       authReq.user = user
     }
-    return handler(authReq)
+    return handler(authReq, context)
   }
 }

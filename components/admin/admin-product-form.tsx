@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { toast } from "sonner"
 import {
   ArrowLeft,
   Upload,
@@ -10,6 +11,10 @@ import {
   ImageIcon,
   ChevronDown,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { AdminCard } from "@/components/common/admin-card"
+import { FormInput, FormTextarea, FormSelect } from "@/components/common"
+import { cn } from "@/lib/utils"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -276,23 +281,36 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       })
 
       if (response.ok) {
+        toast.success("Product saved successfully")
         window.location.href = "/admin/products"
       } else {
-        const error = await response.json()
-        alert(error.error || "Failed to save product")
+        const errorData = await response.json()
+        
+        // Handle validation errors
+        if (errorData.details && Array.isArray(errorData.details)) {
+          const errorMessages = errorData.details.map((err: any) => {
+            const field = err.path?.join(".") || "field"
+            return `${field}: ${err.message}`
+          }).join(", ")
+          toast.error("Validation error", {
+            description: errorMessages,
+          })
+        } else {
+          toast.error("Failed to save product", {
+            description: errorData.error || "An unexpected error occurred",
+          })
+        }
       }
     } catch (error) {
       console.error("Error saving product:", error)
-      alert("Failed to save product")
+      toast.error("Failed to save product", {
+        description: "An unexpected error occurred. Please try again.",
+      })
     } finally {
       setSubmitting(false)
     }
   }
 
-  /* ---- Shared input classes ---- */
-
-  const inputClass =
-    "h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/20 transition-shadow"
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -312,143 +330,137 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         {/* ====== Left column – Details ====== */}
         <div className="flex flex-col gap-6 lg:col-span-2">
           {/* Product details card */}
-          <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">
-            <div className="border-b border-border/50 px-6 py-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-                Product Details
-              </h2>
-            </div>
-
-            <div className="flex flex-col gap-5 p-6">
+          <AdminCard title="Product Details">
+            <div className="flex flex-col gap-5">
               {/* Name */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="name"
-                  className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                >
-                  Product Name
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  placeholder="e.g. BPC-157"
-                  value={form.name}
-                  onChange={(e) => updateField("name", e.target.value)}
-                  className={inputClass}
-                  required
-                />
-              </div>
+              <FormInput
+                label="Product Name"
+                placeholder="e.g. BPC-157"
+                value={form.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                required
+              />
 
               {/* Price & Stock row */}
               <div className="grid gap-5 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="price"
-                    className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                  >
-                    Price ($)
-                  </label>
-                  <input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={form.price}
-                    onChange={(e) => updateField("price", e.target.value)}
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="stock"
-                    className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                  >
-                    Stock Quantity
-                  </label>
-                  <input
-                    id="stock"
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={form.stock}
-                    onChange={(e) => updateField("stock", e.target.value)}
-                    className={inputClass}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Category */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="categoryId"
-                  className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                >
-                  Category
-                </label>
-                <div className="relative">
-                  <select
-                    id="categoryId"
-                    value={form.categoryId}
-                    onChange={(e) => updateField("categoryId", e.target.value)}
-                    className="h-12 w-full appearance-none rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    required
-                    disabled={loadingCategories}
-                  >
-                    <option value="">Select a category</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="description"
-                  className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                >
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  rows={5}
-                  placeholder="Describe this product..."
-                  value={form.description}
-                  onChange={(e) => updateField("description", e.target.value)}
-                  className="w-full resize-none rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 py-3 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/20 transition-shadow"
+                <FormInput
+                  label="Price ($)"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={form.price}
+                  onChange={(e) => updateField("price", e.target.value)}
+                  required
+                />
+                <FormInput
+                  label="Stock Quantity"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={form.stock}
+                  onChange={(e) => updateField("stock", e.target.value)}
                   required
                 />
               </div>
+
+              {/* Category */}
+              <FormSelect
+                label="Category"
+                value={form.categoryId}
+                onChange={(e) => updateField("categoryId", e.target.value)}
+                required
+                disabled={loadingCategories}
+                options={[
+                  { value: "", label: "Select a category" },
+                  ...categories.map((category) => ({
+                    value: category.id,
+                    label: category.name,
+                  })),
+                ]}
+              />
+
+              {/* Description */}
+              <FormTextarea
+                label="Description"
+                rows={5}
+                placeholder="Describe this product..."
+                value={form.description}
+                onChange={(e) => updateField("description", e.target.value)}
+                required
+              />
+
+              {/* Specifications */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label
+                    className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                  >
+                    Specifications
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={addSpecification}
+                    className="text-xs font-medium text-brand-primary hover:text-brand-secondary"
+                  >
+                    + Add Specification
+                  </Button>
+                </div>
+                {form.specifications.length > 0 ? (
+                  <div className="space-y-2">
+                    {form.specifications.map((spec, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Key (e.g., Purity)"
+                          value={spec.key}
+                          onChange={(e) => updateSpecification(index, "key", e.target.value)}
+                          className="flex-1 h-10 rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Value (e.g., 99%)"
+                          value={spec.value}
+                          onChange={(e) => updateSpecification(index, "value", e.target.value)}
+                          className="flex-1 h-10 rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeSpecification(index)}
+                          className="h-10 w-10 text-destructive hover:bg-destructive/10"
+                          aria-label="Remove specification"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground py-2">
+                    No specifications added. Click "Add Specification" to add one.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          </AdminCard>
         </div>
 
         {/* ====== Right column – Image & Status ====== */}
         <div className="flex flex-col gap-6">
           {/* Images upload card */}
-          <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">
-            <div className="border-b border-border/50 px-6 py-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-                Product Images
-              </h2>
-            </div>
-
-            <div className="p-6 space-y-4">
+          <AdminCard title="Product Images">
+            <div className="space-y-4">
               {/* Image gallery */}
               {form.imagePreviews.length > 0 && (
                 <div className="grid grid-cols-2 gap-3">
                   {form.imagePreviews.map((preview, index) => (
                     <div
                       key={index}
-                      className="relative aspect-square overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800"
+                      className="relative aspect-square overflow-hidden rounded-xl bg-muted"
                     >
                       <Image
                         src={preview}
@@ -461,7 +473,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
-                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 dark:bg-gray-900/90 text-foreground backdrop-blur-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-background/90 text-foreground backdrop-blur-sm transition-colors hover:bg-accent"
                         aria-label="Remove image"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -478,11 +490,12 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-all duration-200 ${
+                className={cn(
+                  "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-all duration-200",
                   dragActive
-                    ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
-                    : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10"
-                }`}
+                    ? "border-brand-primary bg-brand-primary/10 bg-brand-primary/5"
+                    : "border-border bg-muted/50 hover:border-brand-primary/50 hover:bg-brand-primary/5"
+                )}
                 role="button"
                 tabIndex={0}
                 aria-label="Upload product images"
@@ -493,9 +506,9 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                   }
                 }}
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500/10 to-green-600/10">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary/10">
                   {dragActive ? (
-                    <Upload className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <Upload className="h-5 w-5 text-brand-primary" />
                   ) : (
                     <ImageIcon className="h-5 w-5 text-muted-foreground" />
                   )}
@@ -519,15 +532,10 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 aria-label="Choose image files"
               />
             </div>
-          </div>
+          </AdminCard>
 
           {/* Status card */}
-          <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">
-            <div className="border-b border-border/50 px-6 py-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-                Status
-              </h2>
-            </div>
+          <AdminCard title="Status">
 
             <div className="flex items-center justify-between p-6">
               <div>
@@ -552,13 +560,13 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 }
                 className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors ${
                   form.status === "Active"
-                    ? "bg-gradient-to-r from-emerald-500 to-green-600"
-                    : "bg-gray-200 dark:bg-gray-700"
+                    ? "bg-gradient-to-r from-brand-primary to-brand-secondary"
+                    : "bg-muted"
                 }`}
               >
                 <span className="sr-only">Toggle product status</span>
                 <span
-                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white dark:bg-gray-900 shadow-md transform transition-transform ${
+                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-background shadow-md transform transition-transform ${
                     form.status === "Active"
                       ? "translate-x-5"
                       : "translate-x-0.5"
@@ -566,26 +574,27 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 />
               </button>
             </div>
-          </div>
+          </AdminCard>
 
           {/* Actions card */}
-          <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">
-            <div className="flex flex-col gap-3 p-6">
-              <button
+          <AdminCard>
+            <div className="flex flex-col gap-3">
+              <Button
                 type="submit"
                 disabled={submitting}
-                className="h-12 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="h-12 w-full"
               >
                 {submitting ? "Saving..." : productId ? "Update Product" : "Save Product"}
-              </button>
-              <Link
-                href="/admin/products"
-                className="flex h-12 w-full items-center justify-center rounded-2xl border border-gray-300 dark:border-gray-700 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground hover:text-foreground hover:bg-gray-50 dark:hover:bg-gray-800"
+              </Button>
+              <Button
+                variant="outline"
+                asChild
+                className="h-12 w-full"
               >
-                Cancel
-              </Link>
+                <Link href="/admin/products">Cancel</Link>
+              </Button>
             </div>
-          </div>
+          </AdminCard>
         </div>
       </div>
     </form>

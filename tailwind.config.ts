@@ -61,6 +61,20 @@ const config: Config = {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        brand: {
+          primary: 'hsl(var(--brand-primary))',
+          'primary-foreground': 'hsl(var(--brand-primary-foreground))',
+          secondary: 'hsl(var(--brand-secondary))',
+          'secondary-foreground': 'hsl(var(--brand-secondary-foreground))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          foreground: 'hsl(var(--info-foreground))',
+        },
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
