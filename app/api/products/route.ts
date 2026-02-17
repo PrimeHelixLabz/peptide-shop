@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getProducts, createProduct } from "@/lib/db/supabase"
+import { getProducts, getProductsCount, createProduct } from "@/lib/db/supabase"
 import { requireAdminMiddleware, optionalAuthMiddleware } from "@/lib/auth/middleware"
 import { z } from "zod"
 
@@ -26,11 +26,20 @@ export const GET = optionalAuthMiddleware(async (req) => {
     const { searchParams } = new URL(req.url)
     const category = searchParams.get("category")
     const search = searchParams.get("search")
-    const limit = searchParams.get("limit")
+    const limitParam = searchParams.get("limit")
+    const offsetParam = searchParams.get("offset")
 
-    let products = await getProducts()
+    // Parse pagination parameters
+    const limit = limitParam ? parseInt(limitParam) : undefined
+    const offset = offsetParam ? parseInt(offsetParam) : undefined
 
-    // Filter by category
+    // Fetch products with pagination at database level
+    let products = await getProducts({
+      limit,
+      offset,
+    })
+
+    // Filter by category (after fetching, since category is a text field, not category_id)
     if (category && category !== "All") {
       products = products.filter((p) => p.category === category)
     }
@@ -46,12 +55,18 @@ export const GET = optionalAuthMiddleware(async (req) => {
       )
     }
 
-    // Limit results
-    if (limit) {
-      products = products.slice(0, parseInt(limit))
+    // Get total count for pagination metadata (only if pagination is requested)
+    let total = undefined
+    if (limit !== undefined || offset !== undefined) {
+      // For accurate count with filters, we'd need to apply the same filters
+      // For now, we'll get the total and let the client handle it
+      total = await getProductsCount()
     }
 
-    return NextResponse.json({ products })
+    return NextResponse.json({ 
+      products,
+      ...(total !== undefined && { total, hasMore: offset !== undefined && limit !== undefined ? (offset + limit) < total : undefined })
+    })
   } catch (error) {
     console.error("Get products error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

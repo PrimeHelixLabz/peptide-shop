@@ -172,7 +172,11 @@ export async function updateUser(
 }
 
 // Products (public data - use public client)
-export async function getProducts(options?: { includeArchived?: boolean }): Promise<Product[]> {
+export async function getProducts(options?: { 
+  includeArchived?: boolean
+  limit?: number
+  offset?: number
+}): Promise<Product[]> {
   const supabase = createPublicClient()
   let query = supabase
     .from("products")
@@ -190,11 +194,34 @@ export async function getProducts(options?: { includeArchived?: boolean }): Prom
     query = query.eq("is_archived", false)
   }
   
+  // Apply pagination if provided, otherwise use high limit for backward compatibility
+  if (options?.limit !== undefined) {
+    query = query.limit(options.limit)
+    if (options.offset !== undefined) {
+      query = query.range(options.offset, options.offset + options.limit - 1)
+    }
+  } else {
+    // Explicitly set a high limit to ensure we get all products
+    // Supabase PostgREST default limit is 1000, but we'll set it explicitly
+    query = query.limit(10000)
+  }
+  
   const { data, error } = await query.order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching products:", error)
+    console.error("Error details:", JSON.stringify(error, null, 2))
     return []
+  }
+
+  if (!data) {
+    console.warn("No data returned from products query")
+    return []
+  }
+
+  // Log in development only
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Fetched ${data.length} products from database`)
   }
 
   // Map categories data to category_name for backward compatibility
@@ -206,6 +233,28 @@ export async function getProducts(options?: { includeArchived?: boolean }): Prom
   })
 
   return products
+}
+
+// Get total count of products (for pagination)
+export async function getProductsCount(options?: { includeArchived?: boolean }): Promise<number> {
+  const supabase = createPublicClient()
+  let query = supabase
+    .from("products")
+    .select("*", { count: "exact", head: true })
+  
+  // Filter out archived products by default
+  if (!options?.includeArchived) {
+    query = query.eq("is_archived", false)
+  }
+  
+  const { count, error } = await query
+
+  if (error) {
+    console.error("Error fetching products count:", error)
+    return 0
+  }
+
+  return count || 0
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
@@ -226,11 +275,12 @@ export async function getProductById(id: string): Promise<Product | null> {
   if (error || !data) return null
 
   // Map category data
-  if (data.categories) {
-    data.category_name = data.categories.name
+  const row = data as any
+  if (row.categories) {
+    row.category_name = row.categories.name
   }
 
-  return rowToProduct(data)
+  return rowToProduct(row)
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
@@ -251,11 +301,12 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   if (error || !data) return null
 
   // Map category data
-  if (data.categories) {
-    data.category_name = data.categories.name
+  const row = data as any
+  if (row.categories) {
+    row.category_name = row.categories.name
   }
 
-  return rowToProduct(data)
+  return rowToProduct(row)
 }
 
 export async function createProduct(
