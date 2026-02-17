@@ -19,7 +19,7 @@ import type {
   Address,
 } from "./schema"
 
-import { getStorageUrl, getStorageUrls } from "@/lib/storage/supabase-storage"
+import { extractStoragePath, getStorageUrl, getStorageUrls } from "@/lib/storage/supabase-storage"
 
 // Helper to convert database row to Product
 function rowToProduct(row: any): Product {

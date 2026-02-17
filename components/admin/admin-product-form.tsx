@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AdminCard } from "@/components/common/admin-card"
-import { FormInput, FormTextarea, FormSelect } from "@/components/common"
+import { FormInput, FormTextarea, FormSelect, RichTextEditor } from "@/components/common"
 import { cn } from "@/lib/utils"
 
 /* ------------------------------------------------------------------ */
@@ -44,7 +44,7 @@ const initialFormData: ProductFormData = {
   categoryId: "",
   images: [],
   imagePreviews: [],
-  specifications: [],
+  specifications: [{ key: "purity", value: "" }], // Purity as default property for peptides
   usage: "",
   shipping: "",
   status: "Active",
@@ -97,6 +97,20 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
           if (response.ok) {
             const data = await response.json()
             const product = data.product
+            // Convert specifications to array, ensuring purity is always present
+            const specsArray = product.specifications
+              ? Object.entries(product.specifications).map(([key, value]) => ({
+                  key,
+                  value: String(value),
+                }))
+              : []
+            
+            // Ensure purity is present as default property
+            const hasPurity = specsArray.some((spec) => spec.key.toLowerCase() === "purity")
+            if (!hasPurity) {
+              specsArray.unshift({ key: "purity", value: "" })
+            }
+
             setForm({
               name: product.name || "",
               price: product.price?.toString() || "",
@@ -106,12 +120,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               categoryId: product.categoryId || "",
               images: [],
               imagePreviews: product.images || (product.image ? [product.image] : []),
-              specifications: product.specifications
-                ? Object.entries(product.specifications).map(([key, value]) => ({
-                    key,
-                    value: String(value),
-                  }))
-                : [],
+              specifications: specsArray,
               usage: product.usage || "",
               shipping: product.shipping || "",
               status: product.inStock ? "Active" : "Inactive",
@@ -221,6 +230,16 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     setSubmitting(true)
 
     try {
+      // Validate that Purity is provided (required default property)
+      const puritySpec = form.specifications.find((spec) => spec.key.toLowerCase() === "purity")
+      if (!puritySpec || !puritySpec.value.trim()) {
+        toast.error("Purity is required", {
+          description: "Please provide a purity value (e.g., 99.1%) as it's a required property for peptides.",
+        })
+        setSubmitting(false)
+        return
+      }
+
       // Upload images first
       const imageUrls: string[] = []
       for (const file of form.images) {
@@ -382,22 +401,34 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
 
               {/* Description */}
               <FormTextarea
-                label="Description"
+                label="Short Description"
                 rows={5}
                 placeholder="Describe this product..."
                 value={form.description}
                 onChange={(e) => updateField("description", e.target.value)}
-                required
+              />
+
+              {/* Detailed Description (rich text) */}
+              <RichTextEditor
+                label="Detailed Description"
+                value={form.longDescription}
+                onChange={(html) => updateField("longDescription", html)}
+                helperText="Shown on the product page Description tab. Supports formatting (bold, lists, links, etc)."
               />
 
               {/* Specifications */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <label
-                    className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                  >
-                    Specifications
-                  </label>
+                  <div className="flex flex-col gap-0.5">
+                    <label
+                      className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                    >
+                      Specifications
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Purity is required for all peptides
+                    </p>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -410,34 +441,45 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 </div>
                 {form.specifications.length > 0 ? (
                   <div className="space-y-2">
-                    {form.specifications.map((spec, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Key (e.g., Purity)"
-                          value={spec.key}
-                          onChange={(e) => updateSpecification(index, "key", e.target.value)}
-                          className="flex-1 h-10 rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Value (e.g., 99%)"
-                          value={spec.value}
-                          onChange={(e) => updateSpecification(index, "value", e.target.value)}
-                          className="flex-1 h-10 rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeSpecification(index)}
-                          className="h-10 w-10 text-destructive hover:bg-destructive/10"
-                          aria-label="Remove specification"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                    {form.specifications.map((spec, index) => {
+                      const isPurity = spec.key.toLowerCase() === "purity"
+                      return (
+                        <div key={index} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder={isPurity ? "Purity (required)" : "Key (e.g., Weight)"}
+                            value={spec.key}
+                            onChange={(e) => updateSpecification(index, "key", e.target.value)}
+                            disabled={isPurity}
+                            className={`flex-1 h-10 rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20 ${
+                              isPurity ? "opacity-75 cursor-not-allowed" : ""
+                            }`}
+                          />
+                          <input
+                            type="text"
+                            placeholder={isPurity ? "Value (e.g., 99.1%)" : "Value (e.g., 5mg)"}
+                            value={spec.value}
+                            onChange={(e) => updateSpecification(index, "value", e.target.value)}
+                            required={isPurity}
+                            className="flex-1 h-10 rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeSpecification(index)}
+                            disabled={isPurity}
+                            className={`h-10 w-10 text-destructive hover:bg-destructive/10 ${
+                              isPurity ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
+                            aria-label={isPurity ? "Purity cannot be removed" : "Remove specification"}
+                            title={isPurity ? "Purity is a required default property" : undefined}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground py-2">

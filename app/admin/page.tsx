@@ -88,7 +88,7 @@ export default function AdminDashboard() {
     
     // Only show full loading on initial load
     if (!data) {
-      setLoading(true)
+    setLoading(true)
     } else {
       setFetching(true)
     }
@@ -182,8 +182,8 @@ export default function AdminDashboard() {
         return "All time"
       default:
         return dateRange.from && dateRange.to
-          ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
-          : "Select date range"
+    ? `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`
+    : "Select date range"
     }
   }
 

@@ -88,3 +88,153 @@ html {
   animation: fadeInUp 0.5s ease-out both;
 }
 
+/* Remove default borders */
+.ql-toolbar.ql-snow {
+  border: none !important;
+}
+
+.ql-container.ql-snow {
+  border: none !important;
+}
+
+/* Add divider under toolbar */
+.ql-toolbar.ql-snow {
+  border-bottom: 1px solid hsl(var(--border)) !important;
+}
+
+/* Increase editor height */
+.ql-editor {
+  min-height: 200px; /* change as needed */
+  padding: 16px;
+}
+
+/* Optional: fixed height instead of min-height */
+.ql-container {
+  min-height: 220px;
+}
+
+.ql-tooltip {
+  left: max(0px, var(--ql-tooltip-left, 0px)) !important;
+}
+
+/* Quill Editor Content Styles - Match editor output */
+.ql-editor-content {
+  @apply text-sm leading-relaxed text-muted-foreground lg:text-base lg:leading-relaxed;
+  overflow-wrap: break-word;
+  width: 100%;
+  box-sizing: border-box;
+  white-space: normal;
+}
+
+.ql-editor-content * {
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: normal;
+}
+
+.ql-editor-content > * {
+  overflow-wrap: break-word;
+}
+
+.ql-editor-content h1 {
+  @apply text-2xl font-semibold mb-4 mt-6 text-foreground;
+}
+
+.ql-editor-content h2 {
+  @apply text-xl font-semibold mb-3 mt-5 text-foreground;
+}
+
+.ql-editor-content h3 {
+  @apply text-lg font-semibold mb-2 mt-4 text-foreground;
+}
+
+.ql-editor-content p {
+  @apply mb-4;
+}
+
+.ql-editor-content p:last-child {
+  @apply mb-0;
+}
+
+.ql-editor-content ul,
+.ql-editor-content ol {
+  @apply mb-4 pl-6;
+}
+
+.ql-editor-content ul {
+  @apply list-disc;
+}
+
+.ql-editor-content ol {
+  @apply list-decimal;
+}
+
+.ql-editor-content li {
+  @apply mb-2;
+}
+
+.ql-editor-content li:last-child {
+  @apply mb-0;
+}
+
+.ql-editor-content blockquote {
+  @apply border-l-4 border-muted-foreground/30 pl-4 italic my-4 text-muted-foreground;
+}
+
+.ql-editor-content code {
+  @apply bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground;
+  overflow-wrap: break-word;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.ql-editor-content pre {
+  @apply bg-muted p-4 rounded-lg my-4;
+  overflow-x: auto;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.ql-editor-content pre code {
+  @apply bg-transparent p-0;
+}
+
+.ql-editor-content a {
+  @apply text-brand-primary underline hover:text-brand-secondary;
+  overflow-wrap: break-word;
+}
+
+.ql-editor-content strong {
+  @apply font-semibold text-foreground;
+}
+
+.ql-editor-content em {
+  @apply italic;
+}
+
+.ql-editor-content u {
+  @apply underline;
+}
+
+.ql-editor-content s {
+  @apply line-through;
+}
+
+.ql-editor-content img {
+  @apply max-w-full h-auto rounded-lg my-4;
+}
+
+.ql-editor-content table {
+  @apply w-full border-collapse my-4 overflow-x-auto block;
+}
+
+.ql-editor-content table td,
+.ql-editor-content table th {
+  @apply border border-border px-4 py-2;
+}
+
+.ql-editor-content table th {
+  @apply bg-muted font-semibold text-foreground;
+}

@@ -54,8 +54,19 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
     setQuantity((prev) => Math.max(prev - 1, 1))
   }
 
+  // Process HTML to replace &nbsp; with regular spaces for proper word wrapping
+  // This allows words to wrap naturally while preserving formatting
+  const processHtmlForWrapping = (html: string): string => {
+    if (!html) return ""
+    // Replace &nbsp; with regular spaces, but preserve intentional spacing
+    // Replace &nbsp; that are between words (not at start/end of tags)
+    return html.replace(/&nbsp;/g, " ")
+  }
+
+  const descriptionHtml = processHtmlForWrapping(product.longDescription || product.description || "")
+
   const tabContent: Record<TabId, string> = {
-    description: product.longDescription,
+    description: descriptionHtml,
     usage: product.usage,
     shipping: product.shipping,
   }
@@ -397,11 +408,19 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             role="tabpanel"
             aria-labelledby={tab.id}
             hidden={activeTab !== tab.id}
-            className="p-8"
+            className="p-8 overflow-x-hidden"
           >
-            <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground lg:text-base lg:leading-relaxed">
-              {tabContent[tab.id]}
-            </p>
+            {tab.id === "description" ? (
+              <div
+                className="ql-editor-content max-w-3xl w-full"
+                // Admin-authored content
+                dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+              />
+            ) : (
+              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground lg:text-base lg:leading-relaxed">
+                {tabContent[tab.id]}
+              </p>
+            )}
             {tab.id === "description" && sequence && (
               <div className="mt-6 flex flex-col gap-1.5 rounded-2xl bg-gray-50 border-t border-gray-200 pt-6 p-4">
                 <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
