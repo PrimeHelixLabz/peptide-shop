@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import { SignUpForm } from "@/components/auth/signup-form"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -23,7 +24,13 @@ export default function SignUpPage() {
                 Sign up to start shopping for research-grade peptides
               </p>
             </div>
-            <SignUpForm />
+            <Suspense fallback={
+              <div className="flex items-center justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+              </div>
+            }>
+              <SignUpForm />
+            </Suspense>
           </div>
         </div>
       </main>
