@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Menu, X, ShoppingBag, Search, Heart } from "lucide-react"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
@@ -45,8 +46,16 @@ export function Header() {
             <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
               {/* Logo */}
               <Link href="/" className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-                <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-primary">
-                  <span className="font-serif text-xs sm:text-sm text-white">PH</span>
+                <div className="relative h-8 w-auto sm:h-9 shrink-0" style={{ aspectRatio: 'auto' }}>
+                  <Image
+                    src="/logo.webp"
+                    alt="PrimeHelix Labz"
+                    width={120}
+                    height={32}
+                    className="object-contain h-8 sm:h-9 w-auto"
+                    sizes="(max-width: 640px) 100px, 120px"
+                    priority
+                  />
                 </div>
                 <span className="text-xs sm:text-sm font-semibold uppercase tracking-[0.15em] text-foreground hidden xs:inline">
                   PrimeHelix Labz

@@ -24,9 +24,9 @@ export const metadata: Metadata = {
     'Pharmaceutical-grade peptides for advanced research. Lab-tested purity, secure checkout, and fast shipping. Trusted by researchers worldwide.',
   keywords: ['peptides', 'research peptides', 'BPC-157', 'TB-500', 'GHK-Cu', 'pharmaceutical grade'],
   icons: {
-    icon: '/icon.svg',
-    shortcut: '/icon.svg',
-    apple: '/icon.svg',
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
   },
   openGraph: {
     title: 'PrimeHelix Labz | Premium Research-Grade Peptides',

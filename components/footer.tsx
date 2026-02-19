@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 
 const policyLinks = [
   { label: "Privacy Policy", href: "#" },
@@ -23,12 +24,15 @@ export function Footer() {
           {/* Brand Column */}
           <div className="flex flex-col gap-5">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                <span className="font-serif text-sm text-white">PH</span>
+              <div className="relative h-12 w-24 shrink-0">
+                <Image
+                  src="/logo.webp"
+                  alt="PrimeHelix Labz"
+                  fill
+                  className="object-contain"
+                  sizes="120px"
+                />
               </div>
-              <span className="text-sm font-semibold uppercase tracking-[0.15em] text-foreground">
-                PrimeHelix Labz
-              </span>
             </div>
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
               Premium research-grade peptides for advanced scientific inquiry.

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Menu, X } from "lucide-react"
 
 const navLinks = [
@@ -21,8 +22,16 @@ export function SiteHeader() {
           <div className="flex h-16 items-center justify-between px-6">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
-                <span className="text-xs font-bold tracking-widest text-white">PH</span>
+              <div className="relative h-8 w-auto shrink-0">
+                <Image
+                  src="/logo.webp"
+                  alt="PrimeHelix Labz"
+                  width={120}
+                  height={32}
+                  className="object-contain h-8 w-auto"
+                  sizes="120px"
+                  priority
+                />
               </div>
               <span className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
                 PrimeHelix Labz
