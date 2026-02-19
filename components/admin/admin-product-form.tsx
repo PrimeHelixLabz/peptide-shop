@@ -115,7 +115,8 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               name: product.name || "",
               price: product.price?.toString() || "",
               stock: product.stockQuantity?.toString() || "0",
-              description: product.description || "",
+              // description: product.description || "", // DISABLED
+              description: "", // DISABLED - keeping empty string for form compatibility
               longDescription: product.longDescription || "",
               categoryId: product.categoryId || "",
               images: [],
@@ -278,7 +279,8 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       const productData = {
         name: form.name,
         price: parseFloat(form.price),
-        description: form.description,
+        // description: form.description, // DISABLED
+        description: "", // DISABLED - keeping empty string for API compatibility
         longDescription: form.longDescription,
         image: allImages[0] || "",
         images: allImages,
@@ -399,14 +401,14 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 ]}
               />
 
-              {/* Description */}
-              <FormTextarea
+              {/* Description - DISABLED */}
+              {/* <FormTextarea
                 label="Short Description"
                 rows={5}
                 placeholder="Describe this product..."
                 value={form.description}
                 onChange={(e) => updateField("description", e.target.value)}
-              />
+              /> */}
 
               {/* Detailed Description (rich text) */}
               <RichTextEditor

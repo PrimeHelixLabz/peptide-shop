@@ -46,6 +46,7 @@ export function AdminProductsTable({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "price_asc" | "price_desc" | "date_asc" | "date_desc">("name_asc")
 
   // Get unique categories from products
   const categories = useMemo(() => {
@@ -84,13 +85,36 @@ export function AdminProductsTable({
       )
     }
 
-    return result
-  }, [products, query, statusFilter, categoryFilter, archivedFilter])
+    // Apply sorting
+    const sorted = [...result]
+    switch (sortBy) {
+      case "name_asc":
+        sorted.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case "name_desc":
+        sorted.sort((a, b) => b.name.localeCompare(a.name))
+        break
+      case "price_asc":
+        sorted.sort((a, b) => a.price - b.price)
+        break
+      case "price_desc":
+        sorted.sort((a, b) => b.price - a.price)
+        break
+      case "date_asc":
+        sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        break
+      case "date_desc":
+        sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        break
+    }
+
+    return sorted
+  }, [products, query, statusFilter, categoryFilter, archivedFilter, sortBy])
 
   // Reset to page 1 when search or filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [query, statusFilter, categoryFilter, archivedFilter])
+  }, [query, statusFilter, categoryFilter, archivedFilter, sortBy])
 
   // Sync products when initialProducts changes
   useEffect(() => {
@@ -182,7 +206,7 @@ export function AdminProductsTable({
           <select
             value={archivedFilter}
             onChange={(e) => setArchivedFilter(e.target.value as ArchivedFilter)}
-              className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
+            className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
             aria-label="Filter by archived status"
           >
             <option value="active">Active Products</option>
@@ -197,7 +221,7 @@ export function AdminProductsTable({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
+            className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
             aria-label="Filter by status"
           >
             <option value="all">All Status</option>
@@ -212,7 +236,7 @@ export function AdminProductsTable({
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-              className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
+            className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
             aria-label="Filter by category"
           >
             {categories.map((cat) => (
@@ -224,11 +248,29 @@ export function AdminProductsTable({
           <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         </div>
 
-        {/* Results count */}
-        <div className="ml-auto text-sm text-muted-foreground">
-          {filtered.length} {filtered.length === 1 ? "product" : "products"}
-          {filtered.length !== products.length && ` of ${products.length}`}
-        </div>
+        {/* Sort */}
+        {/* <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
+            aria-label="Sort products"
+          >
+            <option value="name_asc">Name: A-Z</option>
+            <option value="name_desc">Name: Z-A</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="date_desc">Newest First</option>
+            <option value="date_asc">Oldest First</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        </div> */}
+      </div>
+
+      {/* Results count */}
+      <div className="ml-auto text-sm text-muted-foreground">
+        {filtered.length} {filtered.length === 1 ? "product" : "products"}
+        {filtered.length !== products.length && ` of ${products.length}`}
       </div>
 
       {/* Table card */}
@@ -315,13 +357,12 @@ export function AdminProductsTable({
                   {/* Stock */}
                   <td className="hidden px-6 py-4 text-right sm:table-cell">
                     <span
-                      className={`text-sm font-medium ${
-                        product.stock === 0
+                      className={`text-sm font-medium ${product.stock === 0
                           ? "text-destructive"
                           : product.stock < 20
                             ? "text-amber-600 dark:text-amber-400"
                             : "text-foreground"
-                      }`}
+                        }`}
                     >
                       {product.stock}
                     </span>

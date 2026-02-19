@@ -4,7 +4,7 @@
  * Direct database access for server components (faster, no HTTP overhead)
  */
 
-import { getProducts, getProductById as getProductByIdDb, getProductBySlug as getProductBySlugDb } from "@/lib/db/supabase"
+import { getProducts, getProductById as getProductByIdDb, getProductBySlug as getProductBySlugDb, type SortOption } from "@/lib/db/supabase"
 import type { ProductDetail } from "./types"
 
 /**
@@ -14,6 +14,7 @@ export async function getAllProducts(options?: {
   includeArchived?: boolean
   limit?: number
   offset?: number
+  sortBy?: SortOption
 }): Promise<ProductDetail[]> {
   const products = await getProducts(options)
   return products.map((p) => ({

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { ProductCard } from "@/components/product-card"
 import type { ProductDetail } from "@/lib/products"
+import { SelectBox } from "@/components/common/select-box"
 
 interface ProductGridProps {
   initialProducts: ProductDetail[]
@@ -11,6 +12,8 @@ interface ProductGridProps {
 
 const PRODUCTS_PER_PAGE = 12
 
+type SortOption = "name_asc" | "name_desc" | "price_asc" | "price_desc" | "date_asc" | "date_desc"
+
 export function ProductGrid({ initialProducts, initialCategories }: ProductGridProps) {
   const [activeCategory, setActiveCategory] = useState("All")
   const [products, setProducts] = useState<ProductDetail[]>(initialProducts)
@@ -18,9 +21,10 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
   const [hasMore, setHasMore] = useState(initialProducts.length === PRODUCTS_PER_PAGE)
   const [offset, setOffset] = useState(initialProducts.length)
   const [categoryChanged, setCategoryChanged] = useState(false)
+  const [sortBy, setSortBy] = useState<SortOption>("name_asc")
   const observerTarget = useRef<HTMLDivElement>(null)
 
-  // Reset pagination when category changes
+  // Load products when category, sort, or search changes
   useEffect(() => {
     // Skip on initial mount
     if (!categoryChanged) {
@@ -28,21 +32,22 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
       return
     }
 
-    const loadCategoryProducts = async () => {
+    const loadProducts = async () => {
       setLoading(true)
       try {
         const params = new URLSearchParams({
           limit: PRODUCTS_PER_PAGE.toString(),
           offset: "0",
+          sortBy,
         })
-        
+
         if (activeCategory !== "All") {
           params.append("category", activeCategory)
         }
 
         const response = await fetch(`/api/products?${params.toString()}`)
         if (!response.ok) throw new Error("Failed to fetch products")
-        
+
         const data = await response.json()
         const fetchedProducts = data.products || []
 
@@ -50,7 +55,7 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
         setOffset(fetchedProducts.length)
         setHasMore(fetchedProducts.length === PRODUCTS_PER_PAGE)
       } catch (error) {
-        console.error("Error loading category products:", error)
+        console.error("Error loading products:", error)
         setProducts([])
         setHasMore(false)
       } finally {
@@ -58,8 +63,8 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
       }
     }
 
-    loadCategoryProducts()
-  }, [activeCategory, categoryChanged])
+    loadProducts()
+  }, [activeCategory, categoryChanged, sortBy])
 
   // Load more products
   const loadMoreProducts = useCallback(async () => {
@@ -70,15 +75,16 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
       const params = new URLSearchParams({
         limit: PRODUCTS_PER_PAGE.toString(),
         offset: offset.toString(),
+        sortBy,
       })
-      
+
       if (activeCategory !== "All") {
         params.append("category", activeCategory)
       }
 
       const response = await fetch(`/api/products?${params.toString()}`)
       if (!response.ok) throw new Error("Failed to fetch products")
-      
+
       const data = await response.json()
       const newProducts = data.products || []
 
@@ -95,7 +101,8 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
     } finally {
       setLoading(false)
     }
-  }, [loading, hasMore, offset, activeCategory])
+  }, [loading, hasMore, offset, activeCategory, sortBy])
+
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -120,25 +127,45 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
     }
   }, [hasMore, loading, loadMoreProducts])
 
+  const sortOptions: { value: SortOption; label: string }[] = [
+    { value: "name_asc", label: "Name: A-Z" },
+    { value: "name_desc", label: "Name: Z-A" },
+    { value: "price_asc", label: "Price: Low to High" },
+    { value: "price_desc", label: "Price: High to Low" },
+    { value: "date_desc", label: "Newest First" },
+    { value: "date_asc", label: "Oldest First" },
+  ]
+
   return (
     <div className="flex flex-col gap-10">
       {/* Category Filter */}
-      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter by category">
-        {initialCategories.map((category) => (
-          <button
-            key={category}
-            role="tab"
-            aria-selected={activeCategory === category}
-            onClick={() => setActiveCategory(category)}
-            className={`rounded-2xl px-4 py-2 text-sm font-medium transition-all duration-300 min-h-[48px] ${
-              activeCategory === category
-                ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(0,0,0,0.05)]"
-                : "bg-white text-muted-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:text-foreground active:scale-95"
-            }`}
-          >
-            {category}
-          </button>
-        ))}
+      <div className="flex justify-between">
+        <div className="flex flex-1 flex-wrap items-center gap-2" role="tablist" aria-label="Filter by category">
+          {initialCategories.map((category) => (
+            <button
+              key={category}
+              role="tab"
+              aria-selected={activeCategory === category}
+              onClick={() => setActiveCategory(category)}
+              className={`rounded-2xl px-4 py-2 text-sm font-medium transition-all duration-300 min-h-[48px] ${activeCategory === category
+                  ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(0,0,0,0.05)]"
+                  : "bg-white text-muted-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:text-foreground active:scale-95"
+                }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+        {/* Sort Dropdown */}
+        {/* <SelectBox
+          options={sortOptions}
+          value={sortBy}
+          onChange={(value) => {
+            setSortBy(value as SortOption)
+            setCategoryChanged(true) // Trigger reload
+          }}
+          align="right"
+        /> */}
       </div>
 
       {/* Results Count */}

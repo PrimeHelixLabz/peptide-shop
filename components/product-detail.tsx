@@ -63,7 +63,8 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
     return html.replace(/&nbsp;/g, " ")
   }
 
-  const descriptionHtml = processHtmlForWrapping(product.longDescription || product.description || "")
+  // const descriptionHtml = processHtmlForWrapping(product.longDescription || product.description || "")
+  const descriptionHtml = processHtmlForWrapping(product.longDescription || "")
 
   const tabContent: Record<TabId, string> = {
     description: descriptionHtml,
@@ -222,10 +223,10 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             <span className="text-sm text-muted-foreground">per vial</span>
           </div>
 
-          {/* Short Description */}
-          <p className="max-w-lg text-base leading-relaxed text-muted-foreground">
+          {/* Short Description - DISABLED */}
+          {/* <p className="max-w-lg text-base leading-relaxed text-muted-foreground">
             {product.description}
-          </p>
+          </p> */}
 
           {/* Specs */}
           {product.specifications && Object.keys(product.specifications).length > 0 && (

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getProducts, getProductsCount, createProduct } from "@/lib/db/supabase"
+import { getProducts, getProductsCount, createProduct, type SortOption } from "@/lib/db/supabase"
 import { requireAdminMiddleware, optionalAuthMiddleware } from "@/lib/auth/middleware"
 import { z } from "zod"
 

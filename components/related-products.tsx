@@ -71,9 +71,10 @@ export function RelatedProducts({ products }: { products: ProductDetail[] }) {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground line-clamp-2">
+                {/* Short Description - DISABLED */}
+                {/* <p className="text-sm text-muted-foreground line-clamp-2">
                   {product.description}
-                </p>
+                </p> */}
                 <div className="flex items-center justify-between pt-2">
                   <span className="text-xl font-semibold text-foreground">
                     ${product.price.toFixed(2)}

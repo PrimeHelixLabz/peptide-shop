@@ -18,8 +18,8 @@ export const metadata: Metadata = {
 }
 
 export default async function ShopPage() {
-  // Load only initial 12 products for pagination
-  const products = await getAllProducts({ limit: 12, offset: 0 })
+  // Load only initial 12 products for pagination, sorted by name ascending (default)
+  const products = await getAllProducts({ limit: 12, offset: 0, sortBy: "name_asc" })
   const categories = await getCategories()
 
   return (

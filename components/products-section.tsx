@@ -61,9 +61,10 @@ export async function ProductsSection() {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
+                  {/* Short Description - DISABLED */}
+                  {/* <p className="text-sm leading-relaxed text-muted-foreground">
                     {product.description}
-                  </p>
+                  </p> */}
                   <div className="flex items-center justify-between pt-2">
                     <PriceDisplay price={product.price} size="lg" />
                     <Link

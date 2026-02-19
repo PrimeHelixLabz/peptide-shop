@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Search, X } from "lucide-react"
-import { getAllProducts } from "@/lib/api/products"
 import type { ProductDetail } from "@/lib/products"
 import Image from "next/image"
 import Link from "next/link"
@@ -39,14 +38,12 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
       setIsLoading(true)
       try {
-        const allProducts = await getAllProducts()
-        const filtered = allProducts.filter(
-          (product) =>
-            product.name.toLowerCase().includes(query.toLowerCase()) ||
-            product.description.toLowerCase().includes(query.toLowerCase()) ||
-            product.category?.toLowerCase().includes(query.toLowerCase())
-        )
-        setResults(filtered.slice(0, 8)) // Limit to 8 results
+        // Use the search API endpoint for better search functionality
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=8`)
+        if (!response.ok) throw new Error("Search failed")
+        
+        const data = await response.json()
+        setResults(data.products || [])
       } catch (error) {
         console.error("Search error:", error)
         setResults([])
@@ -140,9 +137,10 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     <h3 className="text-sm font-semibold text-foreground truncate">
                       {product.name}
                     </h3>
-                    <p className="text-xs text-muted-foreground truncate mt-1">
+                    {/* Short Description - DISABLED */}
+                    {/* <p className="text-xs text-muted-foreground truncate mt-1">
                       {product.description}
-                    </p>
+                    </p> */}
                     <p className="text-sm font-semibold text-foreground mt-1">
                       ${product.price.toFixed(2)}
                     </p>

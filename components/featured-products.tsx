@@ -78,9 +78,10 @@ export function FeaturedProducts() {
                   </h3>
                   <span className="text-sm font-semibold text-foreground">{product.price}</span>
                 </div>
-                <p className="text-sm leading-relaxed text-muted-foreground">
+                {/* Short Description - DISABLED */}
+                {/* <p className="text-sm leading-relaxed text-muted-foreground">
                   {product.description}
-                </p>
+                </p> */}
                 <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
                     Purity: {product.purity}

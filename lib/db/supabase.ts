@@ -172,10 +172,19 @@ export async function updateUser(
 }
 
 // Products (public data - use public client)
+export type SortOption = 
+  | "name_asc" 
+  | "name_desc" 
+  | "price_asc" 
+  | "price_desc" 
+  | "date_asc" 
+  | "date_desc"
+
 export async function getProducts(options?: { 
   includeArchived?: boolean
   limit?: number
   offset?: number
+  sortBy?: SortOption
 }): Promise<Product[]> {
   const supabase = createPublicClient()
   let query = supabase
@@ -194,6 +203,31 @@ export async function getProducts(options?: {
     query = query.eq("is_archived", false)
   }
   
+  // Apply sorting
+  const sortBy = options?.sortBy || "name_asc" // Default to name ascending
+  switch (sortBy) {
+    case "name_asc":
+      query = query.order("name", { ascending: true })
+      break
+    case "name_desc":
+      query = query.order("name", { ascending: false })
+      break
+    case "price_asc":
+      query = query.order("price", { ascending: true })
+      break
+    case "price_desc":
+      query = query.order("price", { ascending: false })
+      break
+    case "date_asc":
+      query = query.order("created_at", { ascending: true })
+      break
+    case "date_desc":
+      query = query.order("created_at", { ascending: false })
+      break
+    default:
+      query = query.order("name", { ascending: true })
+  }
+  
   // Apply pagination if provided, otherwise use high limit for backward compatibility
   if (options?.limit !== undefined) {
     query = query.limit(options.limit)
@@ -206,7 +240,7 @@ export async function getProducts(options?: {
     query = query.limit(10000)
   }
   
-  const { data, error } = await query.order("created_at", { ascending: false })
+  const { data, error } = await query
 
   if (error) {
     console.error("Error fetching products:", error)
