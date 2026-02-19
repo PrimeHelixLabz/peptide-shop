@@ -45,11 +45,11 @@ export function Header() {
             <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
               {/* Logo */}
               <Link href="/" className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-                <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-green-600">
-                  <span className="font-serif text-xs sm:text-sm text-white">E</span>
+                <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-primary">
+                  <span className="font-serif text-xs sm:text-sm text-white">PH</span>
                 </div>
                 <span className="text-xs sm:text-sm font-semibold uppercase tracking-[0.15em] text-foreground hidden xs:inline">
-                  Elysian
+                  PrimeHelix Labz
                 </span>
               </Link>
 
@@ -83,7 +83,7 @@ export function Header() {
                 >
                   <Heart className="h-[18px] w-[18px]" />
                   {wishlistItems > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-1 text-[10px] font-semibold text-white shadow-sm">
+                    <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-white shadow-sm">
                       {wishlistItems}
                     </span>
                   )}
@@ -95,7 +95,7 @@ export function Header() {
                 >
                   <ShoppingBag className="h-[18px] w-[18px]" />
                   {totalItems > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-1 text-[10px] font-semibold text-white shadow-sm">
+                    <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-white shadow-sm">
                       {totalItems}
                     </span>
                   )}
@@ -119,7 +119,7 @@ export function Header() {
                 >
                   <ShoppingBag className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                   {totalItems > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 sm:h-[18px] sm:min-w-[18px] items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-0.5 sm:px-1 text-[9px] sm:text-[10px] font-semibold text-white">
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 sm:h-[18px] sm:min-w-[18px] items-center justify-center rounded-full bg-primary px-0.5 sm:px-1 text-[9px] sm:text-[10px] font-semibold text-white">
                       {totalItems > 9 ? "9+" : totalItems}
                     </span>
                   )}
@@ -175,7 +175,7 @@ export function Header() {
                 <Heart className="h-4 w-4" />
                 Wishlist
                 {wishlistItems > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-[10px] font-semibold text-white">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-white">
                     {wishlistItems}
                   </span>
                 )}

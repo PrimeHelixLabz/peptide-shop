@@ -4,9 +4,9 @@ import { Footer } from "@/components/footer"
 import { FaqAccordion } from "@/components/faq-accordion"
 
 export const metadata: Metadata = {
-  title: "FAQ | Elysian Peptides",
+  title: "FAQ | PrimeHelix Labz",
   description:
-    "Find answers to common questions about Elysian Peptides, including product usage, purity testing, shipping, storage, and return policies.",
+    "Find answers to common questions about PrimeHelix Labz, including product usage, purity testing, shipping, storage, and return policies.",
 }
 
 export default function FaqPage() {

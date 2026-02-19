@@ -5,7 +5,7 @@ import { CartView } from "@/components/cart-view"
 import { Section, Container, PageHeader } from "@/components/layout"
 
 export const metadata: Metadata = {
-  title: "Cart | Elysian Peptides",
+  title: "Cart | PrimeHelix Labz",
   description: "Review your cart and proceed to checkout.",
 }
 

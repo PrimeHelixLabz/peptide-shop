@@ -23,11 +23,11 @@ export function Footer() {
           {/* Brand Column */}
           <div className="flex flex-col gap-5">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-green-600">
-                <span className="font-serif text-sm text-white">E</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
+                <span className="font-serif text-sm text-white">PH</span>
               </div>
               <span className="text-sm font-semibold uppercase tracking-[0.15em] text-foreground">
-                Elysian
+                PrimeHelix Labz
               </span>
             </div>
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
@@ -76,7 +76,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 border-t border-gray-200 pt-8">
           <p className="text-xs text-muted-foreground">
-            {'All products are sold strictly for research purposes only. Not for human consumption. \u00A9 2026 Elysian Peptides. All rights reserved.'}
+            {'All products are sold strictly for research purposes only. Not for human consumption. \u00A9 2026 PrimeHelix Labz. All rights reserved.'}
           </p>
         </div>
       </div>

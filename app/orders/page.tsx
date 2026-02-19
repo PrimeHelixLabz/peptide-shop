@@ -5,7 +5,7 @@ import { OrdersList } from "@/components/orders-list"
 import { Section, Container, PageHeader } from "@/components/layout"
 
 export const metadata: Metadata = {
-  title: "My Orders | Elysian Peptides",
+  title: "My Orders | PrimeHelix Labz",
   description: "View your order history.",
 }
 

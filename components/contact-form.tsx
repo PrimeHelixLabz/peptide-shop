@@ -19,8 +19,8 @@ export function ContactForm() {
   if (status === "success") {
     return (
       <div className="flex flex-col items-center justify-center gap-5 rounded-3xl bg-white px-8 py-20 text-center shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50">
-          <CheckCircle className="h-6 w-6 text-emerald-600" strokeWidth={1.5} />
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+          <CheckCircle className="h-6 w-6 text-primary" strokeWidth={1.5} />
         </div>
         <div className="flex flex-col gap-2">
           <h3 className="text-lg font-semibold text-foreground">

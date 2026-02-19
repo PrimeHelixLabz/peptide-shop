@@ -14,13 +14,13 @@ import { format } from "date-fns"
 /* ------------------------------------------------------------------ */
 
 const paymentStyles: Record<AdminOrder["paymentStatus"], string> = {
-  Paid: "bg-gradient-to-r from-emerald-500 to-green-600 text-white",
+  Paid: "bg-primary text-white",
   Pending: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
   Refunded: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
 }
 
 const shippingStyles: Record<AdminOrder["shippingStatus"], string> = {
-  Shipped: "bg-gradient-to-r from-emerald-500 to-green-600 text-white",
+  Shipped: "bg-primary text-white",
   Processing: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
   Delivered: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
 }
@@ -336,7 +336,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                         e.target.value as AdminOrder["shippingStatus"]
                       )
                     }
-                    className="h-12 w-full appearance-none rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="h-12 w-full appearance-none rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/20"
                     aria-label="Update shipping status"
                   >
                     {shippingOptions.map((opt) => (
@@ -358,7 +358,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                 type="button"
                 onClick={handleStatusUpdate}
                 disabled={saving || fulfilled}
-                className="h-12 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                className="h-12 w-full rounded-2xl bg-primary text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
               >
                 {saving ? (
                   <>

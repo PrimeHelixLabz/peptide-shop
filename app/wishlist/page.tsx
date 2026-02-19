@@ -5,7 +5,7 @@ import { WishlistView } from "@/components/wishlist-view"
 import { Section, Container, PageHeader } from "@/components/layout"
 
 export const metadata: Metadata = {
-  title: "Wishlist | Elysian Peptides",
+  title: "Wishlist | PrimeHelix Labz",
   description: "View your saved favorite products.",
 }
 

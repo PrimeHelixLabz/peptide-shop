@@ -349,7 +349,7 @@ export function CheckoutForm() {
             <textarea
               id="notes"
               {...register("notes")}
-              className="w-full min-h-[100px] rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full min-h-[100px] rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Special instructions or notes..."
             />
           </div>

@@ -5,6 +5,7 @@ import { z } from "zod"
 
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  email: z.string().email().optional(),
   phone: z.string().max(20).optional().nullable(),
   address: z
     .object({
@@ -73,6 +74,21 @@ export const PUT = requireAuthMiddleware(async (req) => {
     const body = await req.json()
     const data = updateProfileSchema.parse(body)
 
+    // Update email in Supabase Auth if provided
+    if (data.email !== undefined && data.email !== authUser.email) {
+      const { error: emailError } = await supabase.auth.updateUser({
+        email: data.email,
+      })
+
+      if (emailError) {
+        console.error("Update email error:", emailError)
+        return NextResponse.json(
+          { error: emailError.message || "Failed to update email" },
+          { status: 400 }
+        )
+      }
+    }
+
     // Update profile
     const updateData: any = {
       updated_at: new Date().toISOString(),
@@ -103,10 +119,15 @@ export const PUT = requireAuthMiddleware(async (req) => {
       return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
     }
 
+    // Get updated user to reflect email change
+    const {
+      data: { user: updatedUser },
+    } = await supabase.auth.getUser()
+
     return NextResponse.json({
       profile: {
-        id: authUser.id,
-        email: authUser.email,
+        id: updatedUser?.id || authUser.id,
+        email: updatedUser?.email || authUser.email,
         name: profile.name,
         role: profile.role,
         avatar: profile.avatar || null,

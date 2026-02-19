@@ -5,7 +5,7 @@ import { CheckoutForm } from "@/components/checkout-form"
 import { Section, Container, PageHeader } from "@/components/layout"
 
 export const metadata: Metadata = {
-  title: "Checkout | Elysian Peptides",
+  title: "Checkout | PrimeHelix Labz",
   description: "Complete your order securely.",
 }
 

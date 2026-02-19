@@ -43,7 +43,7 @@ export function TrustSection() {
               key={item.title}
               className="flex flex-col gap-4 rounded-3xl bg-white p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] lg:p-10"
             >
-              <item.icon className="h-6 w-6 text-emerald-600" strokeWidth={1.5} />
+              <item.icon className="h-6 w-6 text-primary" strokeWidth={1.5} />
               <h3 className="text-lg font-semibold text-foreground">
                 {item.title}
               </h3>

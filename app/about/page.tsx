@@ -7,9 +7,9 @@ import { AboutQuality } from "@/components/about-quality"
 import { AboutShipping } from "@/components/about-shipping"
 
 export const metadata: Metadata = {
-  title: "About Us | Elysian Peptides",
+  title: "About Us | PrimeHelix Labz",
   description:
-    "Learn about Elysian Peptides — our mission, quality testing process, and shipping practices. Premium research-grade peptides trusted by scientists worldwide.",
+    "Learn about PrimeHelix Labz — our mission, quality testing process, and shipping practices. Premium research-grade peptides trusted by scientists worldwide.",
 }
 
 export default function AboutPage() {

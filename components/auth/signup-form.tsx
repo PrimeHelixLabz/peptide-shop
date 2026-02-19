@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth/auth-context"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,8 @@ export function SignUpForm() {
   const [loading, setLoading] = useState(false)
   const { signUp } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,7 +41,8 @@ export function SignUpForm() {
       if (result.error) {
         setError(result.error)
       } else {
-        router.push("/")
+        // Redirect to the redirect URL if provided, otherwise to home
+        router.push(redirect || "/")
         router.refresh()
       }
     } catch (err) {

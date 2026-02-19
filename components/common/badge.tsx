@@ -13,7 +13,7 @@ const variantClasses = {
   category: "bg-white/90 backdrop-blur-sm text-muted-foreground",
   purity: "text-xs font-medium uppercase tracking-wider text-muted-foreground",
   outline: "border border-border bg-transparent text-foreground",
-  success: "bg-emerald-100 text-emerald-700",
+  success: "bg-primary/10 text-primary",
   warning: "bg-amber-100 text-amber-700",
 }
 

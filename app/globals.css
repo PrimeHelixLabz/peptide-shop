@@ -16,8 +16,8 @@
     --card-foreground: 220 20% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
-    --primary: 221 60% 32%;
-    --primary-foreground: 210 20% 98%;
+    --primary: 217 100% 50%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 210 12% 92%;
     --secondary-foreground: 220 20% 10%;
     --muted: 210 12% 93%;
@@ -28,8 +28,8 @@
     --destructive-foreground: 210 20% 98%;
     --border: 214 14% 89%;
     --input: 214 14% 89%;
-    --ring: 221 60% 32%;
-    --chart-1: 221 60% 32%;
+    --ring: 217 100% 50%;
+    --chart-1: 217 100% 50%;
     --chart-2: 160 60% 28%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
@@ -37,18 +37,18 @@
     --radius: 1.5rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 221 60% 32%;
-    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-primary: 217 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 221 60% 32%;
+    --sidebar-ring: 217 100% 50%;
     --success: 160 60% 28%;
     --success-foreground: 210 20% 98%;
-    /* Brand colors - emerald/green gradient */
-    --brand-primary: 142 76% 36%;
+    /* Brand colors - blue primary */
+    --brand-primary: 217 100% 50%;
     --brand-primary-foreground: 0 0% 100%;
-    --brand-secondary: 142 71% 45%;
+    --brand-secondary: 217 100% 45%;
     --brand-secondary-foreground: 0 0% 100%;
     /* Status colors */
     --warning: 43 96% 56%;

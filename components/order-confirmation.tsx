@@ -69,7 +69,7 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent mx-auto mb-4" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4" />
           <p className="text-muted-foreground">Loading order details...</p>
         </div>
       </div>
@@ -238,7 +238,7 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
               <div
                 className={`h-2 w-2 rounded-full ${
                   order.paymentStatus === "paid"
-                    ? "bg-emerald-500"
+                    ? "bg-primary"
                     : order.paymentStatus === "failed"
                     ? "bg-red-500"
                     : "bg-yellow-500"

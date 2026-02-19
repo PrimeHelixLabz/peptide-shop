@@ -52,11 +52,11 @@ export function AdminSidebar({ open, onClose }: AdminSidebarProps) {
         {/* Logo area */}
         <div className="flex h-16 items-center justify-between border-b border-border/50 px-6">
           <Link href="/admin" className="flex items-center gap-2.5" onClick={onClose}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-green-600">
-              <span className="font-serif text-xs text-white">E</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
+              <span className="font-serif text-xs text-white">PH</span>
             </div>
             <span className="text-xs font-semibold uppercase tracking-[0.15em] text-foreground">
-              Admin
+              PrimeHelix Labz
             </span>
           </Link>
           <button
@@ -81,7 +81,7 @@ export function AdminSidebar({ open, onClose }: AdminSidebarProps) {
                     onClick={onClose}
                     className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
                       active
-                        ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+                        ? "bg-primary text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
                         : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-foreground"
                     }`}
                   >

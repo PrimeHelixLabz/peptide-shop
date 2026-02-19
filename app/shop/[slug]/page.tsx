@@ -30,15 +30,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!product) {
     return {
-      title: "Product Not Found | Elysian Peptides",
+      title: "Product Not Found | PrimeHelix Labz",
     }
   }
 
   return {
-    title: `${product.name} | Elysian Peptides`,
+    title: `${product.name} | PrimeHelix Labz`,
     description: product.description,
     openGraph: {
-      title: `${product.name} | Elysian Peptides`,
+      title: `${product.name} | PrimeHelix Labz`,
       description: product.description,
       type: "website",
       images: [{ url: product.images?.[0] || product.image }],

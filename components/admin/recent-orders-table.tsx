@@ -11,7 +11,7 @@ export interface RecentOrder {
 }
 
 const statusStyles: Record<RecentOrder["status"], string> = {
-  Shipped: "bg-gradient-to-r from-emerald-500 to-green-600 text-white",
+  Shipped: "bg-primary text-white",
   Processing: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
   Delivered: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
   Pending: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800",

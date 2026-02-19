@@ -119,7 +119,7 @@ export function DateRangePicker({
   const toDateString = value.to ? format(value.to, "yyyy-MM-dd") : ""
 
   return (
-    <div className="inline-flex items-center gap-3 rounded-xl border-0 bg-background shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 py-2.5">
+    <div className="inline-flex items-center gap-3 rounded-xl border-0 bg-background shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] bg-white px-4 py-2.5">
       <CalendarIcon className="h-4 w-4 text-muted-foreground" />
       
       {/* Preset buttons */}

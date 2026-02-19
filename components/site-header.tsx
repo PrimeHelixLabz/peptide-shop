@@ -21,11 +21,11 @@ export function SiteHeader() {
           <div className="flex h-16 items-center justify-between px-6">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-green-600">
-                <span className="text-xs font-bold tracking-widest text-white">EP</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
+                <span className="text-xs font-bold tracking-widest text-white">PH</span>
               </div>
               <span className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
-                Elysian
+                PrimeHelix Labz
               </span>
             </Link>
 

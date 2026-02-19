@@ -183,7 +183,7 @@ export default function AdminCategoriesPage() {
             setEditingCategory(null)
             setFormData({ name: "", description: "", display_order: 0, is_active: true })
           }}
-          className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105"
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105"
         >
           <Plus className="h-4 w-4" />
           Add Category
@@ -207,7 +207,7 @@ export default function AdminCategoriesPage() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/20"
+                className="h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20"
                 required
               />
             </div>
@@ -219,7 +219,7 @@ export default function AdminCategoriesPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
-                className="w-full resize-none rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full resize-none rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -233,7 +233,7 @@ export default function AdminCategoriesPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, display_order: parseInt(e.target.value) || 0 })
                   }
-                  className="h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500/20"
+                  className="h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20"
                 />
               </div>
               <div className="flex items-end">
@@ -242,7 +242,7 @@ export default function AdminCategoriesPage() {
                     type="checkbox"
                     checked={formData.is_active}
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
+                    className="h-4 w-4 rounded text-primary focus:ring-primary"
                   />
                   <span className="text-sm text-foreground">Active</span>
                 </label>
@@ -251,7 +251,7 @@ export default function AdminCategoriesPage() {
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
-                className="flex-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105"
+                className="flex-1 rounded-2xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105"
               >
                 {editingCategory ? "Update" : "Create"}
               </button>
@@ -339,7 +339,7 @@ export default function AdminCategoriesPage() {
                       <span
                         className={`inline-block rounded-xl px-3 py-1 text-xs font-semibold uppercase tracking-wider ${
                           category.is_active
-                            ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white"
+                            ? "bg-primary text-white"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                         }`}
                       >

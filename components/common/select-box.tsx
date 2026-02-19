@@ -113,7 +113,7 @@ export function SelectBox({
               aria-selected={value === option.value}
               className={cn(
                 "w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors",
-                value === option.value && "bg-emerald-50 text-emerald-600 font-medium"
+                value === option.value && "bg-primary/10 text-primary font-medium"
               )}
             >
               {option.label}

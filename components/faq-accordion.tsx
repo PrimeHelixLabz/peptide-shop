@@ -12,7 +12,7 @@ const faqItems: FaqItem[] = [
   {
     question: "Are your products intended for human consumption?",
     answer:
-      "No. All products sold by Elysian Peptides are strictly intended for in-vitro research and laboratory use only. They are not intended for human or animal consumption, and we do not provide guidance on dosing, administration, or therapeutic use. By purchasing from us, you acknowledge and agree to these terms.",
+      "No. All products sold by PrimeHelix Labz are strictly intended for in-vitro research and laboratory use only. They are not intended for human or animal consumption, and we do not provide guidance on dosing, administration, or therapeutic use. By purchasing from us, you acknowledge and agree to these terms.",
   },
   {
     question: "How are your peptides tested for purity?",
@@ -133,8 +133,8 @@ export function FaqAccordion() {
             {"Still have questions? We\u2019re here to help."}
           </p>
           <a
-            href="mailto:support@elysianpeptides.com"
-            className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-8 py-4 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
+            href="mailto:support@primehelixlabz.com"
+            className="inline-flex items-center justify-center rounded-2xl bg-primary px-8 py-4 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
           >
             Contact Support
           </a>

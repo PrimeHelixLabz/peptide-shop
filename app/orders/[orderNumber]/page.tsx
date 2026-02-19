@@ -6,7 +6,7 @@ import { OrderConfirmation } from "@/components/order-confirmation"
 import { Section, Container } from "@/components/layout"
 
 export const metadata: Metadata = {
-  title: "Order Confirmation | Elysian Peptides",
+  title: "Order Confirmation | PrimeHelix Labz",
   description: "Your order has been confirmed.",
 }
 
@@ -26,7 +26,7 @@ export default async function OrderConfirmationPage({
             <Suspense fallback={
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent mx-auto mb-4" />
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4" />
                   <p className="text-sm text-muted-foreground">Loading order details...</p>
                 </div>
               </div>

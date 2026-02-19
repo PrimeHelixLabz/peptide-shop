@@ -24,8 +24,8 @@ export function StatCard({ stat }: { stat: StatCardData }) {
         <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
           {stat.label}
         </span>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500/10 to-green-600/10">
-          <Icon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+          <Icon className="h-5 w-5 text-primary" />
         </div>
       </div>
       <div className="flex flex-col gap-1">

@@ -331,7 +331,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             <button
               onClick={handleAddToCart}
               disabled={!product.inStock || added}
-              className="flex h-12 flex-1 items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-8 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:max-w-xs shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
+              className="flex h-12 flex-1 items-center justify-center gap-2.5 rounded-2xl bg-primary px-8 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:max-w-xs shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
               aria-label={`Add ${quantity} ${product.name} to cart`}
             >
               {added ? (
@@ -395,7 +395,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             >
               {tab.label}
               {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-green-600" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
             </button>
           ))}

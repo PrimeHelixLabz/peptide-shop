@@ -4,8 +4,8 @@ const contactDetails = [
   {
     icon: Mail,
     label: "Email",
-    value: "support@elysianpeptides.com",
-    href: "mailto:support@elysianpeptides.com",
+    value: "support@primehelixlabz.com",
+    href: "mailto:support@primehelixlabz.com",
     description: "For general inquiries, order questions, and technical support.",
   },
   {

@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export const metadata: Metadata = {
-  title: "Admin | Elysian Peptides",
-  description: "Elysian Peptides administration dashboard.",
+  title: "Admin | PrimeHelix Labz",
+  description: "PrimeHelix Labz administration dashboard.",
 }
 
 export default function AdminLayout({

@@ -103,7 +103,7 @@ export function ProductCard({ product }: { product: Product }) {
             <button
               onClick={handleAddToCart}
               disabled={!product.inStock || added}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-4 py-2 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 min-h-[48px]"
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 min-h-[48px]"
               aria-label={`Add ${product.name} to cart`}
             >
               {added ? (

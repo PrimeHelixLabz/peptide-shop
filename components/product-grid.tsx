@@ -148,7 +148,7 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
               aria-selected={activeCategory === category}
               onClick={() => setActiveCategory(category)}
               className={`rounded-2xl px-4 py-2 text-sm font-medium transition-all duration-300 min-h-[48px] ${activeCategory === category
-                  ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(0,0,0,0.05)]"
+                  ? "bg-primary text-white shadow-[0_10px_30px_rgba(0,0,0,0.05)]"
                   : "bg-white text-muted-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:text-foreground active:scale-95"
                 }`}
             >

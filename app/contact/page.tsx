@@ -6,9 +6,9 @@ import { ContactInfo } from "@/components/contact-info"
 import { Section, Container, PageHeader } from "@/components/layout"
 
 export const metadata: Metadata = {
-  title: "Contact Us | Elysian Peptides",
+  title: "Contact Us | PrimeHelix Labz",
   description:
-    "Get in touch with Elysian Peptides. Reach our support team for order inquiries, product questions, wholesale requests, and technical assistance.",
+    "Get in touch with PrimeHelix Labz. Reach our support team for order inquiries, product questions, wholesale requests, and technical assistance.",
 }
 
 export default function ContactPage() {

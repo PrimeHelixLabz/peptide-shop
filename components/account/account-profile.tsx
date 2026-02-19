@@ -201,7 +201,7 @@ export function AccountProfile() {
                 ) : profile.avatar ? (
                   <AvatarImage src={getStorageUrl(profile.avatar)} alt={profile.name} />
                 ) : null}
-                <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-lg">
+                <AvatarFallback className="bg-primary text-white text-lg">
                   {getInitials(profile.name)}
                 </AvatarFallback>
               </Avatar>

@@ -147,7 +147,7 @@ export function OrdersList() {
               <button
                 key={order.orderNumber}
                 onClick={() => handleQuickLookup(order)}
-                className="w-full rounded-xl border border-gray-200 p-4 text-left transition-all hover:border-emerald-500 hover:bg-emerald-50/50"
+                className="w-full rounded-xl border border-gray-200 p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
               >
                 <div className="flex items-center justify-between">
                   <div>

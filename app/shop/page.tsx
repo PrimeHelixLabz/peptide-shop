@@ -6,11 +6,11 @@ import { getAllProducts, getCategories } from "@/lib/api/server-products"
 import { Section, Container, PageHeader } from "@/components/layout"
 
 export const metadata: Metadata = {
-  title: "Shop | Elysian Peptides",
+  title: "Shop | PrimeHelix Labz",
   description:
     "Browse our full catalog of research-grade peptides. HPLC verified, pharmaceutical-grade purity. BPC-157, TB-500, GHK-Cu, Ipamorelin, and more.",
   openGraph: {
-    title: "Shop | Elysian Peptides",
+    title: "Shop | PrimeHelix Labz",
     description:
       "Browse our full catalog of research-grade peptides. HPLC verified, pharmaceutical-grade purity.",
     type: "website",

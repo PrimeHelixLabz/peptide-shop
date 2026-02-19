@@ -4,7 +4,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 
 export const metadata: Metadata = {
-  title: "Sign Up | Elysian Peptides",
+  title: "Sign Up | PrimeHelix Labz",
   description: "Create a new account to start shopping for research-grade peptides.",
 }
 

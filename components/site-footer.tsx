@@ -32,10 +32,10 @@ export function SiteFooter() {
           <div className="md:col-span-2">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-background">
-                <span className="text-xs font-bold tracking-widest text-foreground">EP</span>
+                <span className="text-xs font-bold tracking-widest text-foreground">PH</span>
               </div>
               <span className="text-sm font-semibold uppercase tracking-[0.2em] text-background">
-                Elysian
+                PrimeHelix Labz
               </span>
             </div>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-background/60">
@@ -68,7 +68,7 @@ export function SiteFooter() {
         {/* Bottom bar */}
         <div className="mt-16 flex flex-col items-center justify-between gap-4 border-t border-background/10 pt-8 md:flex-row">
           <p className="text-xs text-background/40">
-            {'2026 Elysian Peptides. All rights reserved. For research use only.'}
+            {'2026 PrimeHelix Labz. All rights reserved. For research use only.'}
           </p>
           <p className="text-xs text-background/40">
             These products are not intended for human consumption.

@@ -57,7 +57,7 @@ export function OrderSummary() {
       {/* Checkout Button */}
       <a
         href="/checkout"
-        className="flex h-14 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-40 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
+        className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-40 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
       >
         Proceed to Checkout
       </a>

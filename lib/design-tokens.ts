@@ -7,7 +7,7 @@
 
 export const designTokens = {
   colors: {
-    // Brand colors - use these instead of hard-coded emerald/green
+    // Brand colors - use these instead of hard-coded colors
     brand: {
       primary: 'hsl(var(--brand-primary))',
       primaryForeground: 'hsl(var(--brand-primary-foreground))',

@@ -222,7 +222,7 @@ export default function AdminDashboard() {
               onClick={() => setGroupBy("daily")}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                 groupBy === "daily"
-                  ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -232,7 +232,7 @@ export default function AdminDashboard() {
               onClick={() => setGroupBy("weekly")}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                 groupBy === "weekly"
-                  ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -242,7 +242,7 @@ export default function AdminDashboard() {
               onClick={() => setGroupBy("monthly")}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                 groupBy === "monthly"
-                  ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -277,7 +277,7 @@ export default function AdminDashboard() {
                   onClick={() => setChartType("revenue")}
                   className={`rounded-xl px-4 py-2 text-sm font-medium transition-all ${
                     chartType === "revenue"
-                      ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md"
+                      ? "bg-primary text-white shadow-md"
                       : "bg-gray-100 dark:bg-gray-800 text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >
@@ -287,7 +287,7 @@ export default function AdminDashboard() {
                   onClick={() => setChartType("orders")}
                   className={`rounded-xl px-4 py-2 text-sm font-medium transition-all ${
                     chartType === "orders"
-                      ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md"
+                      ? "bg-primary text-white shadow-md"
                       : "bg-gray-100 dark:bg-gray-800 text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >

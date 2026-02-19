@@ -58,13 +58,13 @@ export function AccountMenu({ isMobileDrawer = false, onClose }: { isMobileDrawe
           {user && user.avatar ? (
             <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
               <AvatarImage src={getStorageUrl(user.avatar)} alt={user.name} />
-              <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs">
+              <AvatarFallback className="bg-primary text-white text-xs">
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
           ) : user ? (
             <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
-              <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-xs">
+              <AvatarFallback className="bg-primary text-white text-xs">
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
@@ -82,7 +82,7 @@ export function AccountMenu({ isMobileDrawer = false, onClose }: { isMobileDrawe
                 {user.avatar ? (
                   <AvatarImage src={getStorageUrl(user.avatar)} alt={user.name} />
                 ) : null}
-                <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm">
+                <AvatarFallback className="bg-primary text-white text-sm">
                   {getInitials(user.name)}
                 </AvatarFallback>
               </Avatar>

@@ -5,7 +5,7 @@ import { AccountProfile } from "@/components/account/account-profile"
 import { Section, Container, PageHeader } from "@/components/layout"
 
 export const metadata: Metadata = {
-  title: "My Account | Elysian Peptides",
+  title: "My Account | PrimeHelix Labz",
   description: "Manage your account settings, profile information, and address.",
 }
 

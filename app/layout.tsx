@@ -19,7 +19,7 @@ const dmSerif = DM_Serif_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'Elysian Peptides | Premium Research-Grade Peptides',
+  title: 'PrimeHelix Labz | Premium Research-Grade Peptides',
   description:
     'Pharmaceutical-grade peptides for advanced research. Lab-tested purity, secure checkout, and fast shipping. Trusted by researchers worldwide.',
   keywords: ['peptides', 'research peptides', 'BPC-157', 'TB-500', 'GHK-Cu', 'pharmaceutical grade'],
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     apple: '/icon.svg',
   },
   openGraph: {
-    title: 'Elysian Peptides | Premium Research-Grade Peptides',
+    title: 'PrimeHelix Labz | Premium Research-Grade Peptides',
     description: 'Pharmaceutical-grade peptides for advanced research. Lab-tested purity, secure checkout, and fast shipping.',
     type: 'website',
   },
