@@ -39,7 +39,7 @@ export function SectionHeader({
             {label}
           </span>
         )}
-        <div className="flex items-end justify-between gap-4">
+        <div className={cn("flex items-end justify-between gap-4", align === "center" && "justify-center")}>
           <h2 className="text-2xl font-semibold text-foreground md:text-3xl text-balance">
             {title}
           </h2>

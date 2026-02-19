@@ -36,7 +36,7 @@ className="bg-gray-100 dark:bg-gray-800"
 className="hover:bg-gray-50 dark:hover:bg-gray-800"
 className="border-gray-300 dark:border-gray-700"
 className="text-gray-700 dark:text-gray-300"
-className="focus:ring-emerald-500/20"
+className="focus:ring-blue-500/20"
 
 // ✅ Use design tokens
 className="bg-background"
@@ -52,11 +52,11 @@ className="focus:ring-brand-primary/20"
 1. **`components/admin/admin-orders-table.tsx`**
    - Replace `bg-white dark:bg-gray-900` → `bg-background`
    - Replace `hover:bg-gray-50 dark:hover:bg-gray-800/50` → `hover:bg-accent`
-   - Replace `focus:ring-emerald-500/20` → `focus:ring-brand-primary/20`
+   - Replace `focus:ring-blue-500/20` → `focus:ring-brand-primary/20`
 
 2. **`components/admin/admin-products-table.tsx`**
    - Replace `bg-white dark:bg-gray-900` → `bg-background`
-   - Replace `focus:ring-emerald-500/20` → `focus:ring-brand-primary/20`
+   - Replace `focus:ring-blue-500/20` → `focus:ring-brand-primary/20`
 
 3. **`components/admin/date-range-picker.tsx`**
    - Replace `bg-white dark:bg-gray-900` → `bg-background`
@@ -91,7 +91,7 @@ For each component/file:
 
 | Old | New |
 |-----|-----|
-| `emerald-500` / `green-600` | `brand-primary` / `brand-secondary` |
+| `blue-500` / `blue-600` | `brand-primary` / `brand-secondary` |
 | `bg-white dark:bg-gray-900` | `bg-background` |
 | `bg-gray-100 dark:bg-gray-800` | `bg-muted` |
 | `bg-gray-50 dark:bg-gray-800` | `bg-accent` |

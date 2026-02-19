@@ -4,6 +4,7 @@
 CREATE OR REPLACE FUNCTION public.search_products(search_query TEXT, category_filter TEXT DEFAULT NULL, limit_count INTEGER DEFAULT 50)
 RETURNS TABLE (
   id UUID,
+  slug TEXT,
   name TEXT,
   price DECIMAL,
   description TEXT,
@@ -24,6 +25,7 @@ BEGIN
   RETURN QUERY
   SELECT
     p.id,
+    p.slug,
     p.name,
     p.price,
     p.description,

@@ -71,7 +71,7 @@ function FaqAccordionItem({
         </span>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200 min-h-[48px] min-w-[48px]">
           {isOpen ? (
-            <Minus className="h-4 w-4 text-emerald-600" strokeWidth={1.5} />
+            <Minus className="h-4 w-4 text-blue-600" strokeWidth={1.5} />
           ) : (
             <Plus className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
           )}

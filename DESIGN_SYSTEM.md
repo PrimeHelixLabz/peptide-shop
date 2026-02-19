@@ -10,14 +10,14 @@ All colors, spacing, shadows, and other design values are centralized in design 
 
 Colors are defined as CSS variables in `app/globals.css` and can be accessed via Tailwind classes:
 
-- **Brand Colors**: `brand-primary`, `brand-secondary` (replaces hard-coded emerald-500/green-600)
+- **Brand Colors**: `brand-primary`, `brand-secondary` (replaces hard-coded blue-500/blue-600)
 - **Status Colors**: `success`, `warning`, `error`, `info`
 - **Semantic Colors**: `primary`, `secondary`, `muted`, `accent`, `destructive`
 
 **Usage:**
 ```tsx
 // ❌ Don't use hard-coded colors
-className="bg-emerald-500 text-green-600"
+className="bg-blue-500 text-blue-600"
 
 // ✅ Use design tokens
 className="bg-brand-primary text-brand-primary-foreground"
@@ -138,7 +138,7 @@ import { FormInput, FormTextarea, FormSelect } from "@/components/common"
 
 **Before:**
 ```tsx
-className="bg-gradient-to-r from-emerald-500 to-green-600 text-white"
+className="bg-gradient-to-r from-blue-500 to-blue-600 text-white"
 ```
 
 **After:**
@@ -171,7 +171,7 @@ className="bg-gradient-to-r from-brand-primary to-brand-secondary text-brand-pri
 
 **Before:**
 ```tsx
-<span className="bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl px-3 py-1">
+<span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl px-3 py-1">
   Active
 </span>
 ```

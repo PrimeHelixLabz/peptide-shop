@@ -57,7 +57,7 @@ export function ContactForm() {
           type="text"
           required
           placeholder="Dr. Jane Smith"
-          className="rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] placeholder:text-muted-foreground/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[48px]"
+          className="rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] placeholder:text-muted-foreground/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
         />
       </div>
 
@@ -75,7 +75,7 @@ export function ContactForm() {
           type="email"
           required
           placeholder="jane.smith@institution.edu"
-          className="rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] placeholder:text-muted-foreground/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[48px]"
+          className="rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] placeholder:text-muted-foreground/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
         />
       </div>
 
@@ -92,7 +92,7 @@ export function ContactForm() {
           name="subject"
           required
           defaultValue=""
-          className="appearance-none rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[48px]"
+          className="appearance-none rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
         >
           <option value="" disabled>
             Select a topic
@@ -120,7 +120,7 @@ export function ContactForm() {
           required
           rows={5}
           placeholder="Please describe your inquiry in detail..."
-          className="resize-none rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm leading-relaxed text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] placeholder:text-muted-foreground/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="resize-none rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm leading-relaxed text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] placeholder:text-muted-foreground/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -128,7 +128,7 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="mt-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-8 py-4 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
+        className="mt-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 px-8 py-4 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
       >
         {status === "submitting" ? (
           <>

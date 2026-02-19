@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getProducts } from "@/lib/db/supabase"
 import { createClient } from "@/lib/supabase/server"
+import { getStorageUrl, getStorageUrls } from "@/lib/storage/supabase-storage"
+
+// Helper to transform RPC result to ProductDetail format
+function transformRpcResult(row: any) {
+  // Convert image paths to Supabase Storage URLs
+  const image = row.image ? getStorageUrl(row.image) : ""
+  const images = row.images && Array.isArray(row.images) 
+    ? getStorageUrls(row.images) 
+    : (row.images ? [getStorageUrl(row.images)] : [])
+
+  return {
+    id: row.id,
+    slug: row.slug || row.id, // Fallback to id if slug is missing
+    name: row.name,
+    price: parseFloat(row.price),
+    description: row.description || "",
+    longDescription: row.long_description || "",
+    image,
+    images: images.length > 0 ? images : (image ? [image] : []),
+    category: row.category || undefined,
+    inStock: row.in_stock ?? true,
+    stockQuantity: row.stock_quantity || 0,
+    specifications: row.specifications || {},
+    usage: row.usage || "",
+    shipping: row.shipping || "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +51,9 @@ export async function GET(request: NextRequest) {
     })
 
     if (!error && data) {
-      return NextResponse.json({ products: data })
+      // Transform RPC results to ensure all fields are present
+      const transformedProducts = data.map(transformRpcResult)
+      return NextResponse.json({ products: transformedProducts })
     }
 
     // Fallback to manual search

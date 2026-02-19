@@ -319,7 +319,7 @@ export default function AdminDashboard() {
             />
             <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
               <span>Updated just now</span>
-              <button className="text-emerald-600 dark:text-emerald-400 hover:underline">
+              <button className="text-blue-600 dark:text-blue-400 hover:underline">
                 More details
               </button>
             </div>

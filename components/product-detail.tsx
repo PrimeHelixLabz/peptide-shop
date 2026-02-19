@@ -168,7 +168,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
                   onClick={() => setSelectedImageIndex(index)}
                   className={`relative aspect-square overflow-hidden rounded-2xl bg-gray-100 transition-all duration-300 ${
                     selectedImageIndex === index
-                      ? "ring-2 ring-emerald-500 ring-offset-2"
+                      ? "ring-2 ring-blue-500 ring-offset-2"
                       : "hover:opacity-75"
                   }`}
                   aria-label={`View image ${index + 1}`}
@@ -351,19 +351,19 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
           {/* Trust Badges */}
           <div className="grid grid-cols-3 gap-3 rounded-2xl bg-gray-50 p-4">
             <div className="flex flex-col items-center gap-1.5">
-              <FlaskConical className="h-4 w-4 text-emerald-600" />
+              <FlaskConical className="h-4 w-4 text-blue-600" />
               <span className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 HPLC Tested
               </span>
             </div>
             <div className="flex flex-col items-center gap-1.5 border-x border-gray-200">
-              <Shield className="h-4 w-4 text-emerald-600" />
+              <Shield className="h-4 w-4 text-blue-600" />
               <span className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 Secure Checkout
               </span>
             </div>
             <div className="flex flex-col items-center gap-1.5">
-              <Truck className="h-4 w-4 text-emerald-600" />
+              <Truck className="h-4 w-4 text-blue-600" />
               <span className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 Free Shipping
               </span>

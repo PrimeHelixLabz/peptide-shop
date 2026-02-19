@@ -141,8 +141,8 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
       {/* Success Header */}
       <div className="rounded-3xl bg-white p-8 md:p-12 text-center shadow-[0_10px_30px_rgba(0,0,0,0.05)] mb-8">
         <div className="flex justify-center mb-4">
-          <div className="rounded-full bg-emerald-100 p-4">
-            <CheckCircle2 className="h-12 w-12 text-emerald-600" />
+          <div className="rounded-full bg-blue-100 p-4">
+            <CheckCircle2 className="h-12 w-12 text-blue-600" />
           </div>
         </div>
         <h1 className="text-3xl md:text-4xl font-bold mb-2">Order Confirmed!</h1>

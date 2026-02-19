@@ -56,8 +56,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return () => clearTimeout(debounceTimer)
   }, [query])
 
-  const handleResultClick = (productId: string) => {
-    router.push(`/shop/${productId}`)
+  const handleResultClick = (productSlug: string) => {
+    router.push(`/shop/${productSlug}`)
     onClose()
     setQuery("")
   }
@@ -120,7 +120,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                 <Link
                   key={product.id}
                   href={`/shop/${product.slug}`}
-                  onClick={() => handleResultClick(product.id)}
+                  onClick={() => {
+                    handleResultClick(product.slug)
+                  }}
                   className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
