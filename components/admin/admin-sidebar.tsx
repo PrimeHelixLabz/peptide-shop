@@ -55,7 +55,7 @@ export function AdminSidebar({ open, onClose }: AdminSidebarProps) {
           <Link href="/admin" className="flex items-center gap-2.5" onClick={onClose}>
             <div className="relative h-8 w-auto shrink-0">
               <Image
-                src="/logo.webp"
+                src="/logo-1.webp"
                 alt="PrimeHelix Labz"
                 width={120}
                 height={32}

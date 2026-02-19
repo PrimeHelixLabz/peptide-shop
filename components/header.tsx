@@ -46,16 +46,29 @@ export function Header() {
             <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
               {/* Logo */}
               <Link href="/" className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-                <div className="relative h-8 w-auto sm:h-9 shrink-0" style={{ aspectRatio: 'auto' }}>
+                <div className="relative h-8 w-auto sm:h-10 shrink-0" style={{ aspectRatio: 'auto' }}>
+                  {/* Desktop logo */}
                   <Image
                     src="/logo.webp"
                     alt="PrimeHelix Labz"
                     width={120}
                     height={32}
-                    className="object-contain h-8 sm:h-9 w-auto"
+                    className="object-contain h-8 sm:h-10 w-auto hidden md:block"
                     sizes="(max-width: 640px) 100px, 120px"
                     priority
                   />
+                  
+                  {/* Mobile logo */}
+                  <Image
+                    src="/logo-1.webp"
+                    alt="PrimeHelix Labz"
+                    width={120}
+                    height={32}
+                    className="object-contain h-8 sm:h-10 w-auto block md:hidden"
+                    sizes="(max-width: 640px) 100px, 120px"
+                    priority
+                  />
+                  
                 </div>
                 <span className="text-xs sm:text-sm font-semibold uppercase tracking-[0.15em] text-foreground hidden xs:inline">
                   PrimeHelix Labz
