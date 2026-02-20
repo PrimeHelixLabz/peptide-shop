@@ -139,13 +139,26 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     <h3 className="text-sm font-semibold text-foreground truncate">
                       {product.name}
                     </h3>
-                    {/* Short Description - DISABLED */}
-                    {/* <p className="text-xs text-muted-foreground truncate mt-1">
-                      {product.description}
-                    </p> */}
-                    <p className="text-sm font-semibold text-foreground mt-1">
-                      ${product.price.toFixed(2)}
-                    </p>
+                    {/* Show primary variant if available */}
+                    {product.variants && product.variants.length > 0 ? (
+                      <div className="mt-1">
+                        <p className="text-xs text-muted-foreground">
+                          {product.variants[0].name}
+                        </p>
+                        <p className="text-sm font-semibold text-foreground">
+                          ${product.variants[0].price.toFixed(2)}
+                          {product.variants.length > 1 && (
+                            <span className="text-xs font-normal text-muted-foreground ml-1">
+                              ({product.variants.length} options)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-semibold text-foreground mt-1">
+                        ${product.price.toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </Link>
               ))}

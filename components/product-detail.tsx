@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Minus, Plus, ShoppingCart, Check, FlaskConical, Shield, Truck, ChevronLeft, ChevronRight, Heart } from "lucide-react"
@@ -27,12 +27,37 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const { toggleItem, isInWishlist } = useWishlist()
   const isWishlisted = isInWishlist(product.id)
 
-  // Get all images from database - product.images is already converted to full URLs by rowToProduct
-  // Ensure we always have at least one image (fallback to product.image if images array is empty)
-  const images = product.images && product.images.length > 0 
-    ? product.images 
-    : (product.image ? [product.image] : [])
+  // Variant selection - default to first available variant or null
+  const variants = product.variants || []
+  const defaultVariant = variants.length > 0 ? variants[0] : null
+  const [selectedVariant, setSelectedVariant] = useState<typeof defaultVariant>(defaultVariant)
+
+  // Get images based on selected variant or product default
+  const getVariantImages = () => {
+    if (selectedVariant?.images && selectedVariant.images.length > 0) {
+      return selectedVariant.images
+    }
+    if (selectedVariant?.image) {
+      return [selectedVariant.image]
+    }
+    return product.images && product.images.length > 0 
+      ? product.images 
+      : (product.image ? [product.image] : [])
+  }
+
+  const images = getVariantImages()
   const currentImage = images[selectedImageIndex]
+
+  // Reset image index when variant changes
+  useEffect(() => {
+    setSelectedImageIndex(0)
+  }, [selectedVariant?.id])
+
+  // Get display price - use variant price if selected, otherwise product price
+  const displayPrice = selectedVariant ? selectedVariant.price : product.price
+  
+  // Get stock status - use variant stock if selected, otherwise product stock
+  const displayInStock = selectedVariant ? selectedVariant.inStock : product.inStock
 
   // Touch handlers for swipe navigation
   const minSwipeDistance = 50
@@ -72,7 +97,15 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const sequence = getSpec("sequence")
 
   function handleAddToCart() {
-    addItem(product, quantity)
+    // Create a product object with variant info for cart
+    const productToAdd = {
+      ...product,
+      price: displayPrice,
+      inStock: displayInStock,
+      variantId: selectedVariant?.id,
+      variantName: selectedVariant?.name,
+    }
+    addItem(productToAdd, quantity, selectedVariant?.id)
     setAdded(true)
     setTimeout(() => setAdded(false), 2500)
   }
@@ -144,7 +177,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               sizes="(max-width: 1024px) 100vw, 50vw"
               unoptimized={currentImage.includes("supabase")}
             />
-            {!product.inStock && (
+            {!displayInStock && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-3xl">
                 <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                   Out of Stock
@@ -266,10 +299,39 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             </button>
           </div>
 
+          {/* Variant Selector */}
+          {variants.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-foreground">
+                Strength
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {variants.map((variant) => (
+                  <button
+                    key={variant.id}
+                    onClick={() => setSelectedVariant(variant)}
+                    disabled={!variant.inStock}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 min-h-[48px] ${
+                      selectedVariant?.id === variant.id
+                        ? "bg-primary text-white shadow-md"
+                        : variant.inStock
+                        ? "bg-gray-100 text-foreground hover:bg-gray-200"
+                        : "bg-gray-50 text-muted-foreground opacity-50 cursor-not-allowed"
+                    }`}
+                    aria-label={`Select ${variant.name} strength`}
+                  >
+                    {variant.name}
+                    {!variant.inStock && " (Out of Stock)"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Price */}
           <div className="flex items-baseline gap-3">
             <span className="text-3xl font-semibold text-foreground">
-              ${product.price.toFixed(2)}
+              ${displayPrice.toFixed(2)}
             </span>
             <span className="text-sm text-muted-foreground">per vial</span>
           </div>
@@ -381,9 +443,9 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             {/* Add to Cart */}
             <button
               onClick={handleAddToCart}
-              disabled={!product.inStock || added}
+              disabled={!displayInStock || added}
               className="flex h-12 flex-1 items-center justify-center gap-2.5 rounded-2xl bg-primary px-8 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:max-w-xs shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
-              aria-label={`Add ${quantity} ${product.name} to cart`}
+              aria-label={`Add ${quantity} ${product.name}${selectedVariant ? ` (${selectedVariant.name})` : ""} to cart`}
             >
               {added ? (
                 <>

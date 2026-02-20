@@ -42,7 +42,7 @@ export function CartView() {
 
         <div className="flex flex-col gap-4">
           {items.map((item) => (
-            <CartItemRow key={item.product.id} item={item} />
+            <CartItemRow key={`${item.product.id}-${item.variantId || 'none'}`} item={item} />
           ))}
         </div>
 

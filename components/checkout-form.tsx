@@ -78,6 +78,7 @@ export function CheckoutForm() {
         cartItems: items.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
+          variantId: item.variantId,
         })),
         shippingAddress: {
           street: data.shippingStreet,

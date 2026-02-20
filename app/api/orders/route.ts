@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { optionalAuthMiddleware } from "@/lib/auth/middleware"
 import { getOrders, createOrder } from "@/lib/db/supabase"
 import { getCartItems, clearCart } from "@/lib/db/supabase"
-import { getProductById } from "@/lib/db/supabase"
+import { getProductById, getVariantById } from "@/lib/db/supabase"
 import { z } from "zod"
 import type { Order, OrderItem, Address } from "@/lib/db/schema"
 
@@ -10,6 +10,7 @@ const createOrderSchema = z.object({
   cartItems: z.array(z.object({
     productId: z.string(),
     quantity: z.number().min(1),
+    variantId: z.string().uuid().optional(),
   })),
   shippingAddress: z.object({
     street: z.string().min(1),
@@ -89,22 +90,53 @@ export const POST = optionalAuthMiddleware(async (req) => {
         )
       }
 
-      if (!product.inStock || product.stockQuantity < cartItem.quantity) {
+      // Handle variant if provided
+      let variant = null
+      let displayPrice = product.price
+      let displayImage = product.images?.[0] || product.image
+      let displayName = product.name
+      let inStock = product.inStock
+      let stockQuantity = product.stockQuantity
+
+      if (cartItem.variantId) {
+        variant = await getVariantById(cartItem.variantId)
+        if (!variant) {
+          return NextResponse.json(
+            { error: `Variant ${cartItem.variantId} not found` },
+            { status: 400 }
+          )
+        }
+        if (variant.productId !== product.id) {
+          return NextResponse.json(
+            { error: `Variant does not belong to product ${product.name}` },
+            { status: 400 }
+          )
+        }
+        displayPrice = variant.price
+        displayImage = variant.images?.[0] || variant.image || displayImage
+        displayName = `${product.name} (${variant.name})`
+        inStock = variant.inStock
+        stockQuantity = variant.stockQuantity
+      }
+
+      if (!inStock || stockQuantity < cartItem.quantity) {
         return NextResponse.json(
-          { error: `Product ${product.name} is out of stock` },
+          { error: `${displayName} is out of stock` },
           { status: 400 }
         )
       }
 
-      const itemTotal = product.price * cartItem.quantity
+      const itemTotal = displayPrice * cartItem.quantity
       subtotal += itemTotal
 
       orderItems.push({
         productId: product.id,
-        productName: product.name,
-        productImage: product.images?.[0] || product.image,
-        price: product.price,
+        productName: displayName,
+        productImage: displayImage,
+        price: displayPrice,
         quantity: cartItem.quantity,
+        variantId: variant?.id,
+        variantName: variant?.name,
         specifications: product.specifications,
       })
     }

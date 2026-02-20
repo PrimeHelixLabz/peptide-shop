@@ -21,10 +21,20 @@ import { isStorageUrl } from "@/lib/storage/supabase-storage"
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-export interface ProductFormData {
-  name: string
+export interface ProductVariantFormData {
+  id?: string // For editing existing variants
+  name: string // e.g., "10mg", "20mg", "60mg"
   price: string
   stock: string
+  image?: string // Optional variant-specific image URL
+  images?: string[] // Optional variant-specific images
+  imageFiles: File[] // Files to upload for this variant
+  imagePreviews: string[] // Preview URLs for this variant
+  displayOrder: number
+}
+
+export interface ProductFormData {
+  name: string
   description: string
   longDescription: string
   categoryId: string
@@ -34,12 +44,11 @@ export interface ProductFormData {
   usage: string
   shipping: string
   status: "Active" | "Inactive"
+  variants: ProductVariantFormData[] // Product variants
 }
 
 const initialFormData: ProductFormData = {
   name: "",
-  price: "",
-  stock: "",
   description: "",
   longDescription: "",
   categoryId: "",
@@ -49,6 +58,7 @@ const initialFormData: ProductFormData = {
   usage: "",
   shipping: "",
   status: "Active",
+  variants: [{ name: "", price: "", stock: "0", imageFiles: [], imagePreviews: [], displayOrder: 0 }], // Start with one variant (required)
 }
 
 /* ------------------------------------------------------------------ */
@@ -112,10 +122,25 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               specsArray.unshift({ key: "purity", value: "" })
             }
 
+            // Load variants if they exist
+            const variants: ProductVariantFormData[] = product.variants
+              ? product.variants.map((v: any, index: number) => ({
+                  id: v.id,
+                  name: v.name || "",
+                  price: v.price?.toString() || "",
+                  stock: v.stockQuantity?.toString() || "0",
+                  image: v.image || undefined,
+                  images: v.images || undefined,
+                  imageFiles: [],
+                  imagePreviews: v.images && Array.isArray(v.images) && v.images.length > 0
+                    ? v.images
+                    : (v.image ? [v.image] : []),
+                  displayOrder: v.displayOrder ?? index,
+                }))
+              : [{ name: "", price: "", stock: "0", imageFiles: [], imagePreviews: [], displayOrder: 0 }]
+
             setForm({
               name: product.name || "",
-              price: product.price?.toString() || "",
-              stock: product.stockQuantity?.toString() || "0",
               // description: product.description || "", // DISABLED
               description: "", // DISABLED - keeping empty string for form compatibility
               longDescription: product.longDescription || "",
@@ -126,6 +151,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               usage: product.usage || "",
               shipping: product.shipping || "",
               status: product.inStock ? "Active" : "Inactive",
+              variants,
             })
           }
         } catch (error) {
@@ -252,6 +278,113 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     }))
   }
 
+  /* ---- Variant handling ---- */
+
+  function addVariant() {
+    setForm((prev) => ({
+      ...prev,
+      variants: [
+        ...prev.variants,
+        {
+          name: "",
+          price: "",
+          stock: "0",
+          imageFiles: [],
+          imagePreviews: [],
+          displayOrder: prev.variants.length,
+        },
+      ],
+    }))
+  }
+
+  function updateVariant(index: number, field: keyof ProductVariantFormData, value: string | number | File[] | string[]) {
+    setForm((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant, i) =>
+        i === index ? { ...variant, [field]: value } : variant
+      ),
+    }))
+  }
+
+  function removeVariant(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      variants: prev.variants
+        .filter((_, i) => i !== index)
+        .map((variant, i) => ({ ...variant, displayOrder: i })),
+    }))
+  }
+
+  // Handle variant image uploads
+  const handleVariantImageFiles = useCallback((variantIndex: number, files: FileList | null) => {
+    if (!files || files.length === 0) return
+
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"))
+    if (imageFiles.length === 0) return
+
+    const newFiles: File[] = []
+    let loadedCount = 0
+
+    imageFiles.forEach((file) => {
+      newFiles.push(file)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        loadedCount++
+        const preview = e.target?.result as string
+        setForm((prev) => {
+          const updatedVariants = [...prev.variants]
+          updatedVariants[variantIndex] = {
+            ...updatedVariants[variantIndex],
+            imageFiles: [...updatedVariants[variantIndex].imageFiles, file],
+            imagePreviews: [...updatedVariants[variantIndex].imagePreviews, preview],
+          }
+          return { ...prev, variants: updatedVariants }
+        })
+      }
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  async function removeVariantImage(variantIndex: number, imageIndex: number) {
+    const variant = form.variants[variantIndex]
+    const preview = variant.imagePreviews[imageIndex]
+    
+    // If it's an existing image from Supabase storage, delete it from storage
+    if (preview && isStorageUrl(preview)) {
+      try {
+        const response = await fetch("/api/upload/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: preview }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Failed to delete image from storage:", errorData)
+          toast.error("Failed to delete image from storage", {
+            description: errorData.error || "The image was removed from the form but may still exist in storage.",
+          })
+        }
+      } catch (error) {
+        console.error("Error deleting image from storage:", error)
+        toast.error("Error deleting image", {
+          description: "The image was removed from the form but may still exist in storage.",
+        })
+      }
+    }
+
+    // Remove from form state
+    setForm((prev) => {
+      const updatedVariants = [...prev.variants]
+      updatedVariants[variantIndex] = {
+        ...updatedVariants[variantIndex],
+        imageFiles: updatedVariants[variantIndex].imageFiles.filter((_, i) => i !== imageIndex),
+        imagePreviews: updatedVariants[variantIndex].imagePreviews.filter((_, i) => i !== imageIndex),
+      }
+      return { ...prev, variants: updatedVariants }
+    })
+  }
+
   /* ---- Submit ---- */
 
   async function handleSubmit(e: React.FormEvent) {
@@ -267,6 +400,34 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         })
         setSubmitting(false)
         return
+      }
+
+      // Validate that at least one variant is provided
+      if (form.variants.length === 0) {
+        toast.error("At least one variant is required", {
+          description: "Please add at least one product variant (e.g., 10mg, 20mg, 60mg).",
+        })
+        setSubmitting(false)
+        return
+      }
+
+      // Validate all variants have required fields
+      for (let i = 0; i < form.variants.length; i++) {
+        const variant = form.variants[i]
+        if (!variant.name.trim()) {
+          toast.error(`Variant ${i + 1} name is required`, {
+            description: "Please provide a name for all variants (e.g., 10mg, 20mg).",
+          })
+          setSubmitting(false)
+          return
+        }
+        if (!variant.price || parseFloat(variant.price) <= 0) {
+          toast.error(`Variant ${i + 1} price is required`, {
+            description: "Please provide a valid price for all variants.",
+          })
+          setSubmitting(false)
+          return
+        }
       }
 
       // Upload images first
@@ -304,17 +465,21 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         }
       })
 
+      // Calculate overall stock status from variants
+      const hasInStockVariant = form.variants.some(v => parseInt(v.stock) > 0)
+      const totalStock = form.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0)
+
       const productData = {
         name: form.name,
-        price: parseFloat(form.price),
+        price: form.variants.length > 0 ? parseFloat(form.variants[0].price) : 0, // Use first variant price for backward compatibility
         // description: form.description, // DISABLED
         description: "", // DISABLED - keeping empty string for API compatibility
         longDescription: form.longDescription,
         image: allImages[0] || "",
         images: allImages,
         categoryId: form.categoryId || undefined,
-        inStock: form.status === "Active",
-        stockQuantity: parseInt(form.stock) || 0,
+        inStock: form.status === "Active" && hasInStockVariant,
+        stockQuantity: totalStock,
         specifications: Object.keys(specifications).length > 0 ? specifications : undefined,
         usage: form.usage || undefined,
         shipping: form.shipping || undefined,
@@ -330,6 +495,85 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       })
 
       if (response.ok) {
+        const result = await response.json()
+        const savedProductId = result.product?.id || productId
+
+        // Save variants if any exist
+        if (form.variants.length > 0 && savedProductId) {
+          try {
+            // Delete existing variants that are not in the form
+            const existingVariants = result.product?.variants || []
+            const variantIdsToKeep = form.variants
+              .map((v) => v.id)
+              .filter((id): id is string => !!id)
+            
+            for (const existing of existingVariants) {
+              if (!variantIdsToKeep.includes(existing.id)) {
+                await fetch(`/api/products/${savedProductId}/variants/${existing.id}`, {
+                  method: "DELETE",
+                })
+              }
+            }
+
+            // Create/update variants
+            for (const variant of form.variants) {
+              // Upload variant images first
+              const variantImageUrls: string[] = []
+              for (const file of variant.imageFiles) {
+                const formData = new FormData()
+                formData.append("file", file)
+                formData.append("productId", savedProductId)
+
+                const uploadResponse = await fetch("/api/upload", {
+                  method: "POST",
+                  body: formData,
+                })
+
+                if (uploadResponse.ok) {
+                  const uploadData = await uploadResponse.json()
+                  variantImageUrls.push(uploadData.url)
+                }
+              }
+
+              // Combine uploaded images with existing previews (URLs)
+              const allVariantImages = [
+                ...variant.imagePreviews.filter((preview) => preview.startsWith("http")),
+                ...variantImageUrls,
+              ]
+
+              const variantData = {
+                name: variant.name,
+                price: parseFloat(variant.price),
+                stockQuantity: parseInt(variant.stock) || 0,
+                image: allVariantImages[0] || variant.image || undefined,
+                images: allVariantImages.length > 0 ? allVariantImages : variant.images || undefined,
+                displayOrder: variant.displayOrder,
+              }
+
+              if (variant.id) {
+                // Update existing variant
+                await fetch(`/api/products/${savedProductId}/variants/${variant.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(variantData),
+                })
+              } else {
+                // Create new variant
+                await fetch(`/api/products/${savedProductId}/variants`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(variantData),
+                })
+              }
+            }
+          } catch (variantError) {
+            console.error("Error saving variants:", variantError)
+            toast.error("Product saved but variants failed to save", {
+              description: "Please edit the product to update variants.",
+            })
+          }
+        }
+
         toast.success("Product saved successfully")
         window.location.href = "/admin/products"
       } else {
@@ -390,27 +634,140 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 required
               />
 
-              {/* Price & Stock row */}
-              <div className="grid gap-5 sm:grid-cols-2">
-                <FormInput
-                  label="Price ($)"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={form.price}
-                  onChange={(e) => updateField("price", e.target.value)}
-                  required
-                />
-                <FormInput
-                  label="Stock Quantity"
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={form.stock}
-                  onChange={(e) => updateField("stock", e.target.value)}
-                  required
-                />
+              {/* Product Variants - Moved right after product name */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <label
+                      className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                    >
+                      Product Variants (Strengths) <span className="text-destructive">*</span>
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      At least one variant is required. Add different strengths (e.g., 10mg, 20mg, 60mg) as variants. Each variant can have its own price, stock, and images.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={addVariant}
+                    className="text-xs font-medium text-brand-primary hover:text-brand-secondary"
+                  >
+                    + Add Variant
+                  </Button>
+                </div>
+                {form.variants.length > 0 ? (
+                  <div className="space-y-4">
+                    {form.variants.map((variant, index) => (
+                      <div
+                        key={index}
+                        className="rounded-xl border border-border bg-muted/30 p-4 space-y-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Variant {index + 1}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeVariant(index)}
+                            disabled={form.variants.length === 1}
+                            className={`h-8 w-8 text-destructive hover:bg-destructive/10 ${
+                              form.variants.length === 1 ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
+                            aria-label="Remove variant"
+                            title={form.variants.length === 1 ? "At least one variant is required" : undefined}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <FormInput
+                            label="Variant Name"
+                            placeholder="e.g., 10mg"
+                            value={variant.name}
+                            onChange={(e) => updateVariant(index, "name", e.target.value)}
+                            required
+                          />
+                          <FormInput
+                            label="Price ($)"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={variant.price}
+                            onChange={(e) => updateVariant(index, "price", e.target.value)}
+                            required
+                          />
+                          <FormInput
+                            label="Stock Quantity"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={variant.stock}
+                            onChange={(e) => updateVariant(index, "stock", e.target.value)}
+                            required
+                          />
+                        </div>
+                        
+                        {/* Variant Images */}
+                        <div className="space-y-2">
+                          <label className="text-xs font-medium text-muted-foreground">
+                            Variant Images (Optional)
+                          </label>
+                          {variant.imagePreviews.length > 0 && (
+                            <div className="grid grid-cols-3 gap-2">
+                              {variant.imagePreviews.map((preview, imgIndex) => (
+                                <div
+                                  key={imgIndex}
+                                  className="relative aspect-square overflow-hidden rounded-lg bg-muted"
+                                >
+                                  <Image
+                                    src={preview}
+                                    alt={`Variant ${index + 1} image ${imgIndex + 1}`}
+                                    fill
+                                    className="object-cover"
+                                    sizes="(max-width: 768px) 33vw, 10vw"
+                                    unoptimized={preview.startsWith("http")}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeVariantImage(index, imgIndex)}
+                                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-background/90 text-foreground backdrop-blur-sm transition-colors hover:bg-accent"
+                                    aria-label="Remove image"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div
+                            onClick={() => {
+                              const input = document.createElement("input")
+                              input.type = "file"
+                              input.accept = "image/*"
+                              input.multiple = true
+                              input.onchange = (e) => {
+                                const files = (e.target as HTMLInputElement).files
+                                if (files) handleVariantImageFiles(index, files)
+                              }
+                              input.click()
+                            }}
+                            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/50 px-4 py-3 text-center transition-all duration-200 hover:border-brand-primary/50 hover:bg-brand-primary/5"
+                          >
+                            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                            <p className="text-xs text-muted-foreground">
+                              Click to upload variant images
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               {/* Category */}

@@ -12,6 +12,7 @@ import { createPublicClient } from "@/lib/supabase/public"
 import type {
   User,
   Product,
+  ProductVariant,
   CartItem,
   WishlistItem,
   Order,
@@ -21,6 +22,28 @@ import type {
 
 import { extractStoragePath, getStorageUrl, getStorageUrls } from "@/lib/storage/supabase-storage"
 
+// Helper to convert database row to ProductVariant
+function rowToVariant(row: any): ProductVariant {
+  const image = row.image ? getStorageUrl(row.image) : undefined
+  const images = row.images && Array.isArray(row.images) && row.images.length > 0
+    ? getStorageUrls(row.images)
+    : undefined
+
+  return {
+    id: row.id,
+    productId: row.product_id,
+    name: row.name,
+    price: parseFloat(row.price),
+    stockQuantity: row.stock_quantity,
+    inStock: row.in_stock,
+    image,
+    images,
+    displayOrder: row.display_order || 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 // Helper to convert database row to Product
 function rowToProduct(row: any): Product {
   // Convert image paths to Supabase Storage URLs
@@ -29,20 +52,66 @@ function rowToProduct(row: any): Product {
     ? getStorageUrls(row.images) 
     : (row.images ? [getStorageUrl(row.images)] : [])
 
+  // Process variants if they exist
+  let variants: ProductVariant[] | undefined
+  if (row.variants && Array.isArray(row.variants)) {
+    variants = row.variants.map((v: any) => rowToVariant(v))
+    // Sort variants by display_order
+    variants.sort((a, b) => a.displayOrder - b.displayOrder)
+  }
+
+  // Calculate overall stock status: true if product is in stock OR any variant is in stock
+  const hasVariants = variants && variants.length > 0
+  const overallInStock = hasVariants
+    ? variants.some(v => v.inStock)
+    : row.in_stock
+
+  // Calculate total stock quantity: sum of variant stocks or product stock
+  const overallStockQuantity = hasVariants
+    ? variants.reduce((sum, v) => sum + v.stockQuantity, 0)
+    : row.stock_quantity
+
+  // Use variant price/image if variants exist and first variant is selected
+  const displayPrice = hasVariants && variants.length > 0 ? variants[0].price : parseFloat(row.price)
+  
+  // Image priority: product image > first variant image > first variant's first image
+  let displayImage = image
+  let displayImages = images.length > 0 ? images : (image ? [image] : [])
+  
+  if (hasVariants && variants.length > 0) {
+    // If product has no image, use first variant's image as placeholder
+    if (!displayImage || displayImage === "") {
+      const firstVariant = variants[0]
+      if (firstVariant.images && firstVariant.images.length > 0) {
+        displayImage = firstVariant.images[0]
+        displayImages = firstVariant.images
+      } else if (firstVariant.image) {
+        displayImage = firstVariant.image
+        displayImages = [firstVariant.image]
+      }
+    }
+    // If product has image but variant has images, prefer variant images for display
+    else if (variants[0].images && variants[0].images.length > 0) {
+      displayImages = variants[0].images
+    } else if (variants[0].image) {
+      displayImages = [variants[0].image]
+    }
+  }
+
   return {
     id: row.id,
     name: row.name,
     slug: row.slug,
-    price: parseFloat(row.price),
+    price: displayPrice, // Use first variant price if variants exist, otherwise base price
     description: row.description,
     longDescription: row.long_description,
-    image,
-    images: images.length > 0 ? images : (image ? [image] : []),
+    image: displayImage, // Use product image, or first variant image as placeholder
+    images: displayImages,
     // Support both old category (text) and new category_id (with join)
     category: row.category_name || row.category || undefined,
     categoryId: row.category_id || undefined,
-    inStock: row.in_stock,
-    stockQuantity: row.stock_quantity,
+    inStock: overallInStock,
+    stockQuantity: overallStockQuantity,
     specifications: row.specifications || {},
     usage: row.usage,
     shipping: row.shipping,
@@ -50,6 +119,7 @@ function rowToProduct(row: any): Product {
     updatedAt: row.updated_at,
     createdBy: row.created_by,
     isArchived: row.is_archived || false,
+    variants, // Include variants in product
   }
 }
 
@@ -195,6 +265,9 @@ export async function getProducts(options?: {
         id,
         name,
         slug
+      ),
+      variants:product_variants (
+        *
       )
     `)
   
@@ -301,6 +374,9 @@ export async function getProductById(id: string): Promise<Product | null> {
         id,
         name,
         slug
+      ),
+      variants:product_variants (
+        *
       )
     `)
     .eq("id", id)
@@ -327,6 +403,9 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
         id,
         name,
         slug
+      ),
+      variants:product_variants (
+        *
       )
     `)
     .eq("slug", slug)
@@ -400,6 +479,104 @@ export async function deleteProduct(id: string): Promise<boolean> {
   return archiveProduct(id)
 }
 
+// Product Variants
+export async function getProductVariants(productId: string): Promise<ProductVariant[]> {
+  const supabase = createPublicClient()
+  const { data, error } = await supabase
+    .from("product_variants")
+    .select("*")
+    .eq("product_id", productId)
+    .order("display_order", { ascending: true })
+    .order("name", { ascending: true })
+
+  if (error || !data) return []
+  return data.map(rowToVariant)
+}
+
+export async function getVariantById(id: string): Promise<ProductVariant | null> {
+  const supabase = createPublicClient()
+  const { data, error } = await supabase
+    .from("product_variants")
+    .select("*")
+    .eq("id", id)
+    .single()
+
+  if (error || !data) return null
+  return rowToVariant(data)
+}
+
+export async function createVariant(
+  variant: Omit<ProductVariant, "id" | "createdAt" | "updatedAt">
+): Promise<ProductVariant> {
+  const supabase = await createClient()
+  
+  const image = variant.image ? (extractStoragePath(variant.image) || variant.image) : null
+  const images = variant.images 
+    ? variant.images.map(img => extractStoragePath(img) || img)
+    : []
+
+  const { data, error } = await supabase
+    .from("product_variants")
+    .insert({
+      product_id: variant.productId,
+      name: variant.name,
+      price: variant.price,
+      stock_quantity: variant.stockQuantity,
+      in_stock: variant.inStock,
+      image,
+      images: images.length > 0 ? images : null,
+      display_order: variant.displayOrder,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return rowToVariant(data)
+}
+
+export async function updateVariant(
+  id: string,
+  updates: Partial<ProductVariant>
+): Promise<ProductVariant | null> {
+  const supabase = await createClient()
+  
+  const updateData: any = {}
+  if (updates.name !== undefined) updateData.name = updates.name
+  if (updates.price !== undefined) updateData.price = updates.price
+  if (updates.stockQuantity !== undefined) updateData.stock_quantity = updates.stockQuantity
+  if (updates.inStock !== undefined) updateData.in_stock = updates.inStock
+  if (updates.displayOrder !== undefined) updateData.display_order = updates.displayOrder
+  
+  if (updates.image !== undefined) {
+    updateData.image = updates.image ? (extractStoragePath(updates.image) || updates.image) : null
+  }
+  if (updates.images !== undefined) {
+    updateData.images = updates.images.length > 0
+      ? updates.images.map(img => extractStoragePath(img) || img)
+      : null
+  }
+
+  const { data, error } = await supabase
+    .from("product_variants")
+    .update(updateData)
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error || !data) return null
+  return rowToVariant(data)
+}
+
+export async function deleteVariant(id: string): Promise<boolean> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("product_variants")
+    .delete()
+    .eq("id", id)
+
+  return !error
+}
+
 // Cart
 export async function getCartItems(userId: string): Promise<CartItem[]> {
   const supabase = await createClient()
@@ -415,6 +592,7 @@ export async function getCartItems(userId: string): Promise<CartItem[]> {
     id: row.id,
     userId: row.user_id,
     productId: row.product_id,
+    variantId: row.variant_id || undefined,
     quantity: row.quantity,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -424,17 +602,25 @@ export async function getCartItems(userId: string): Promise<CartItem[]> {
 export async function addCartItem(
   userId: string,
   productId: string,
-  quantity: number
+  quantity: number,
+  variantId?: string
 ): Promise<CartItem> {
   const supabase = await createClient()
 
-  // Check if item already exists
-  const { data: existing } = await supabase
+  // Check if item already exists (same product + variant combination)
+  let query = supabase
     .from("cart_items")
     .select("*")
     .eq("user_id", userId)
     .eq("product_id", productId)
-    .single()
+  
+  if (variantId) {
+    query = query.eq("variant_id", variantId)
+  } else {
+    query = query.is("variant_id", null)
+  }
+
+  const { data: existing } = await query.single()
 
   if (existing) {
     const newQuantity = Math.min(existing.quantity + quantity, 10)
@@ -450,6 +636,7 @@ export async function addCartItem(
       id: data.id,
       userId: data.user_id,
       productId: data.product_id,
+      variantId: data.variant_id || undefined,
       quantity: data.quantity,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
@@ -461,6 +648,7 @@ export async function addCartItem(
     .insert({
       user_id: userId,
       product_id: productId,
+      variant_id: variantId || null,
       quantity: Math.min(quantity, 10),
     })
     .select()
@@ -471,6 +659,7 @@ export async function addCartItem(
     id: data.id,
     userId: data.user_id,
     productId: data.product_id,
+    variantId: data.variant_id || undefined,
     quantity: data.quantity,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -480,22 +669,29 @@ export async function addCartItem(
 export async function updateCartItem(
   userId: string,
   productId: string,
-  quantity: number
+  quantity: number,
+  variantId?: string
 ): Promise<CartItem | null> {
   const supabase = await createClient()
 
   if (quantity <= 0) {
-    await removeCartItem(userId, productId)
+    await removeCartItem(userId, productId, variantId)
     return null
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("cart_items")
     .update({ quantity: Math.min(quantity, 10) })
     .eq("user_id", userId)
     .eq("product_id", productId)
-    .select()
-    .single()
+  
+  if (variantId) {
+    query = query.eq("variant_id", variantId)
+  } else {
+    query = query.is("variant_id", null)
+  }
+
+  const { data, error } = await query.select().single()
 
   if (error || !data) return null
 
@@ -503,20 +699,28 @@ export async function updateCartItem(
     id: data.id,
     userId: data.user_id,
     productId: data.product_id,
+    variantId: data.variant_id || undefined,
     quantity: data.quantity,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   }
 }
 
-export async function removeCartItem(userId: string, productId: string): Promise<boolean> {
+export async function removeCartItem(userId: string, productId: string, variantId?: string): Promise<boolean> {
   const supabase = await createClient()
-  const { error } = await supabase
+  let query = supabase
     .from("cart_items")
     .delete()
     .eq("user_id", userId)
     .eq("product_id", productId)
+  
+  if (variantId) {
+    query = query.eq("variant_id", variantId)
+  } else {
+    query = query.is("variant_id", null)
+  }
 
+  const { error } = await query
   return !error
 }
 

@@ -8,13 +8,14 @@ import type { Product } from "@/components/product-card"
 export interface CartItem {
   product: Product
   quantity: number
+  variantId?: string // Optional variant ID
 }
 
 interface CartContextValue {
   items: CartItem[]
-  addItem: (product: Product, quantity?: number) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  addItem: (product: Product, quantity?: number, variantId?: string) => void
+  removeItem: (productId: string, variantId?: string) => void
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => void
   clearCart: () => void
   totalItems: number
   subtotal: number
@@ -75,14 +76,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             mergedItems.push({
               product: dbItem.product,
               quantity: dbItem.quantity,
+              variantId: dbItem.variantId || undefined,
             })
-            processedIds.add(dbItem.product.id)
+            const itemKey = `${dbItem.product.id}-${dbItem.variantId || "none"}`
+            processedIds.add(itemKey)
           }
         }
 
         // Add items from localStorage that aren't in database
         for (const localItem of localItems) {
-          if (!processedIds.has(localItem.product.id)) {
+          const itemKey = `${localItem.product.id}-${localItem.variantId || "none"}`
+          if (!processedIds.has(itemKey)) {
             mergedItems.push(localItem)
             // Add to database
             try {
@@ -92,6 +96,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 body: JSON.stringify({
                   productId: localItem.product.id,
                   quantity: localItem.quantity,
+                  variantId: localItem.variantId || undefined,
                 }),
               })
             } catch (err) {
@@ -123,6 +128,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({
             productId: item.product.id,
             quantity: item.quantity,
+            variantId: item.variantId || undefined,
           }),
         })
       }
@@ -180,18 +186,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items.length, user?.id, loading, isSyncing, isAdminPage, syncCartToDatabase])
 
   const addItem = useCallback(
-    async (product: Product, quantity = 1) => {
+    async (product: Product, quantity = 1, variantId?: string) => {
       setItems((prev) => {
-        const existing = prev.find((item) => item.product.id === product.id)
+        // Find existing item with same product AND variant
+        const existing = prev.find(
+          (item) => item.product.id === product.id && item.variantId === variantId
+        )
         if (existing) {
           const newQuantity = Math.min(existing.quantity + quantity, 10)
           return prev.map((item) =>
-            item.product.id === product.id
+            item.product.id === product.id && item.variantId === variantId
               ? { ...item, quantity: newQuantity }
               : item
           )
         }
-        return [...prev, { product, quantity }]
+        return [...prev, { product, quantity, variantId }]
       })
 
       // Sync to database if authenticated
@@ -203,6 +212,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             body: JSON.stringify({
               productId: product.id,
               quantity,
+              variantId: variantId || undefined,
             }),
           })
         } catch (error) {
@@ -214,13 +224,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   )
 
   const removeItem = useCallback(
-    async (productId: string) => {
-      setItems((prev) => prev.filter((item) => item.product.id !== productId))
+    async (productId: string, variantId?: string) => {
+      setItems((prev) =>
+        prev.filter(
+          (item) =>
+            !(item.product.id === productId && item.variantId === variantId)
+        )
+      )
 
       // Sync to database if authenticated
       if (user) {
         try {
-          await fetch(`/api/cart/${productId}`, { method: "DELETE" })
+          const url = variantId
+            ? `/api/cart/${productId}?variantId=${variantId}`
+            : `/api/cart/${productId}`
+          await fetch(url, { method: "DELETE" })
         } catch (error) {
           console.error("Error removing item from database cart:", error)
         }
@@ -230,15 +248,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   )
 
   const updateQuantity = useCallback(
-    async (productId: string, quantity: number) => {
+    async (productId: string, quantity: number, variantId?: string) => {
       if (quantity < 1) {
-        removeItem(productId)
+        removeItem(productId, variantId)
         return
       }
 
       setItems((prev) =>
         prev.map((item) =>
-          item.product.id === productId
+          item.product.id === productId && item.variantId === variantId
             ? { ...item, quantity: Math.min(quantity, 10) }
             : item
         )
@@ -247,10 +265,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // Sync to database if authenticated
       if (user) {
         try {
-          await fetch(`/api/cart/${productId}`, {
+          const url = variantId
+            ? `/api/cart/${productId}?variantId=${variantId}`
+            : `/api/cart/${productId}`
+          await fetch(url, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ quantity }),
+            body: JSON.stringify({ quantity, variantId: variantId || undefined }),
           })
         } catch (error) {
           console.error("Error updating quantity in database cart:", error)

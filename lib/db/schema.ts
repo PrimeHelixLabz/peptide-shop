@@ -30,15 +30,15 @@ export interface Product {
   id: string
   name: string
   slug: string
-  price: number
+  price: number // Base/default price (for backward compatibility)
   description: string
   longDescription?: string
-  image: string
-  images?: string[]
+  image: string // Base/default image (for backward compatibility)
+  images?: string[] // Base/default images (for backward compatibility)
   category?: string // Legacy: category name (for backward compatibility)
   categoryId?: string // New: reference to categories table
-  inStock: boolean
-  stockQuantity: number
+  inStock: boolean // Overall stock status (true if any variant is in stock)
+  stockQuantity: number // Total stock across all variants (for backward compatibility)
   specifications?: Record<string, string | number>
   usage?: string
   shipping?: string
@@ -46,12 +46,28 @@ export interface Product {
   updatedAt: string
   createdBy?: string // User ID
   isArchived?: boolean // Soft delete flag - archived products are hidden from store but kept for order history
+  variants?: ProductVariant[] // Product variants (e.g., different strengths)
+}
+
+export interface ProductVariant {
+  id: string
+  productId: string
+  name: string // e.g., "10mg", "20mg", "60mg"
+  price: number
+  stockQuantity: number
+  inStock: boolean
+  image?: string // Optional variant-specific image
+  images?: string[] // Optional variant-specific images array
+  displayOrder: number // Order for displaying variants
+  createdAt: string
+  updatedAt: string
 }
 
 export interface CartItem {
   id: string
   userId: string
   productId: string
+  variantId?: string // Optional: variant ID if product has variants
   quantity: number
   createdAt: string
   updatedAt: string
@@ -91,6 +107,8 @@ export interface OrderItem {
   productImage: string
   price: number
   quantity: number
+  variantId?: string // Optional: variant ID if product has variants
+  variantName?: string // Optional: variant name (e.g., "10mg") for display
   specifications?: Record<string, string | number>
 }
 

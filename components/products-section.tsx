@@ -53,7 +53,7 @@ export async function ProductsSection() {
 
                 {/* Product Info */}
                 <div className="mt-4 space-y-2">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-foreground">{product.name}</h3>
                     {purity && (
                       <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

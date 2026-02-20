@@ -5,6 +5,7 @@ import { z } from "zod"
 
 const updateSchema = z.object({
   quantity: z.number().int().min(0).max(10),
+  variantId: z.string().uuid().optional(),
 })
 
 export const PUT = requireAuthMiddleware(async (
@@ -14,15 +15,17 @@ export const PUT = requireAuthMiddleware(async (
   try {
     const userId = req.user!.id
     const { productId } = await params
+    const { searchParams } = new URL(req.url)
+    const variantId = searchParams.get("variantId") || undefined
     const body = await req.json()
-    const { quantity } = updateSchema.parse(body)
+    const { quantity } = updateSchema.parse({ ...body, variantId })
 
     if (quantity === 0) {
-      await removeCartItem(userId, productId)
+      await removeCartItem(userId, productId, variantId)
       return NextResponse.json({ success: true })
     }
 
-    const item = await updateCartItem(userId, productId, quantity)
+    const item = await updateCartItem(userId, productId, quantity, variantId)
     if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 })
     }
@@ -48,8 +51,10 @@ export const DELETE = requireAuthMiddleware(async (
   try {
     const userId = req.user!.id
     const { productId } = await params
+    const { searchParams } = new URL(req.url)
+    const variantId = searchParams.get("variantId") || undefined
 
-    const deleted = await removeCartItem(userId, productId)
+    const deleted = await removeCartItem(userId, productId, variantId)
     if (!deleted) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 })
     }

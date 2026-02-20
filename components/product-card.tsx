@@ -21,6 +21,14 @@ export interface Product {
   category?: string
   inStock: boolean
   specifications?: Record<string, string | number> // Dynamic specifications (e.g., { purity: "99.1%", weight: "5mg", form: "Lyophilized" })
+  variants?: Array<{
+    id: string
+    name: string
+    price: number
+    inStock: boolean
+    image?: string
+    images?: string[]
+  }> // Product variants
 }
 
 export function ProductCard({ product }: { product: Product }) {
@@ -91,6 +99,11 @@ export function ProductCard({ product }: { product: Product }) {
           <h3 className="text-lg font-semibold text-foreground">
             {product.name}
           </h3>
+          {product.variants && product.variants.length > 1 && (
+            <p className="text-xs text-muted-foreground">
+              {product.variants.length} strength options available
+            </p>
+          )}
           {product.category && (
             <p className="text-sm text-muted-foreground">
               {product.category}
@@ -99,7 +112,14 @@ export function ProductCard({ product }: { product: Product }) {
 
           {/* Price & CTA */}
           <div className="flex items-center justify-between pt-2">
-            <PriceDisplay price={product.price} size="lg" />
+            <div className="flex flex-col">
+              <PriceDisplay price={product.price} size="lg" />
+              {product.variants && product.variants.length > 1 && (
+                <span className="text-xs text-muted-foreground mt-0.5">
+                  From {product.variants[0]?.name || ""}
+                </span>
+              )}
+            </div>
             <button
               onClick={handleAddToCart}
               disabled={!product.inStock || added}
