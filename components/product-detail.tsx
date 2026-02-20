@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Minus, Plus, ShoppingCart, Check, FlaskConical, Shield, Truck, ChevronLeft, ChevronRight, Heart } from "lucide-react"
@@ -22,6 +22,8 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const [activeTab, setActiveTab] = useState<TabId>("description")
   const [added, setAdded] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
+  const touchStartX = useRef<number | null>(null)
+  const touchEndX = useRef<number | null>(null)
   const { addItem } = useCart()
   const { toggleItem, isInWishlist } = useWishlist()
   const isWishlisted = isInWishlist(product.id)
@@ -29,6 +31,33 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   // Get all images - use images array if available, otherwise fallback to single image
   const images = getProductImageUrls(product.image, product.images)
   const currentImage = images[selectedImageIndex]
+
+  // Touch handlers for swipe navigation
+  const minSwipeDistance = 50
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchEndX.current = null
+    touchStartX.current = e.targetTouches[0].clientX
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current || images.length <= 1) return
+    
+    const distance = touchStartX.current - touchEndX.current
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+
+    if (isLeftSwipe) {
+      setSelectedImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+    }
+    if (isRightSwipe) {
+      setSelectedImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+    }
+  }
 
   // Helper to get specification value
   const getSpec = (key: string): string | number | undefined => {
@@ -96,15 +125,20 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
       {/* Product Hero: Image + Info */}
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
         {/* Image Gallery */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row-reverse lg:gap-6">
           {/* Main Image */}
-          <div className="relative aspect-square overflow-hidden rounded-3xl bg-gray-100 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+          <div 
+            className="relative aspect-square w-full overflow-hidden rounded-3xl bg-gray-100 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:flex-1 touch-pan-y"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
             <Image
               src={currentImage}
-              alt={`${product.name} peptide vial - Image ${selectedImageIndex + 1}`}
+              alt={`${product.name} peptide vial - Image ${selectedImageIndex + 1} of ${images.length}`}
               fill
               priority
-              className="object-cover"
+              className="object-contain transition-opacity duration-300"
               sizes="(max-width: 1024px) 100vw, 50vw"
               unoptimized={currentImage.includes("supabase")}
             />
@@ -116,7 +150,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               </div>
             )}
             {product.category && (
-              <div className="absolute left-4 top-4">
+              <div className="absolute left-4 top-4 z-10">
                 <span className="bg-white/90 px-3 py-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground backdrop-blur-sm rounded-xl">
                   {product.category}
                 </span>
@@ -127,23 +161,23 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               <>
                 <button
                   onClick={() => setSelectedImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm text-foreground transition-all duration-300 hover:bg-white hover:scale-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.1)] min-h-[48px] min-w-[48px]"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm text-foreground transition-all duration-300 hover:bg-white hover:scale-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.1)] min-h-[48px] min-w-[48px]"
                   aria-label="Previous image"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
                 <button
                   onClick={() => setSelectedImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm text-foreground transition-all duration-300 hover:bg-white hover:scale-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.1)] min-h-[48px] min-w-[48px]"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm text-foreground transition-all duration-300 hover:bg-white hover:scale-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.1)] min-h-[48px] min-w-[48px]"
                   aria-label="Next image"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
               </>
             )}
-            {/* Image indicator dots */}
+            {/* Image indicator dots - Mobile only */}
             {images.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2 lg:hidden">
                 {images.map((_, index) => (
                   <button
                     key={index}
@@ -158,29 +192,44 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
                 ))}
               </div>
             )}
+            {/* Image counter */}
+            {images.length > 1 && (
+              <div className="absolute right-4 bottom-4 z-10 hidden lg:block">
+                <span className="bg-black/50 backdrop-blur-sm px-3 py-1.5 text-xs font-medium text-white rounded-xl">
+                  {selectedImageIndex + 1} / {images.length}
+                </span>
+              </div>
+            )}
           </div>
-          {/* Thumbnail Gallery */}
+          
+          {/* Thumbnail Gallery - Always visible if multiple images */}
           {images.length > 1 && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="hidden lg:flex p-2 gap-3 overflow-x-auto pb-2 scrollbar-hide lg:flex-col lg:overflow-x-visible lg:overflow-y-auto lg:max-h-[600px] lg:pb-0 lg:scrollbar-thin lg:scrollbar-thumb-gray-300 lg:scrollbar-track-transparent">
               {images.map((img, index) => (
-                <button
+                <div
                   key={index}
-                  onClick={() => setSelectedImageIndex(index)}
-                  className={`relative aspect-square overflow-hidden rounded-2xl bg-gray-100 transition-all duration-300 ${
+                  className={`relative shrink-0 transition-all duration-300 ${
                     selectedImageIndex === index
-                      ? "ring-2 ring-blue-500 ring-offset-2"
-                      : "hover:opacity-75"
+                      ? "ring-2 ring-primary ring-offset-2"
+                      : ""
                   }`}
-                  aria-label={`View image ${index + 1}`}
+                  style={{ minWidth: '80px', width: '80px' }}
                 >
-                  <Image
-                    src={img}
-                    alt={`${product.name} thumbnail ${index + 1}`}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 25vw, 12.5vw"
-                  />
-                </button>
+                  <button
+                    onClick={() => setSelectedImageIndex(index)}
+                    className="relative aspect-square w-full overflow-hidden bg-gray-100 border border-gray-200 transition-all duration-300 hover:opacity-75"
+                    aria-label={`View image ${index + 1} of ${images.length}`}
+                  >
+                    <Image
+                      src={img}
+                      alt={`${product.name} thumbnail ${index + 1}`}
+                      fill
+                      className="object-contain"
+                      sizes="80px"
+                      unoptimized={img.includes("supabase")}
+                    />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -299,9 +348,9 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
           )}
 
           {/* Quantity & Add to Cart */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-col gap-4 justify-around lg:justify-between sm:flex-row sm:items-center sm:gap-4">
             {/* Quantity Selector */}
-            <div className="flex items-center rounded-xl border-0 bg-gray-50 overflow-hidden">
+            <div className="flex justify-center items-center rounded-xl border-0 bg-gray-50 overflow-hidden">
               <button
                 onClick={decrementQuantity}
                 disabled={quantity <= 1}
