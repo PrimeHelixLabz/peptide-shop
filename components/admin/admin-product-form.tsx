@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { AdminCard } from "@/components/common/admin-card"
 import { FormInput, FormTextarea, FormSelect, RichTextEditor } from "@/components/common"
 import { cn } from "@/lib/utils"
+import { isStorageUrl } from "@/lib/storage/supabase-storage"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -193,7 +194,34 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  function removeImage(index: number) {
+  async function removeImage(index: number) {
+    const preview = form.imagePreviews[index]
+    
+    // If it's an existing image from Supabase storage, delete it from storage
+    if (preview && isStorageUrl(preview)) {
+      try {
+        const response = await fetch("/api/upload/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: preview }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Failed to delete image from storage:", errorData)
+          toast.error("Failed to delete image from storage", {
+            description: errorData.error || "The image was removed from the form but may still exist in storage.",
+          })
+        }
+      } catch (error) {
+        console.error("Error deleting image from storage:", error)
+        toast.error("Error deleting image", {
+          description: "The image was removed from the form but may still exist in storage.",
+        })
+      }
+    }
+
+    // Remove from form state
     setForm((prev) => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index),

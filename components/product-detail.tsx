@@ -7,7 +7,6 @@ import { Minus, Plus, ShoppingCart, Check, FlaskConical, Shield, Truck, ChevronL
 import type { ProductDetail } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
-import { getProductImageUrls } from "@/lib/storage/image-utils"
 
 const tabs = [
   { id: "description", label: "Description" },
@@ -28,8 +27,11 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const { toggleItem, isInWishlist } = useWishlist()
   const isWishlisted = isInWishlist(product.id)
 
-  // Get all images - use images array if available, otherwise fallback to single image
-  const images = getProductImageUrls(product.image, product.images)
+  // Get all images from database - product.images is already converted to full URLs by rowToProduct
+  // Ensure we always have at least one image (fallback to product.image if images array is empty)
+  const images = product.images && product.images.length > 0 
+    ? product.images 
+    : (product.image ? [product.image] : [])
   const currentImage = images[selectedImageIndex]
 
   // Touch handlers for swipe navigation
