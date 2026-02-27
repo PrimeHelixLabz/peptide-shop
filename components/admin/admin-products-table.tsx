@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Search, Pencil, Plus, Trash2, ChevronDown, Archive } from "lucide-react"
+import { Search, Pencil, Plus, Trash2, ChevronDown, Archive, RefreshCcw } from "lucide-react"
 import { toast } from "sonner"
 import type { AdminProduct } from "@/lib/api/admin-utils"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
@@ -47,6 +47,7 @@ export function AdminProductsTable({
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "price_asc" | "price_desc" | "date_asc" | "date_desc">("name_asc")
+  const [syncingStripe, setSyncingStripe] = useState(false)
 
   // Get unique categories from products
   const categories = useMemo(() => {
@@ -161,6 +162,44 @@ export function AdminProductsTable({
     }
   }
 
+  async function handleSyncAllToStripe() {
+    setSyncingStripe(true)
+    try {
+      const response = await fetch("/api/stripe/sync-product/all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to sync products with Stripe")
+      }
+
+      const total = Array.isArray(result.results) ? result.results.length : 0
+      const synced = Array.isArray(result.results)
+        ? result.results.filter((r: any) => r.synced).length
+        : 0
+
+      toast.success("Stripe sync completed", {
+        description:
+          total > 0
+            ? `${synced} of ${total} products synced to Stripe.`
+            : "No products to sync.",
+      })
+    } catch (error) {
+      console.error("Stripe bulk sync error:", error)
+      toast.error("Failed to sync products with Stripe", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred. Please check your Stripe configuration and try again.",
+      })
+    } finally {
+      setSyncingStripe(false)
+    }
+  }
+
   // Paginate filtered results
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage
@@ -189,6 +228,20 @@ export function AdminProductsTable({
 
         {/* Actions */}
         <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleSyncAllToStripe}
+            disabled={syncingStripe}
+          >
+            <RefreshCcw className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">
+              {syncingStripe ? "Syncing…" : "Sync to Stripe"}
+            </span>
+            <span className="sm:hidden">
+              {syncingStripe ? "Sync…" : "Stripe"}
+            </span>
+          </Button>
           <Button asChild>
             <Link href="/admin/products/new">
               <Plus className="h-4 w-4" />
