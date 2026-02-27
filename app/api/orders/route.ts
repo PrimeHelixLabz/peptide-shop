@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { optionalAuthMiddleware } from "@/lib/auth/middleware"
+import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
 import { getOrders, createOrder } from "@/lib/db/supabase"
 import { getCartItems, clearCart } from "@/lib/db/supabase"
 import { getProductById, getVariantById } from "@/lib/db/supabase"
@@ -36,23 +36,10 @@ const createOrderSchema = z.object({
   notes: z.string().optional(),
 }).passthrough() // Allow additional fields for backward compatibility
 
-// Generate guest user ID for MVP
-// For MVP, we use null user_id for guest orders
-// In production, you might want to create a guest user or use session-based tracking
-function getGuestUserId(): string | null {
-  // Return null for guest orders (database allows nullable user_id)
-  return null
-}
-
-export const GET = optionalAuthMiddleware(async (req) => {
+export const GET = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
   try {
-    // For MVP: return empty array for guests, or user orders if authenticated
-    if (!req.user) {
-      return NextResponse.json({ orders: [] })
-    }
-
-    const userId = req.user.id
-    const isAdmin = req.user.role === "admin"
+    const userId = req.user!.id
+    const isAdmin = req.user!.role === "admin"
 
     // Admins can see all orders, users only their own
     const orders = await getOrders(isAdmin ? undefined : userId)
@@ -64,10 +51,9 @@ export const GET = optionalAuthMiddleware(async (req) => {
   }
 })
 
-export const POST = optionalAuthMiddleware(async (req) => {
+export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
   try {
-    // For MVP: use guest user ID if not authenticated
-    const userId = req.user?.id || getGuestUserId()
+    const userId = req.user!.id
     const body = await req.json()
     const { cartItems, shippingAddress, billingAddress, paymentMethod, notes } =
       createOrderSchema.parse(body)

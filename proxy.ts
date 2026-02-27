@@ -30,15 +30,29 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // Refresh session if expired
-  await supabase.auth.getUser()
+  // Refresh session if expired and get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const pathname = request.nextUrl.pathname
+  const isAuthPage = pathname === "/signin" || pathname === "/signup"
+  const isAuthApiRoute = pathname.startsWith("/api/auth")
+
+  // Global auth guard: require login to view any non-auth, non-API route
+  if (!user && !isAuthPage && !isAuthApiRoute && !pathname.startsWith("/api")) {
+    const signInUrl = new URL("/signin", request.url)
+    signInUrl.searchParams.set("redirect", pathname + request.nextUrl.search)
+    return NextResponse.redirect(signInUrl)
+  }
+
+  // If already authenticated, redirect away from auth pages to home
+  if (user && isAuthPage) {
+    return NextResponse.redirect(new URL("/", request.url))
+  }
 
   // Check admin routes after session is updated
   if (request.nextUrl.pathname.startsWith("/admin")) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
     if (!user) {
       const signInUrl = new URL("/signin", request.url)
       signInUrl.searchParams.set("redirect", request.nextUrl.pathname)

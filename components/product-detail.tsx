@@ -9,9 +9,7 @@ import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
 
 const tabs = [
-  { id: "description", label: "Description" },
-  { id: "usage", label: "Usage" },
-  { id: "shipping", label: "Shipping" },
+  { id: "description", label: "Description" }
 ] as const
 
 type TabId = (typeof tabs)[number]["id"]
@@ -153,9 +151,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const descriptionHtml = processHtmlForWrapping(product.longDescription || "")
 
   const tabContent: Record<TabId, string> = {
-    description: descriptionHtml,
-    usage: product.usage,
-    shipping: product.shipping,
+    description: descriptionHtml
   }
 
   return (

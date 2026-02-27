@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { optionalAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
+import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
 import { getProductById, getVariantById, createOrder } from "@/lib/db/supabase"
 import type { Order, OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
@@ -36,14 +36,10 @@ const createStripeCheckoutSchema = z.object({
   notes: z.string().optional(),
 }).passthrough()
 
-function getGuestUserId(): string | null {
-  return null
-}
-
-export const POST = optionalAuthMiddleware(
+export const POST = requireAuthMiddleware(
   async (req: AuthenticatedRequest) => {
     try {
-      const userId = req.user?.id || getGuestUserId()
+      const userId = req.user!.id
       const body = await req.json()
       const { cartItems, shippingAddress, billingAddress, notes } =
         createStripeCheckoutSchema.parse(body)
@@ -197,7 +193,7 @@ export const POST = optionalAuthMiddleware(
         metadata: {
           orderId: createdOrder.id,
           orderNumber: createdOrder.orderNumber,
-          userId: userId || "",
+          userId,
         },
       })
 

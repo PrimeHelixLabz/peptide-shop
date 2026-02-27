@@ -20,16 +20,6 @@ const faqItems: FaqItem[] = [
       "Every batch undergoes rigorous third-party testing through independent, ISO-accredited laboratories. We use High-Performance Liquid Chromatography (HPLC) and Mass Spectrometry (MS) to verify identity, purity, and composition. Certificates of Analysis (COAs) are available for every product and can be downloaded directly from the product page.",
   },
   {
-    question: "What are your shipping times and methods?",
-    answer:
-      "Orders placed before 2:00 PM EST on business days ship the same day. Standard domestic delivery takes 2\u20135 business days, while express options are available at checkout for 1\u20132 day delivery. All peptides are shipped in temperature-controlled packaging with insulated liners to maintain product integrity during transit.",
-  },
-  {
-    question: "What is your refund and return policy?",
-    answer:
-      "We offer a full refund or replacement for any product that arrives damaged, is incorrect, or fails to meet the purity specifications listed on its Certificate of Analysis. Refund requests must be submitted within 14 days of delivery. Due to the nature of research materials, we cannot accept returns on opened or used products. Please contact our support team for assistance.",
-  },
-  {
     question: "How should I store peptides after receiving them?",
     answer:
       "For short-term storage (under 4 weeks), keep lyophilized peptides in a cool, dry location away from direct light, ideally at 4\u00B0C in a standard refrigerator. For long-term storage, we recommend \u221220\u00B0C in a sealed container to prevent moisture exposure. Once reconstituted, peptides should be kept refrigerated at 2\u20138\u00B0C and used within the timeframe specified on the product documentation.",

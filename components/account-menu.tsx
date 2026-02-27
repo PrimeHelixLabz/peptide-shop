@@ -131,22 +131,33 @@ export function AccountMenu({ isMobileDrawer = false, onClose }: { isMobileDrawe
           </>
         ) : (
           <>
-            {/* Sign in/Sign up temporarily disabled for MVP */}
-            {/* <DropdownMenuItem asChild>
-              <Link href="/signin" className="flex items-center gap-3 cursor-pointer rounded-xl" onClick={handleLinkClick}>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/signin"
+                className="flex items-center gap-3 cursor-pointer rounded-xl"
+                onClick={handleLinkClick}
+              >
                 <LogIn className="h-4 w-4" />
                 Sign In
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/signup" className="flex items-center gap-3 cursor-pointer rounded-xl" onClick={handleLinkClick}>
+              <Link
+                href="/signup"
+                className="flex items-center gap-3 cursor-pointer rounded-xl"
+                onClick={handleLinkClick}
+              >
                 <User className="h-4 w-4" />
                 Create Account
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-gray-200" /> */}
+            <DropdownMenuSeparator className="bg-gray-200" />
             <DropdownMenuItem asChild>
-              <Link href="/wishlist" className="flex items-center gap-3 cursor-pointer rounded-xl" onClick={handleLinkClick}>
+              <Link
+                href="/wishlist"
+                className="flex items-center gap-3 cursor-pointer rounded-xl"
+                onClick={handleLinkClick}
+              >
                 <Heart className="h-4 w-4" />
                 Wishlist
               </Link>

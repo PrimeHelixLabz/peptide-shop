@@ -13,12 +13,6 @@ const trustItems = [
     description:
       "256-bit SSL encryption and PCI-compliant payment processing protect every transaction you make.",
   },
-  {
-    icon: Truck,
-    title: "Fast Shipping",
-    description:
-      "Orders placed before 2 PM EST ship same day. Temperature-controlled packaging for product integrity.",
-  },
 ]
 
 import { Section } from "@/components/layout/section"

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/lib/cart-context"
+import { useAuth } from "@/lib/auth/auth-context"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -42,6 +43,7 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 export function CheckoutForm() {
   const router = useRouter()
   const { items, subtotal, totalItems } = useCart()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   
@@ -61,6 +63,12 @@ export function CheckoutForm() {
   const billingSameAsShipping = watch("billingSameAsShipping")
 
   const onSubmit = async (data: CheckoutFormData) => {
+    if (!user) {
+      setError("You must be signed in to complete your purchase.")
+      router.push(`/signin?redirect=/checkout`)
+      return
+    }
+
     if (items.length === 0) {
       setError("Your cart is empty")
       return
@@ -127,6 +135,32 @@ export function CheckoutForm() {
       setError(err instanceof Error ? err.message : "An error occurred. Please try again.")
       setLoading(false)
     }
+  }
+
+  if (!user) {
+    return (
+      <div className="rounded-3xl bg-white p-12 text-center shadow-[0_10px_30px_rgba(0,0,0,0.05)] space-y-4">
+        <p className="text-lg font-semibold">Sign in required to purchase</p>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          For compliance and safety, all peptide purchases require an account. Please sign in or create an account before completing checkout.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+          <Button
+            onClick={() => router.push(`/signin?redirect=/checkout`)}
+            className="flex-1 sm:flex-none"
+          >
+            Sign In
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/signup?redirect=/checkout`)}
+            className="flex-1 sm:flex-none"
+          >
+            Create Account
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (items.length === 0) {
