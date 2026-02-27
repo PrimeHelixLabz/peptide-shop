@@ -533,7 +533,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         body: JSON.stringify(productData),
       })
 
-      if (response.ok) {
+        if (response.ok) {
         const result = await response.json()
         const savedProductId = result.product?.id || productId
         if (!savedProductId) {
@@ -680,6 +680,27 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
             console.error("Error saving variants:", variantError)
             toast.error("Product saved but variants failed to save", {
               description: "Please edit the product to update variants.",
+            })
+          }
+        }
+
+        // After product and variants are saved, best-effort sync to Stripe
+        if (savedProductId) {
+          try {
+            const stripeSyncRes = await fetch(`/api/stripe/sync-product/${savedProductId}`, {
+              method: "POST",
+            })
+            if (!stripeSyncRes.ok) {
+              const err = await stripeSyncRes.json().catch(() => ({}))
+              console.error("Stripe sync failed:", err)
+              toast.error("Product saved, but failed to sync with Stripe", {
+                description: err.error || "Please check Stripe configuration.",
+              })
+            }
+          } catch (stripeErr) {
+            console.error("Stripe sync error:", stripeErr)
+            toast.error("Product saved, but failed to sync with Stripe", {
+              description: "Please verify your Stripe keys and try again.",
             })
           }
         }

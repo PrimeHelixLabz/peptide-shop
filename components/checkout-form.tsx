@@ -41,7 +41,7 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 
 export function CheckoutForm() {
   const router = useRouter()
-  const { items, subtotal, totalItems, clearCart } = useCart()
+  const { items, subtotal, totalItems } = useCart()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   
@@ -59,9 +59,6 @@ export function CheckoutForm() {
   })
 
   const billingSameAsShipping = watch("billingSameAsShipping")
-  const tax = subtotal * 0.1
-  const shipping = 0
-  const total = subtotal + shipping + tax
 
   const onSubmit = async (data: CheckoutFormData) => {
     if (items.length === 0) {
@@ -73,8 +70,8 @@ export function CheckoutForm() {
     setError("")
 
     try {
-      // Prepare order data
-      const orderData = {
+      // Prepare order + checkout data
+      const checkoutData = {
         cartItems: items.map((item) => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -100,18 +97,16 @@ export function CheckoutForm() {
               zipCode: data.billingZipCode!,
               country: data.billingCountry!,
             },
-        // Payments temporarily disabled for MVP
-        paymentMethod: "manual",
         notes: data.notes,
       }
 
-      // Create order
-      const response = await fetch("/api/orders", {
+      // Create Stripe Checkout session (and order on the server)
+      const response = await fetch("/api/checkout/stripe", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(orderData),
+        body: JSON.stringify(checkoutData),
       })
 
       const result = await response.json()
@@ -120,33 +115,13 @@ export function CheckoutForm() {
         throw new Error(result.error || "Failed to create order")
       }
 
-      // Store order info in localStorage for easy lookup later
-      const orderInfo = {
-        orderNumber: result.order.orderNumber,
-        email: data.shippingEmail,
-        createdAt: result.order.createdAt,
-        total: result.order.total,
+      // Redirect to Stripe Checkout
+      if (result.checkoutUrl) {
+        window.location.href = result.checkoutUrl
+        return
       }
-      
-      // Get existing orders from localStorage
-      const existingOrders = JSON.parse(
-        localStorage.getItem("elysian_recent_orders") || "[]"
-      )
-      
-      // Add new order (or update if exists)
-      const updatedOrders = [
-        orderInfo,
-        ...existingOrders.filter((o: any) => o.orderNumber !== orderInfo.orderNumber)
-      ].slice(0, 10) // Keep only last 10 orders
-      
-      localStorage.setItem("elysian_recent_orders", JSON.stringify(updatedOrders))
-      localStorage.setItem("elysian_last_order_email", data.shippingEmail)
 
-      // Clear cart
-      clearCart()
-
-      // Redirect to order confirmation with email
-      router.push(`/orders/${result.order.orderNumber}?email=${encodeURIComponent(data.shippingEmail)}`)
+      throw new Error("Missing Stripe checkout URL")
     } catch (err) {
       console.error("Checkout error:", err)
       setError(err instanceof Error ? err.message : "An error occurred. Please try again.")
@@ -335,12 +310,11 @@ export function CheckoutForm() {
             )}
           </div>
 
-          {/* Payment (disabled for MVP) */}
+          {/* Payment */}
           <div className="space-y-2">
             <h2 className="text-xl font-semibold">Payment</h2>
             <p className="text-sm text-muted-foreground">
-              Payment is temporarily disabled for MVP. Your order will be placed with payment status{" "}
-              <span className="font-medium text-foreground">pending</span>, and we’ll contact you to complete payment.
+              You&apos;ll be securely redirected to our payment partner Stripe to complete your purchase.
             </p>
           </div>
 

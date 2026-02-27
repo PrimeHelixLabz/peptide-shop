@@ -5,7 +5,7 @@ import { FlaskConical, Shield, Truck } from "lucide-react"
 
 const SHIPPING_RATE = 0
 const SHIPPING_LABEL = "Free"
-const TAX_RATE = 0.1 // 10% tax
+const TAX_RATE = 0 // Tax is currently not charged via Stripe; set to 0 for consistency.
 
 export function OrderSummary() {
   const { subtotal, totalItems } = useCart()

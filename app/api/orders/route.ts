@@ -33,7 +33,6 @@ const createOrderSchema = z.object({
     })
     .optional(),
   paymentMethod: z.string().min(1),
-  paymentToken: z.string().optional(), // PaymentCloud token
   notes: z.string().optional(),
 }).passthrough() // Allow additional fields for backward compatibility
 
@@ -148,8 +147,6 @@ export const POST = optionalAuthMiddleware(async (req) => {
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`
 
-    // Payments temporarily disabled for MVP.
-    // We'll always create the order with paymentStatus "pending" and collect payment later.
     const resolvedPaymentMethod = paymentMethod || "manual"
     const paymentStatus: "pending" = "pending"
 

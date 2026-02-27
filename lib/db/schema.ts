@@ -31,6 +31,10 @@ export interface Product {
   name: string
   slug: string
   price: number // Base/default price (for backward compatibility)
+  /**
+   * Optional Stripe product mapping (server-side only).
+   */
+  stripeProductId?: string
   description: string
   longDescription?: string
   /**
@@ -63,6 +67,10 @@ export interface ProductVariant {
    */
   sku: string
   price: number
+  /**
+   * Optional Stripe price mapping for this variant.
+   */
+  stripePriceId?: string
   stock: number
   inStock: boolean
   displayOrder: number // Order for displaying variants

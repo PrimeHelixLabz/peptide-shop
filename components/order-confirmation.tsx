@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { Order } from "@/lib/db/schema"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
+import { useCart } from "@/lib/cart-context"
 
 interface OrderConfirmationProps {
   orderNumber: string
@@ -17,6 +18,7 @@ interface OrderConfirmationProps {
 export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { clearCart } = useCart()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -57,6 +59,13 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
 
     fetchOrder()
   }, [orderNumber, email])
+
+  // Clear cart client-side once we see a paid order
+  useEffect(() => {
+    if (order && order.paymentStatus === "paid") {
+      clearCart()
+    }
+  }, [order, clearCart])
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault()

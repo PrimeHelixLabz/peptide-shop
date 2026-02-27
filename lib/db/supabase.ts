@@ -31,6 +31,7 @@ function rowToVariant(row: any): ProductVariant {
     // Prefer sku; fall back to legacy name or id for truly old rows
     sku: row.sku || row.name || row.id,
     price: parseFloat(row.price),
+    stripePriceId: row.stripe_price_id || undefined,
     stock: row.stock ?? row.stock_quantity ?? 0,
     inStock: (row.stock ?? row.stock_quantity ?? 0) > 0 ? true : (row.in_stock ?? false),
     displayOrder: row.display_order || 0,
@@ -84,6 +85,7 @@ function rowToProduct(row: any): Product {
     name: row.name,
     slug: row.slug,
     price: displayPrice, // Use first variant price if variants exist, otherwise base price
+    stripeProductId: row.stripe_product_id || undefined,
     description: row.description,
     longDescription: row.long_description,
     thumbnailUrl,
@@ -133,6 +135,11 @@ function productToRow(product: Partial<Product>): any {
     usage: product.usage,
     shipping: product.shipping,
     created_by: product.createdBy,
+  }
+
+  // Stripe product mapping (server-side only)
+  if (product.stripeProductId !== undefined) {
+    row.stripe_product_id = product.stripeProductId
   }
 
   // Only include specifications when explicitly provided.
@@ -531,6 +538,7 @@ export async function updateVariant(
   const updateData: any = {}
   if (updates.sku !== undefined) updateData.sku = updates.sku
   if (updates.price !== undefined) updateData.price = updates.price
+  if (updates.stripePriceId !== undefined) updateData.stripe_price_id = updates.stripePriceId
   if (updates.stock !== undefined) {
     updateData.stock = updates.stock
     updateData.stock_quantity = updates.stock // legacy

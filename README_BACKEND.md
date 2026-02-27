@@ -19,6 +19,11 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 
 # Optional: For admin operations (server-side only)
 SUPABASE_SECRET_KEY=your_supabase_secret_key
+
+# Stripe (payments)
+STRIPE_SECRET_KEY=your_stripe_secret_key
+# Webhook secret for `POST /api/stripe/webhook`
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
 ```
 
 **Where to find these keys:**
