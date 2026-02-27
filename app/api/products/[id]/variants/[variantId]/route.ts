@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
-import { getVariantById, updateVariant, deleteVariant, getProductVariants } from "@/lib/db/supabase"
+import { getVariantById, updateVariant, deleteVariant, getProductVariants, ensureDefaultVariant, setDefaultVariant, syncProductThumbnailToDefaultVariant } from "@/lib/db/supabase"
 import { z } from "zod"
 
 const updateVariantSchema = z.object({
+  sku: z.string().min(1, "SKU is required").optional(),
   name: z.string().min(1, "Variant name is required").optional(),
   price: z.number().positive("Price must be a positive number").optional(),
-  stockQuantity: z.number().int("Stock quantity must be an integer").min(0, "Stock quantity cannot be negative").optional(),
-  image: z.string().url().optional().or(z.literal("")),
-  images: z.array(z.string().url()).optional(),
+  stock: z.number().int("Stock must be an integer").min(0, "Stock cannot be negative").optional(),
+  color: z.string().nullable().optional(),
+  size: z.string().nullable().optional(),
+  isDefault: z.boolean().optional(),
   displayOrder: z.number().int().optional(),
 })
 
@@ -36,25 +38,35 @@ export const PUT = requireAdminMiddleware(async (
   { params }: { params: Promise<{ id: string; variantId: string }> }
 ) => {
   try {
-    const { variantId } = await params
+    const { id: productId, variantId } = await params
     const body = await req.json()
     const data = updateVariantSchema.parse(body)
 
     const updates: any = {}
+    if (data.sku !== undefined) updates.sku = data.sku
     if (data.name !== undefined) updates.name = data.name
     if (data.price !== undefined) updates.price = data.price
-    if (data.stockQuantity !== undefined) {
-      updates.stockQuantity = data.stockQuantity
-      updates.inStock = data.stockQuantity > 0
+    if (data.stock !== undefined) {
+      updates.stock = data.stock
+      updates.inStock = data.stock > 0
     }
-    if (data.image !== undefined) updates.image = data.image || undefined
-    if (data.images !== undefined) updates.images = data.images
+    if (data.color !== undefined) updates.color = data.color
+    if (data.size !== undefined) updates.size = data.size
+    if (data.isDefault !== undefined) updates.isDefault = data.isDefault
     if (data.displayOrder !== undefined) updates.displayOrder = data.displayOrder
 
     const variant = await updateVariant(variantId, updates)
     
     if (!variant) {
       return NextResponse.json({ error: "Variant not found" }, { status: 404 })
+    }
+
+    if (data.isDefault === true) {
+      await setDefaultVariant(productId, variantId, { syncThumbnail: true })
+    } else if (data.isDefault === false) {
+      // Never leave a product without a default variant.
+      await ensureDefaultVariant(productId)
+      await syncProductThumbnailToDefaultVariant(productId, { force: false })
     }
 
     return NextResponse.json({ variant })
@@ -88,10 +100,16 @@ export const DELETE = requireAdminMiddleware(async (
       )
     }
     
+    const wasDefault = variants.some((v) => v.id === variantId && v.isDefault)
     const deleted = await deleteVariant(variantId)
     
     if (!deleted) {
       return NextResponse.json({ error: "Variant not found" }, { status: 404 })
+    }
+
+    if (wasDefault) {
+      await ensureDefaultVariant(productId)
+      await syncProductThumbnailToDefaultVariant(productId, { force: true })
     }
 
     return NextResponse.json({ success: true })

@@ -17,7 +17,9 @@ export interface FormInputProps
 
 const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
   ({ className, label, error, helperText, id, ...props }, ref) => {
-    const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`
+    // Use React.useId so the generated ID is stable between server and client
+    const reactId = React.useId()
+    const inputId = id || `input-${reactId}`
 
     return (
       <div className="flex flex-col gap-1.5">

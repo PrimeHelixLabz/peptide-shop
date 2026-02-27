@@ -33,8 +33,13 @@ export interface Product {
   price: number // Base/default price (for backward compatibility)
   description: string
   longDescription?: string
-  image: string // Base/default image (for backward compatibility)
-  images?: string[] // Base/default images (for backward compatibility)
+  /**
+   * Single thumbnail for listing pages.
+   * Stored as a CDN-ready URL in the app layer (DB stores the storage path).
+   */
+  thumbnailUrl?: string
+  image: string // Legacy: base/default image (kept for backward compatibility)
+  images?: string[] // Legacy: base/default images (kept for backward compatibility)
   category?: string // Legacy: category name (for backward compatibility)
   categoryId?: string // New: reference to categories table
   inStock: boolean // Overall stock status (true if any variant is in stock)
@@ -52,13 +57,26 @@ export interface Product {
 export interface ProductVariant {
   id: string
   productId: string
-  name: string // e.g., "10mg", "20mg", "60mg"
+  /**
+   * Variant SKU (primary identifier for variants).
+   * All application logic and UI should use this instead of the legacy `name` column.
+   */
+  sku: string
   price: number
-  stockQuantity: number
+  stock: number
   inStock: boolean
-  image?: string // Optional variant-specific image
-  images?: string[] // Optional variant-specific images array
   displayOrder: number // Order for displaying variants
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface VariantImage {
+  id: string
+  variantId: string
+  imageUrl: string
+  isPrimary: boolean
+  sortOrder: number
   createdAt: string
   updatedAt: string
 }

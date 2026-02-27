@@ -1,26 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getProducts, getProductVariants } from "@/lib/db/supabase"
+import { getProducts } from "@/lib/db/supabase"
 import { createClient } from "@/lib/supabase/server"
 import { getStorageUrl, getStorageUrls } from "@/lib/storage/supabase-storage"
 import type { ProductVariant } from "@/lib/db/schema"
 
 // Helper to convert database row to ProductVariant
 function rowToVariant(row: any): ProductVariant {
-  const image = row.image ? getStorageUrl(row.image) : undefined
-  const images = row.images && Array.isArray(row.images) && row.images.length > 0
-    ? getStorageUrls(row.images)
-    : undefined
-
   return {
     id: row.id,
     productId: row.product_id,
-    name: row.name,
+    sku: row.sku || row.name || row.id,
+    name: row.name || undefined,
     price: parseFloat(row.price),
-    stockQuantity: row.stock_quantity,
-    inStock: row.in_stock,
-    image,
-    images,
+    stock: row.stock ?? row.stock_quantity ?? 0,
+    inStock: (row.stock ?? row.stock_quantity ?? 0) > 0 ? true : (row.in_stock ?? false),
     displayOrder: row.display_order || 0,
+    color: row.color ?? null,
+    size: row.size ?? null,
+    isDefault: row.is_default ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -33,6 +30,7 @@ async function transformRpcResult(row: any, supabase: any) {
   const images = row.images && Array.isArray(row.images) 
     ? getStorageUrls(row.images) 
     : (row.images ? [getStorageUrl(row.images)] : [])
+  const thumbnailUrl = row.thumbnail_url ? getStorageUrl(row.thumbnail_url) : undefined
 
   // Fetch variants for this product
   const { data: variantRows } = await supabase
@@ -47,30 +45,10 @@ async function transformRpcResult(row: any, supabase: any) {
     variants = variantRows.map(rowToVariant)
   }
 
-  // Use variant price/image if variants exist
+  // Use variant price if variants exist
   const displayPrice = variants && variants.length > 0 ? variants[0].price : parseFloat(row.price)
-  let displayImage = image
-  let displayImages = images.length > 0 ? images : (image ? [image] : [])
-  
-  if (variants && variants.length > 0) {
-    // If product has no image, use first variant's image as placeholder
-    if (!displayImage || displayImage === "") {
-      const firstVariant = variants[0]
-      if (firstVariant.images && firstVariant.images.length > 0) {
-        displayImage = firstVariant.images[0]
-        displayImages = firstVariant.images
-      } else if (firstVariant.image) {
-        displayImage = firstVariant.image
-        displayImages = [firstVariant.image]
-      }
-    }
-    // If product has image but variant has images, prefer variant images for display
-    else if (variants[0].images && variants[0].images.length > 0) {
-      displayImages = variants[0].images
-    } else if (variants[0].image) {
-      displayImages = [variants[0].image]
-    }
-  }
+  const displayImage = thumbnailUrl || image
+  const displayImages = thumbnailUrl ? [thumbnailUrl] : (images.length > 0 ? images : (image ? [image] : []))
 
   // Calculate overall stock status from variants
   const hasVariants = variants && variants.length > 0
@@ -78,7 +56,7 @@ async function transformRpcResult(row: any, supabase: any) {
     ? variants.some(v => v.inStock)
     : (row.in_stock ?? true)
   const overallStockQuantity = hasVariants
-    ? variants.reduce((sum, v) => sum + v.stockQuantity, 0)
+    ? variants.reduce((sum, v) => sum + v.stock, 0)
     : (row.stock_quantity || 0)
 
   return {
@@ -88,6 +66,7 @@ async function transformRpcResult(row: any, supabase: any) {
     price: displayPrice,
     description: row.description || "",
     longDescription: row.long_description || "",
+    thumbnailUrl,
     image: displayImage,
     images: displayImages,
     category: row.category || undefined,

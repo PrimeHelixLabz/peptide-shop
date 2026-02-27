@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
-import { getProductVariants, createVariant } from "@/lib/db/supabase"
+import { getProductVariants, createVariant, setDefaultVariant, syncProductThumbnailToDefaultVariant } from "@/lib/db/supabase"
 import { z } from "zod"
 
 const variantSchema = z.object({
-  name: z.string().min(1, "Variant name is required"),
+  sku: z.string().min(1, "SKU is required"),
   price: z.number().positive("Price must be a positive number"),
-  stockQuantity: z.number().int("Stock quantity must be an integer").min(0, "Stock quantity cannot be negative"),
-  image: z.string().url().optional().or(z.literal("")),
-  images: z.array(z.string().url()).optional(),
+  stock: z.number().int("Stock must be an integer").min(0, "Stock cannot be negative"),
+  isDefault: z.boolean().default(false),
   displayOrder: z.number().int().default(0),
 })
 
@@ -37,14 +36,20 @@ export const POST = requireAdminMiddleware(async (
 
     const variant = await createVariant({
       productId: id,
-      name: data.name,
+      sku: data.sku,
       price: data.price,
-      stockQuantity: data.stockQuantity,
-      inStock: data.stockQuantity > 0,
-      image: data.image || undefined,
-      images: data.images,
+      stock: data.stock,
+      inStock: data.stock > 0,
       displayOrder: data.displayOrder,
+      isDefault: data.isDefault,
     })
+
+    if (data.isDefault) {
+      await setDefaultVariant(id, variant.id, { syncThumbnail: true })
+    } else {
+      // If product has no thumbnail yet, attempt to derive it from default variant.
+      await syncProductThumbnailToDefaultVariant(id, { force: false })
+    }
 
     return NextResponse.json({ variant }, { status: 201 })
   } catch (error) {

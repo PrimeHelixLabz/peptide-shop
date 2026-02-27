@@ -24,7 +24,7 @@ export function CartItemRow({ item }: { item: CartItem }) {
   
   // Display name with variant
   const displayName = variant
-    ? `${product.name} (${variant.name})`
+    ? `${product.name} (${variant.sku})`
     : product.name
 
   return (
@@ -57,7 +57,7 @@ export function CartItemRow({ item }: { item: CartItem }) {
             </Link>
             {variant && (
               <span className="text-xs text-muted-foreground">
-                Strength: {variant.name}
+                Strength: {variant.sku}
               </span>
             )}
             {product.specifications?.purity && (

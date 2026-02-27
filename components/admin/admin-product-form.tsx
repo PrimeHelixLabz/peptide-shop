@@ -23,13 +23,14 @@ import { isStorageUrl } from "@/lib/storage/supabase-storage"
 
 export interface ProductVariantFormData {
   id?: string // For editing existing variants
-  name: string // e.g., "10mg", "20mg", "60mg"
+  sku: string
   price: string
   stock: string
-  image?: string // Optional variant-specific image URL
-  images?: string[] // Optional variant-specific images
-  imageFiles: File[] // Files to upload for this variant
+  isDefault?: boolean
+  imageFiles: File[] // New files to upload for this variant
+  imageFilePreviews: string[] // Data-URL previews corresponding 1:1 with imageFiles
   imagePreviews: string[] // Preview URLs for this variant
+  primaryImageIndex: number
   displayOrder: number
 }
 
@@ -38,8 +39,8 @@ export interface ProductFormData {
   description: string
   longDescription: string
   categoryId: string
-  images: File[]
-  imagePreviews: string[]
+  thumbnailFile?: File
+  thumbnailPreview: string
   specifications: Array<{ key: string; value: string }>
   usage: string
   shipping: string
@@ -52,13 +53,25 @@ const initialFormData: ProductFormData = {
   description: "",
   longDescription: "",
   categoryId: "",
-  images: [],
-  imagePreviews: [],
+  thumbnailFile: undefined,
+  thumbnailPreview: "",
   specifications: [{ key: "purity", value: "" }], // Purity as default property for peptides
   usage: "",
   shipping: "",
   status: "Active",
-  variants: [{ name: "", price: "", stock: "0", imageFiles: [], imagePreviews: [], displayOrder: 0 }], // Start with one variant (required)
+  variants: [
+    {
+      sku: "",
+      price: "",
+      stock: "0",
+      isDefault: true,
+      imageFiles: [],
+      imageFilePreviews: [],
+      imagePreviews: [],
+      primaryImageIndex: 0,
+      displayOrder: 0,
+    },
+  ], // Start with one default variant (required)
 }
 
 /* ------------------------------------------------------------------ */
@@ -79,7 +92,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
   // Load categories on mount
   useEffect(() => {
@@ -126,18 +139,39 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
             const variants: ProductVariantFormData[] = product.variants
               ? product.variants.map((v: any, index: number) => ({
                   id: v.id,
-                  name: v.name || "",
+                  sku: v.sku || "",
                   price: v.price?.toString() || "",
-                  stock: v.stockQuantity?.toString() || "0",
-                  image: v.image || undefined,
-                  images: v.images || undefined,
+                  stock: (v.stock ?? v.stockQuantity)?.toString() || "0",
+                  isDefault: !!v.isDefault,
                   imageFiles: [],
-                  imagePreviews: v.images && Array.isArray(v.images) && v.images.length > 0
-                    ? v.images
-                    : (v.image ? [v.image] : []),
+                  imageFilePreviews: [],
+                  imagePreviews: [],
+                  primaryImageIndex: 0,
                   displayOrder: v.displayOrder ?? index,
                 }))
-              : [{ name: "", price: "", stock: "0", imageFiles: [], imagePreviews: [], displayOrder: 0 }]
+              : [{ sku: "", price: "", stock: "0", color: "", size: "", isDefault: true, imageFiles: [], imageFilePreviews: [], imagePreviews: [], primaryImageIndex: 0, displayOrder: 0 }]
+
+            // Load variant images for editing (from normalized variant_images table)
+            const variantsWithImages: ProductVariantFormData[] = await Promise.all(
+              variants.map(async (variant) => {
+                if (!productId || !variant.id) return variant
+                try {
+                  const imgRes = await fetch(`/api/products/${productId}/variants/${variant.id}/images`)
+                  if (!imgRes.ok) return variant
+                  const imgData = await imgRes.json()
+                  const imgs = Array.isArray(imgData.images) ? imgData.images : []
+                  const urls = imgs.map((i: any) => i.imageUrl).filter(Boolean)
+                  const primaryIdx = imgs.findIndex((i: any) => i.isPrimary)
+                  return {
+                    ...variant,
+                    imagePreviews: urls,
+                    primaryImageIndex: primaryIdx >= 0 ? primaryIdx : 0,
+                  }
+                } catch {
+                  return variant
+                }
+              })
+            )
 
             setForm({
               name: product.name || "",
@@ -145,13 +179,13 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               description: "", // DISABLED - keeping empty string for form compatibility
               longDescription: product.longDescription || "",
               categoryId: product.categoryId || "",
-              images: [],
-              imagePreviews: product.images || (product.image ? [product.image] : []),
+              thumbnailFile: undefined,
+              thumbnailPreview: product.thumbnailUrl || "",
               specifications: specsArray,
               usage: product.usage || "",
               shipping: product.shipping || "",
               status: product.inStock ? "Active" : "Inactive",
-              variants,
+              variants: variantsWithImages,
             })
           }
         } catch (error) {
@@ -171,31 +205,22 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  /* ---- Image handling ---- */
+  /* ---- Thumbnail handling ---- */
 
-  const handleImageFiles = useCallback((files: FileList | null) => {
-    if (!files || files.length === 0) return
+  const handleThumbnailFile = useCallback((file: File | null) => {
+    if (!file) return
+    if (!file.type.startsWith("image/")) return
 
-    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"))
-    if (imageFiles.length === 0) return
-
-    const newFiles: File[] = []
-    let loadedCount = 0
-
-    imageFiles.forEach((file) => {
-      newFiles.push(file)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        loadedCount++
-        const preview = e.target?.result as string
-        setForm((prev) => ({
-          ...prev,
-          images: [...prev.images, file],
-          imagePreviews: [...prev.imagePreviews, preview],
-        }))
-      }
-      reader.readAsDataURL(file)
-    })
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const preview = e.target?.result as string
+      setForm((prev) => ({
+        ...prev,
+        thumbnailFile: file,
+        thumbnailPreview: preview,
+      }))
+    }
+    reader.readAsDataURL(file)
   }, [])
 
   function handleDrag(e: React.DragEvent) {
@@ -212,16 +237,18 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
-    handleImageFiles(e.dataTransfer.files)
+    const file = e.dataTransfer.files?.[0] || null
+    handleThumbnailFile(file)
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    handleImageFiles(e.target.files)
-    if (fileInputRef.current) fileInputRef.current.value = ""
+    const file = e.target.files?.[0] || null
+    handleThumbnailFile(file)
+    if (thumbnailInputRef.current) thumbnailInputRef.current.value = ""
   }
 
-  async function removeImage(index: number) {
-    const preview = form.imagePreviews[index]
+  async function clearThumbnail() {
+    const preview = form.thumbnailPreview
     
     // If it's an existing image from Supabase storage, delete it from storage
     if (preview && isStorageUrl(preview)) {
@@ -250,8 +277,8 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     // Remove from form state
     setForm((prev) => ({
       ...prev,
-      images: prev.images.filter((_, i) => i !== index),
-      imagePreviews: prev.imagePreviews.filter((_, i) => i !== index),
+      thumbnailFile: undefined,
+      thumbnailPreview: "",
     }))
   }
 
@@ -286,18 +313,21 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       variants: [
         ...prev.variants,
         {
-          name: "",
+          sku: "",
           price: "",
           stock: "0",
+          isDefault: false,
           imageFiles: [],
+          imageFilePreviews: [],
           imagePreviews: [],
+          primaryImageIndex: 0,
           displayOrder: prev.variants.length,
         },
       ],
     }))
   }
 
-  function updateVariant(index: number, field: keyof ProductVariantFormData, value: string | number | File[] | string[]) {
+  function updateVariant(index: number, field: keyof ProductVariantFormData, value: any) {
     setForm((prev) => ({
       ...prev,
       variants: prev.variants.map((variant, i) =>
@@ -311,7 +341,12 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       ...prev,
       variants: prev.variants
         .filter((_, i) => i !== index)
-        .map((variant, i) => ({ ...variant, displayOrder: i })),
+        .map((variant, i) => ({ ...variant, displayOrder: i }))
+        .map((variant, i, arr) => {
+          // If we removed the default variant, ensure another becomes default.
+          if (arr.some((v) => v.isDefault)) return variant
+          return i === 0 ? { ...variant, isDefault: true } : { ...variant, isDefault: false }
+        }),
     }))
   }
 
@@ -333,10 +368,14 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         const preview = e.target?.result as string
         setForm((prev) => {
           const updatedVariants = [...prev.variants]
+          const existingCount = updatedVariants[variantIndex].imagePreviews.length
           updatedVariants[variantIndex] = {
             ...updatedVariants[variantIndex],
             imageFiles: [...updatedVariants[variantIndex].imageFiles, file],
+            imageFilePreviews: [...updatedVariants[variantIndex].imageFilePreviews, preview],
             imagePreviews: [...updatedVariants[variantIndex].imagePreviews, preview],
+            primaryImageIndex:
+              existingCount === 0 ? 0 : updatedVariants[variantIndex].primaryImageIndex,
           }
           return { ...prev, variants: updatedVariants }
         })
@@ -376,10 +415,27 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     // Remove from form state
     setForm((prev) => {
       const updatedVariants = [...prev.variants]
+      const currentPrimary = updatedVariants[variantIndex].primaryImageIndex ?? 0
+      let nextFiles = updatedVariants[variantIndex].imageFiles
+      let nextFilePreviews = updatedVariants[variantIndex].imageFilePreviews
+      if (preview && !preview.startsWith("http")) {
+        const fileIdx = nextFilePreviews.indexOf(preview)
+        if (fileIdx >= 0) {
+          nextFiles = nextFiles.filter((_, i) => i !== fileIdx)
+          nextFilePreviews = nextFilePreviews.filter((_, i) => i !== fileIdx)
+        }
+      }
+      const nextPreviews = updatedVariants[variantIndex].imagePreviews.filter((_, i) => i !== imageIndex)
+      let nextPrimary = currentPrimary
+      if (imageIndex === currentPrimary) nextPrimary = 0
+      else if (imageIndex < currentPrimary) nextPrimary = Math.max(0, currentPrimary - 1)
+      if (nextPreviews.length === 0) nextPrimary = 0
       updatedVariants[variantIndex] = {
         ...updatedVariants[variantIndex],
-        imageFiles: updatedVariants[variantIndex].imageFiles.filter((_, i) => i !== imageIndex),
-        imagePreviews: updatedVariants[variantIndex].imagePreviews.filter((_, i) => i !== imageIndex),
+        imageFiles: nextFiles,
+        imageFilePreviews: nextFilePreviews,
+        imagePreviews: nextPreviews,
+        primaryImageIndex: nextPrimary,
       }
       return { ...prev, variants: updatedVariants }
     })
@@ -405,18 +461,34 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       // Validate that at least one variant is provided
       if (form.variants.length === 0) {
         toast.error("At least one variant is required", {
-          description: "Please add at least one product variant (e.g., 10mg, 20mg, 60mg).",
+          description: "Please add at least one product variant.",
         })
         setSubmitting(false)
         return
       }
 
+      // Normalize default variant (exactly one)
+      const defaultCount = form.variants.filter((v) => !!v.isDefault).length
+      const variantsNormalized =
+        defaultCount === 1
+          ? form.variants
+          : form.variants.map((v, i) => ({ ...v, isDefault: i === 0 }))
+
+      // Convert specifications to object
+      const specifications: Record<string, string | number> = {}
+      form.specifications.forEach((spec) => {
+        if (spec.key.trim() && spec.value.trim()) {
+          const numValue = Number(spec.value)
+          specifications[spec.key.trim()] = isNaN(numValue) ? spec.value.trim() : numValue
+        }
+      })
+
       // Validate all variants have required fields
-      for (let i = 0; i < form.variants.length; i++) {
-        const variant = form.variants[i]
-        if (!variant.name.trim()) {
-          toast.error(`Variant ${i + 1} name is required`, {
-            description: "Please provide a name for all variants (e.g., 10mg, 20mg).",
+      for (let i = 0; i < variantsNormalized.length; i++) {
+        const variant = variantsNormalized[i]
+        if (!variant.sku.trim()) {
+          toast.error(`Variant ${i + 1} SKU is required`, {
+            description: "Please provide a SKU for all variants.",
           })
           setSubmitting(false)
           return
@@ -430,53 +502,20 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         }
       }
 
-      // Upload images first
-      const imageUrls: string[] = []
-      for (const file of form.images) {
-        const formData = new FormData()
-        formData.append("file", file)
-        if (productId) {
-          formData.append("productId", productId)
-        }
-
-        const uploadResponse = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (uploadResponse.ok) {
-          const uploadData = await uploadResponse.json()
-          imageUrls.push(uploadData.url)
-        }
-      }
-
-      // Combine uploaded images with existing previews (URLs)
-      const allImages = [
-        ...form.imagePreviews.filter((preview) => preview.startsWith("http")),
-        ...imageUrls,
-      ]
-
-      // Convert specifications to object
-      const specifications: Record<string, string | number> = {}
-      form.specifications.forEach((spec) => {
-        if (spec.key.trim() && spec.value.trim()) {
-          const numValue = Number(spec.value)
-          specifications[spec.key.trim()] = isNaN(numValue) ? spec.value.trim() : numValue
-        }
-      })
-
       // Calculate overall stock status from variants
-      const hasInStockVariant = form.variants.some(v => parseInt(v.stock) > 0)
-      const totalStock = form.variants.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0)
+      const hasInStockVariant = variantsNormalized.some((v) => parseInt(v.stock) > 0)
+      const totalStock = variantsNormalized.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0)
+      const defaultVariant = variantsNormalized.find((v) => v.isDefault) || variantsNormalized[0]
 
       const productData = {
         name: form.name,
-        price: form.variants.length > 0 ? parseFloat(form.variants[0].price) : 0, // Use first variant price for backward compatibility
+        price: defaultVariant ? parseFloat(defaultVariant.price) : 0, // Backward compatibility
         // description: form.description, // DISABLED
         description: "", // DISABLED - keeping empty string for API compatibility
         longDescription: form.longDescription,
-        image: allImages[0] || "",
-        images: allImages,
+        thumbnailUrl: !form.thumbnailFile && form.thumbnailPreview?.startsWith("http") ? form.thumbnailPreview : undefined,
+        image: "", // legacy
+        images: [], // legacy
         categoryId: form.categoryId || undefined,
         inStock: form.status === "Active" && hasInStockVariant,
         stockQuantity: totalStock,
@@ -497,13 +536,49 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       if (response.ok) {
         const result = await response.json()
         const savedProductId = result.product?.id || productId
+        if (!savedProductId) {
+          throw new Error("Failed to determine saved product id")
+        }
+
+        // Upload/replace thumbnail if provided
+        if (form.thumbnailFile) {
+          // Best-effort delete existing thumbnail if it was a storage URL
+          if (form.thumbnailPreview && isStorageUrl(form.thumbnailPreview)) {
+            try {
+              await fetch("/api/upload/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: form.thumbnailPreview }),
+              })
+            } catch {
+              // ignore
+            }
+          }
+
+          const thumbFd = new FormData()
+          thumbFd.append("file", form.thumbnailFile)
+          thumbFd.append("productId", savedProductId)
+          thumbFd.append("kind", "thumbnail")
+
+          const uploadRes = await fetch("/api/upload", { method: "POST", body: thumbFd })
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json()
+            await fetch(`/api/products/${savedProductId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ thumbnailUrl: uploadData.url, image: uploadData.url }),
+            })
+          }
+        }
 
         // Save variants if any exist
-        if (form.variants.length > 0 && savedProductId) {
+        if (variantsNormalized.length > 0 && savedProductId) {
           try {
-            // Delete existing variants that are not in the form
-            const existingVariants = result.product?.variants || []
-            const variantIdsToKeep = form.variants
+            // Fetch current variants from API (don't rely on product payload)
+            const existingRes = await fetch(`/api/products/${savedProductId}/variants`, { cache: "no-store" })
+            const existingJson = existingRes.ok ? await existingRes.json() : { variants: [] }
+            const existingVariants = existingJson.variants || []
+            const variantIdsToKeep = variantsNormalized
               .map((v) => v.id)
               .filter((id): id is string => !!id)
             
@@ -516,40 +591,16 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
             }
 
             // Create/update variants
-            for (const variant of form.variants) {
-              // Upload variant images first
-              const variantImageUrls: string[] = []
-              for (const file of variant.imageFiles) {
-                const formData = new FormData()
-                formData.append("file", file)
-                formData.append("productId", savedProductId)
-
-                const uploadResponse = await fetch("/api/upload", {
-                  method: "POST",
-                  body: formData,
-                })
-
-                if (uploadResponse.ok) {
-                  const uploadData = await uploadResponse.json()
-                  variantImageUrls.push(uploadData.url)
-                }
-              }
-
-              // Combine uploaded images with existing previews (URLs)
-              const allVariantImages = [
-                ...variant.imagePreviews.filter((preview) => preview.startsWith("http")),
-                ...variantImageUrls,
-              ]
-
+            for (const [idx, variant] of variantsNormalized.entries()) {
               const variantData = {
-                name: variant.name,
+                sku: variant.sku,
                 price: parseFloat(variant.price),
-                stockQuantity: parseInt(variant.stock) || 0,
-                image: allVariantImages[0] || variant.image || undefined,
-                images: allVariantImages.length > 0 ? allVariantImages : variant.images || undefined,
-                displayOrder: variant.displayOrder,
+                stock: parseInt(variant.stock) || 0,
+                isDefault: !!variant.isDefault,
+                displayOrder: idx,
               }
 
+              let savedVariantId = variant.id
               if (variant.id) {
                 // Update existing variant
                 await fetch(`/api/products/${savedProductId}/variants/${variant.id}`, {
@@ -559,12 +610,71 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 })
               } else {
                 // Create new variant
-                await fetch(`/api/products/${savedProductId}/variants`, {
+                const createRes = await fetch(`/api/products/${savedProductId}/variants`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(variantData),
                 })
+                if (createRes.ok) {
+                  const created = await createRes.json()
+                  savedVariantId = created.variant?.id
+                }
               }
+
+              if (!savedVariantId) {
+                throw new Error("Failed to save variant")
+              }
+
+              // Upload new images (preserve ordering using preview->uploadedUrl mapping)
+              const uploadedByPreview: Record<string, string> = {}
+              for (let fIdx = 0; fIdx < variant.imageFiles.length; fIdx++) {
+                const file = variant.imageFiles[fIdx]
+                const preview = variant.imageFilePreviews[fIdx]
+
+                const fd = new FormData()
+                fd.append("file", file)
+                fd.append("productId", savedProductId)
+                fd.append("variantId", savedVariantId)
+                fd.append("kind", "variant")
+
+                const up = await fetch("/api/upload", { method: "POST", body: fd })
+                if (up.ok) {
+                  const upData = await up.json()
+                  uploadedByPreview[preview] = upData.url
+                }
+              }
+
+              const finalUrls = variant.imagePreviews
+                .map((p) => (p.startsWith("http") ? p : uploadedByPreview[p]))
+                .filter(Boolean) as string[]
+
+              const primaryIndex = Math.min(
+                Math.max(0, variant.primaryImageIndex || 0),
+                Math.max(0, finalUrls.length - 1)
+              )
+
+              // If there are no URLs to persist and no new files were uploaded,
+              // skip the image sync to avoid wiping existing images unintentionally.
+              if (finalUrls.length === 0 && variant.imageFiles.length === 0) {
+                continue
+              }
+
+              await fetch(`/api/products/${savedProductId}/variants/${savedVariantId}/images`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  images: finalUrls.map((url, i) => ({
+                    imageUrl: url,
+                    isPrimary: i === primaryIndex,
+                    sortOrder: i,
+                  })),
+                }),
+              })
+            }
+
+            // If no explicit thumbnail was provided, derive from default variant primary image.
+            if (!form.thumbnailFile && (!form.thumbnailPreview || form.thumbnailPreview.trim() === "")) {
+              await fetch(`/api/products/${savedProductId}/sync-thumbnail`, { method: "POST" })
             }
           } catch (variantError) {
             console.error("Error saving variants:", variantError)
@@ -685,10 +795,10 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">
                           <FormInput
-                            label="Variant Name"
-                            placeholder="e.g., 10mg"
-                            value={variant.name}
-                            onChange={(e) => updateVariant(index, "name", e.target.value)}
+                            label="Variant SKU"
+                            placeholder="e.g., 10MG"
+                            value={variant.sku}
+                            onChange={(e) => updateVariant(index, "sku", e.target.value)}
                             required
                           />
                           <FormInput
@@ -715,14 +825,62 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                         {/* Variant Images */}
                         <div className="space-y-2">
                           <label className="text-xs font-medium text-muted-foreground">
-                            Variant Images (Optional)
+                            Variant Images <span className="text-destructive">*</span>
                           </label>
                           {variant.imagePreviews.length > 0 && (
                             <div className="grid grid-cols-3 gap-2">
                               {variant.imagePreviews.map((preview, imgIndex) => (
                                 <div
                                   key={imgIndex}
-                                  className="relative aspect-square overflow-hidden rounded-lg bg-muted"
+                                  className="relative aspect-square overflow-hidden rounded-lg bg-muted cursor-move"
+                                  draggable
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.setData("text/plain", imgIndex.toString())
+                                  }}
+                                  onDragOver={(e) => {
+                                    e.preventDefault()
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault()
+                                    const fromIndex = parseInt(
+                                      e.dataTransfer.getData("text/plain") || "-1",
+                                      10
+                                    )
+                                    if (!Number.isNaN(fromIndex) && fromIndex !== imgIndex) {
+                                      setForm((prev) => {
+                                        const variants = [...prev.variants]
+                                        const v = variants[index]
+                                        const nextPreviews = [...v.imagePreviews]
+                                        const [moved] = nextPreviews.splice(fromIndex, 1)
+                                        nextPreviews.splice(imgIndex, 0, moved)
+
+                                        let nextPrimary = v.primaryImageIndex ?? 0
+                                        if (fromIndex === nextPrimary) {
+                                          nextPrimary = imgIndex
+                                        } else if (
+                                          fromIndex < nextPrimary &&
+                                          imgIndex >= nextPrimary
+                                        ) {
+                                          nextPrimary = Math.max(0, nextPrimary - 1)
+                                        } else if (
+                                          fromIndex > nextPrimary &&
+                                          imgIndex <= nextPrimary
+                                        ) {
+                                          nextPrimary = Math.min(
+                                            nextPreviews.length - 1,
+                                            nextPrimary + 1
+                                          )
+                                        }
+
+                                        variants[index] = {
+                                          ...v,
+                                          imagePreviews: nextPreviews,
+                                          primaryImageIndex: nextPrimary,
+                                        }
+                                        return { ...prev, variants }
+                                      })
+                                    }
+                                  }}
                                 >
                                   <Image
                                     src={preview}
@@ -739,6 +897,27 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                                     aria-label="Remove image"
                                   >
                                     <X className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setForm((prev) => {
+                                        const variants = [...prev.variants]
+                                        variants[index] = {
+                                          ...variants[index],
+                                          primaryImageIndex: imgIndex,
+                                        }
+                                        return { ...prev, variants }
+                                      })
+                                    }
+                                    className={cn(
+                                      "absolute left-1 bottom-1 rounded-full px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm",
+                                      variant.primaryImageIndex === imgIndex
+                                        ? "bg-brand-primary text-white"
+                                        : "bg-background/90 text-muted-foreground hover:bg-accent"
+                                    )}
+                                  >
+                                    {variant.primaryImageIndex === imgIndex ? "Primary" : "Make primary"}
                                   </button>
                                 </div>
                               ))}
@@ -880,35 +1059,28 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
 
         {/* ====== Right column – Image & Status ====== */}
         <div className="flex flex-col gap-6">
-          {/* Images upload card */}
-          <AdminCard title="Product Images">
+          {/* Thumbnail upload card */}
+          <AdminCard title="Product Thumbnail">
             <div className="space-y-4">
-              {/* Image gallery */}
-              {form.imagePreviews.length > 0 && (
-                <div className="grid grid-cols-2 gap-3">
-                  {form.imagePreviews.map((preview, index) => (
-                    <div
-                      key={index}
-                      className="relative aspect-square overflow-hidden rounded-xl bg-muted"
-                    >
-                      <Image
-                        src={preview}
-                        alt={`Product image ${index + 1}`}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 1024px) 50vw, 16vw"
-                        unoptimized={preview.startsWith("http")}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-background/90 text-foreground backdrop-blur-sm transition-colors hover:bg-accent"
-                        aria-label="Remove image"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
+              {/* Thumbnail preview */}
+              {form.thumbnailPreview && (
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-muted">
+                  <Image
+                    src={form.thumbnailPreview}
+                    alt="Product thumbnail"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 50vw, 16vw"
+                    unoptimized={form.thumbnailPreview.startsWith("http")}
+                  />
+                  <button
+                    type="button"
+                    onClick={clearThumbnail}
+                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-background/90 text-foreground backdrop-blur-sm transition-colors hover:bg-accent"
+                    aria-label="Remove thumbnail"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
 
@@ -918,7 +1090,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => thumbnailInputRef.current?.click()}
                 className={cn(
                   "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-all duration-200",
                   dragActive
@@ -927,11 +1099,11 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 )}
                 role="button"
                 tabIndex={0}
-                aria-label="Upload product images"
+                aria-label="Upload product thumbnail"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault()
-                    fileInputRef.current?.click()
+                    thumbnailInputRef.current?.click()
                   }
                 }}
               >
@@ -944,21 +1116,20 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {dragActive ? "Drop images here" : "Click or drag to upload"}
+                    {dragActive ? "Drop image here" : "Click or drag to upload"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    PNG, JPG up to 5MB each
+                    PNG, JPG up to 5MB
                   </p>
                 </div>
               </div>
               <input
-                ref={fileInputRef}
+                ref={thumbnailInputRef}
                 type="file"
                 accept="image/*"
-                multiple
                 onChange={handleFileChange}
                 className="sr-only"
-                aria-label="Choose image files"
+                aria-label="Choose thumbnail image"
               />
             </div>
           </AdminCard>

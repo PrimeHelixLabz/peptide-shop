@@ -32,20 +32,42 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const defaultVariant = variants.length > 0 ? variants[0] : null
   const [selectedVariant, setSelectedVariant] = useState<typeof defaultVariant>(defaultVariant)
 
-  // Get images based on selected variant or product default
-  const getVariantImages = () => {
-    if (selectedVariant?.images && selectedVariant.images.length > 0) {
-      return selectedVariant.images
-    }
-    if (selectedVariant?.image) {
-      return [selectedVariant.image]
-    }
-    return product.images && product.images.length > 0 
-      ? product.images 
-      : (product.image ? [product.image] : [])
-  }
+  // Images are stored per-variant in variant_images table.
+  // For the detail view we fetch images when the selected variant changes.
+  const [variantImages, setVariantImages] = useState<string[]>([])
 
-  const images = getVariantImages()
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadVariantImages(variantId: string) {
+      try {
+        const res = await fetch(`/api/variants/${variantId}/images`, { cache: "no-store" })
+        if (!res.ok) throw new Error("Failed to load variant images")
+        const data = await res.json()
+        const urls: string[] = (data.images || []).map((img: any) => img.imageUrl).filter(Boolean)
+        if (!cancelled) setVariantImages(urls)
+      } catch {
+        if (!cancelled) setVariantImages([])
+      }
+    }
+
+    if (selectedVariant?.id) {
+      loadVariantImages(selectedVariant.id)
+    } else {
+      setVariantImages([])
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedVariant?.id])
+
+  const images =
+    variantImages.length > 0
+      ? variantImages
+      : (product.images && product.images.length > 0
+          ? product.images
+          : (product.image ? [product.image] : []))
   const currentImage = images[selectedImageIndex]
 
   // Reset image index when variant changes
@@ -318,9 +340,9 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
                         ? "bg-gray-100 text-foreground hover:bg-gray-200"
                         : "bg-gray-50 text-muted-foreground opacity-50 cursor-not-allowed"
                     }`}
-                    aria-label={`Select ${variant.name} strength`}
+                    aria-label={`Select ${variant.sku} strength`}
                   >
-                    {variant.name}
+                    {variant.sku}
                     {!variant.inStock && " (Out of Stock)"}
                   </button>
                 ))}

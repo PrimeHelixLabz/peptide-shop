@@ -114,7 +114,7 @@ export const POST = optionalAuthMiddleware(async (req) => {
         }
         displayPrice = variant.price
         displayImage = variant.images?.[0] || variant.image || displayImage
-        displayName = `${product.name} (${variant.name})`
+        displayName = `${product.name} (${variant.sku})`
         inStock = variant.inStock
         stockQuantity = variant.stockQuantity
       }
@@ -136,7 +136,7 @@ export const POST = optionalAuthMiddleware(async (req) => {
         price: displayPrice,
         quantity: cartItem.quantity,
         variantId: variant?.id,
-        variantName: variant?.name,
+        variantName: variant?.sku,
         specifications: product.specifications,
       })
     }

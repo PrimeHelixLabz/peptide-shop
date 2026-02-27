@@ -16,6 +16,7 @@ export interface Product {
   name: string
   price: number
   description: string
+  thumbnailUrl?: string
   image: string // Keep for backward compatibility, will use first image from images if available
   images?: string[] // Array of image URLs
   category?: string
@@ -26,8 +27,9 @@ export interface Product {
     name: string
     price: number
     inStock: boolean
-    image?: string
-    images?: string[]
+    sku?: string
+    image?: string // legacy
+    images?: string[] // legacy
   }> // Product variants
 }
 
@@ -60,12 +62,12 @@ export function ProductCard({ product }: { product: Product }) {
         {/* Image */}
         <div className="relative aspect-square overflow-hidden rounded-2xl bg-gray-100">
           <Image
-            src={getProductImageUrl(product.image, product.images)}
+            src={product.thumbnailUrl || getProductImageUrl(product.image, product.images)}
             alt={`${product.name} peptide vial`}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            unoptimized={getProductImageUrl(product.image, product.images).includes("supabase")}
+            unoptimized={(product.thumbnailUrl || getProductImageUrl(product.image, product.images)).includes("supabase")}
           />
           {!product.inStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-2xl">

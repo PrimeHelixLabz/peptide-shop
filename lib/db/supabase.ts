@@ -13,6 +13,7 @@ import type {
   User,
   Product,
   ProductVariant,
+  VariantImage,
   CartItem,
   WishlistItem,
   Order,
@@ -24,21 +25,16 @@ import { extractStoragePath, getStorageUrl, getStorageUrls } from "@/lib/storage
 
 // Helper to convert database row to ProductVariant
 function rowToVariant(row: any): ProductVariant {
-  const image = row.image ? getStorageUrl(row.image) : undefined
-  const images = row.images && Array.isArray(row.images) && row.images.length > 0
-    ? getStorageUrls(row.images)
-    : undefined
-
   return {
     id: row.id,
     productId: row.product_id,
-    name: row.name,
+    // Prefer sku; fall back to legacy name or id for truly old rows
+    sku: row.sku || row.name || row.id,
     price: parseFloat(row.price),
-    stockQuantity: row.stock_quantity,
-    inStock: row.in_stock,
-    image,
-    images,
+    stock: row.stock ?? row.stock_quantity ?? 0,
+    inStock: (row.stock ?? row.stock_quantity ?? 0) > 0 ? true : (row.in_stock ?? false),
     displayOrder: row.display_order || 0,
+    isDefault: row.is_default ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -51,52 +47,37 @@ function rowToProduct(row: any): Product {
   const images = row.images && Array.isArray(row.images) 
     ? getStorageUrls(row.images) 
     : (row.images ? [getStorageUrl(row.images)] : [])
+  const thumbnailUrl = row.thumbnail_url ? getStorageUrl(row.thumbnail_url) : undefined
 
   // Process variants if they exist
   let variants: ProductVariant[] | undefined
   if (row.variants && Array.isArray(row.variants)) {
-    variants = row.variants.map((v: any) => rowToVariant(v))
+    const mapped = row.variants.map((v: any) => rowToVariant(v))
     // Sort variants by display_order
-    variants.sort((a, b) => a.displayOrder - b.displayOrder)
+    variants = mapped.sort((a: ProductVariant, b: ProductVariant) => a.displayOrder - b.displayOrder)
   }
 
   // Calculate overall stock status: true if product is in stock OR any variant is in stock
-  const hasVariants = variants && variants.length > 0
+  const hasVariants = !!variants && variants.length > 0
   const overallInStock = hasVariants
-    ? variants.some(v => v.inStock)
+    ? variants!.some(v => v.inStock)
     : row.in_stock
 
   // Calculate total stock quantity: sum of variant stocks or product stock
   const overallStockQuantity = hasVariants
-    ? variants.reduce((sum, v) => sum + v.stockQuantity, 0)
+    ? variants!.reduce((sum, v) => sum + v.stock, 0)
     : row.stock_quantity
 
   // Use variant price/image if variants exist and first variant is selected
-  const displayPrice = hasVariants && variants.length > 0 ? variants[0].price : parseFloat(row.price)
+  const displayPrice =
+    hasVariants && variants && variants.length > 0
+      ? variants[0]!.price
+      : parseFloat(row.price)
   
-  // Image priority: product image > first variant image > first variant's first image
-  let displayImage = image
-  let displayImages = images.length > 0 ? images : (image ? [image] : [])
-  
-  if (hasVariants && variants.length > 0) {
-    // If product has no image, use first variant's image as placeholder
-    if (!displayImage || displayImage === "") {
-      const firstVariant = variants[0]
-      if (firstVariant.images && firstVariant.images.length > 0) {
-        displayImage = firstVariant.images[0]
-        displayImages = firstVariant.images
-      } else if (firstVariant.image) {
-        displayImage = firstVariant.image
-        displayImages = [firstVariant.image]
-      }
-    }
-    // If product has image but variant has images, prefer variant images for display
-    else if (variants[0].images && variants[0].images.length > 0) {
-      displayImages = variants[0].images
-    } else if (variants[0].image) {
-      displayImages = [variants[0].image]
-    }
-  }
+  // Listing image should come from products.thumbnail_url.
+  // For backward compatibility, fall back to legacy product image fields.
+  const displayImage = thumbnailUrl || image
+  const displayImages = thumbnailUrl ? [thumbnailUrl] : (images.length > 0 ? images : (image ? [image] : []))
 
   return {
     id: row.id,
@@ -105,6 +86,7 @@ function rowToProduct(row: any): Product {
     price: displayPrice, // Use first variant price if variants exist, otherwise base price
     description: row.description,
     longDescription: row.long_description,
+    thumbnailUrl,
     image: displayImage, // Use product image, or first variant image as placeholder
     images: displayImages,
     // Support both old category (text) and new category_id (with join)
@@ -131,6 +113,10 @@ function productToRow(product: Partial<Product>): any {
   const images = product.images 
     ? product.images.map(img => extractStoragePath(img) || img)
     : []
+  const thumbnail_url =
+    product.thumbnailUrl !== undefined
+      ? (product.thumbnailUrl ? (extractStoragePath(product.thumbnailUrl) || product.thumbnailUrl) : null)
+      : undefined
   
   const row: any = {
     name: product.name,
@@ -139,14 +125,21 @@ function productToRow(product: Partial<Product>): any {
     long_description: product.longDescription,
     image,
     images: images.length > 0 ? images : (image ? [image] : []),
+    ...(thumbnail_url !== undefined ? { thumbnail_url } : {}),
     category: product.category, // Keep for backward compatibility
     category_id: product.categoryId, // New category reference
     in_stock: product.inStock,
     stock_quantity: product.stockQuantity,
-    specifications: product.specifications || {},
     usage: product.usage,
     shipping: product.shipping,
     created_by: product.createdBy,
+  }
+
+  // Only include specifications when explicitly provided.
+  // This prevents partial updates from wiping existing specs (e.g. purity)
+  // when the client omits the field.
+  if (product.specifications !== undefined) {
+    row.specifications = product.specifications
   }
   
   // Only include slug if explicitly provided (otherwise trigger will generate it)
@@ -265,9 +258,6 @@ export async function getProducts(options?: {
         id,
         name,
         slug
-      ),
-      variants:product_variants (
-        *
       )
     `)
   
@@ -509,22 +499,20 @@ export async function createVariant(
   variant: Omit<ProductVariant, "id" | "createdAt" | "updatedAt">
 ): Promise<ProductVariant> {
   const supabase = await createClient()
-  
-  const image = variant.image ? (extractStoragePath(variant.image) || variant.image) : null
-  const images = variant.images 
-    ? variant.images.map(img => extractStoragePath(img) || img)
-    : []
 
   const { data, error } = await supabase
     .from("product_variants")
     .insert({
       product_id: variant.productId,
-      name: variant.name,
+      // Keep legacy name column populated for now to satisfy NOT NULL + uniqueness,
+      // but all application logic should use sku instead.
+      name: variant.sku,
+      sku: variant.sku,
       price: variant.price,
-      stock_quantity: variant.stockQuantity,
-      in_stock: variant.inStock,
-      image,
-      images: images.length > 0 ? images : null,
+      stock: variant.stock,
+      stock_quantity: variant.stock, // legacy
+      in_stock: variant.stock > 0,
+      is_default: variant.isDefault,
       display_order: variant.displayOrder,
     })
     .select()
@@ -541,20 +529,15 @@ export async function updateVariant(
   const supabase = await createClient()
   
   const updateData: any = {}
-  if (updates.name !== undefined) updateData.name = updates.name
+  if (updates.sku !== undefined) updateData.sku = updates.sku
   if (updates.price !== undefined) updateData.price = updates.price
-  if (updates.stockQuantity !== undefined) updateData.stock_quantity = updates.stockQuantity
-  if (updates.inStock !== undefined) updateData.in_stock = updates.inStock
+  if (updates.stock !== undefined) {
+    updateData.stock = updates.stock
+    updateData.stock_quantity = updates.stock // legacy
+    updateData.in_stock = updates.stock > 0
+  }
+  if (updates.isDefault !== undefined) updateData.is_default = updates.isDefault
   if (updates.displayOrder !== undefined) updateData.display_order = updates.displayOrder
-  
-  if (updates.image !== undefined) {
-    updateData.image = updates.image ? (extractStoragePath(updates.image) || updates.image) : null
-  }
-  if (updates.images !== undefined) {
-    updateData.images = updates.images.length > 0
-      ? updates.images.map(img => extractStoragePath(img) || img)
-      : null
-  }
 
   const { data, error } = await supabase
     .from("product_variants")
@@ -575,6 +558,123 @@ export async function deleteVariant(id: string): Promise<boolean> {
     .eq("id", id)
 
   return !error
+}
+
+/**
+ * Ensure exactly one default variant for a product.
+ * If no default exists, picks the first by display_order/created_at.
+ */
+export async function ensureDefaultVariant(productId: string): Promise<string | null> {
+  const supabase = await createClient()
+
+  const { data: existingDefault } = await supabase
+    .from("product_variants")
+    .select("id")
+    .eq("product_id", productId)
+    .eq("is_default", true)
+    .maybeSingle()
+
+  if (existingDefault?.id) return existingDefault.id
+
+  const { data: firstVariant, error } = await supabase
+    .from("product_variants")
+    .select("id")
+    .eq("product_id", productId)
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !firstVariant?.id) return null
+
+  await supabase
+    .from("product_variants")
+    .update({ is_default: true })
+    .eq("id", firstVariant.id)
+
+  return firstVariant.id
+}
+
+/**
+ * Set a product's default variant and (optionally) sync product thumbnail to the new default's primary image.
+ * Note: This intentionally clears other defaults first to satisfy the partial unique index.
+ */
+export async function setDefaultVariant(
+  productId: string,
+  variantId: string,
+  options?: { syncThumbnail?: boolean }
+): Promise<void> {
+  const supabase = await createClient()
+
+  // Clear all defaults for the product first (prevents unique index conflict)
+  const { error: clearError } = await supabase
+    .from("product_variants")
+    .update({ is_default: false })
+    .eq("product_id", productId)
+
+  if (clearError) throw clearError
+
+  const { error: setError } = await supabase
+    .from("product_variants")
+    .update({ is_default: true })
+    .eq("id", variantId)
+    .eq("product_id", productId)
+
+  if (setError) throw setError
+
+  if (options?.syncThumbnail ?? true) {
+    await syncProductThumbnailToDefaultVariant(productId, { force: true })
+  }
+}
+
+/**
+ * Sync products.thumbnail_url from the primary image of the default variant.
+ */
+export async function syncProductThumbnailToDefaultVariant(
+  productId: string,
+  options?: { force?: boolean }
+): Promise<void> {
+  const supabase = await createClient()
+
+  // If not forcing, only fill if thumbnail_url is blank.
+  if (!options?.force) {
+    const { data: product } = await supabase
+      .from("products")
+      .select("thumbnail_url")
+      .eq("id", productId)
+      .single()
+
+    const cur = product?.thumbnail_url as string | null | undefined
+    if (cur && cur.trim() !== "") return
+  }
+
+  const { data: def } = await supabase
+    .from("product_variants")
+    .select("id")
+    .eq("product_id", productId)
+    .eq("is_default", true)
+    .maybeSingle()
+
+  const defaultVariantId = def?.id || (await ensureDefaultVariant(productId))
+  if (!defaultVariantId) return
+
+  const { data: img } = await supabase
+    .from("variant_images")
+    .select("image_url")
+    .eq("variant_id", defaultVariantId)
+    .order("is_primary", { ascending: false })
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  const imageUrl = img?.image_url as string | null | undefined
+  if (!imageUrl || imageUrl.trim() === "") return
+
+  await supabase
+    .from("products")
+    .update({ thumbnail_url: imageUrl })
+    .eq("id", productId)
 }
 
 // Cart

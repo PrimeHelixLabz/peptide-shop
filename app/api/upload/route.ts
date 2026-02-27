@@ -10,6 +10,8 @@ export const POST = requireAuthMiddleware(async (req) => {
     const formData = await req.formData()
     const file = formData.get("file") as File
     const productId = formData.get("productId") as string | null
+    const variantId = formData.get("variantId") as string | null
+    const kind = (formData.get("kind") as string | null) || null
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -37,9 +39,17 @@ export const POST = requireAuthMiddleware(async (req) => {
     const extension = file.name.split(".").pop()
     const filename = `${timestamp}-${randomString}.${extension}`
 
-    // If productId is provided, store in product directory, otherwise use temp directory
-    // For new products, productId will be generated after creation, so we use temp first
-    const directory = productId || "temp"
+    // If productId is provided, store under that product directory. Otherwise, use temp.
+    // Supports sub-arch paths for thumbnails and variant images.
+    const baseDir = productId || "temp"
+    const subDir =
+      productId && kind === "thumbnail"
+        ? "thumbnail"
+        : productId && kind === "variant" && variantId
+          ? `variants/${variantId}`
+          : ""
+
+    const directory = subDir ? `${baseDir}/${subDir}` : baseDir
     const filepath = `${directory}/${filename}`
 
     // Upload to Supabase Storage
