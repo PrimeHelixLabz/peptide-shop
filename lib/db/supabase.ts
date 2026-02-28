@@ -49,6 +49,7 @@ function rowToProduct(row: any): Product {
     ? getStorageUrls(row.images) 
     : (row.images ? [getStorageUrl(row.images)] : [])
   const thumbnailUrl = row.thumbnail_url ? getStorageUrl(row.thumbnail_url) : undefined
+  const coaUrl = row.coa_url ? getStorageUrl(row.coa_url) : undefined
 
   // Process variants if they exist
   let variants: ProductVariant[] | undefined
@@ -89,6 +90,7 @@ function rowToProduct(row: any): Product {
     description: row.description,
     longDescription: row.long_description,
     thumbnailUrl,
+    coaUrl,
     image: displayImage, // Use product image, or first variant image as placeholder
     images: displayImages,
     // Support both old category (text) and new category_id (with join)
@@ -119,6 +121,10 @@ function productToRow(product: Partial<Product>): any {
     product.thumbnailUrl !== undefined
       ? (product.thumbnailUrl ? (extractStoragePath(product.thumbnailUrl) || product.thumbnailUrl) : null)
       : undefined
+  const coa_url =
+    product.coaUrl !== undefined
+      ? (product.coaUrl ? (extractStoragePath(product.coaUrl) || product.coaUrl) : null)
+      : undefined
   
   const row: any = {
     name: product.name,
@@ -128,6 +134,7 @@ function productToRow(product: Partial<Product>): any {
     image,
     images: images.length > 0 ? images : (image ? [image] : []),
     ...(thumbnail_url !== undefined ? { thumbnail_url } : {}),
+    ...(coa_url !== undefined ? { coa_url } : {}),
     category: product.category, // Keep for backward compatibility
     category_id: product.categoryId, // New category reference
     in_stock: product.inStock,

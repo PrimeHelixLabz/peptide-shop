@@ -17,6 +17,8 @@ export interface Product {
   price: number
   description: string
   thumbnailUrl?: string
+  // Optional Certificate of Analysis image URL (for detail COA tab)
+  coaUrl?: string
   image: string // Keep for backward compatibility, will use first image from images if available
   images?: string[] // Array of image URLs
   category?: string

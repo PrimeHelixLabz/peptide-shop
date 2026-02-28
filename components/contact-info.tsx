@@ -9,13 +9,6 @@ const contactDetails = [
     description: "For general inquiries, order questions, and technical support.",
   },
   {
-    icon: Phone,
-    label: "Phone",
-    value: "+1 (800) 555-0192",
-    href: "tel:+18005550192",
-    description: "Available during business hours for urgent order issues.",
-  },
-  {
     icon: Clock,
     label: "Business Hours",
     value: "Mon \u2013 Fri, 9:00 AM \u2013 5:00 PM EST",
@@ -24,7 +17,7 @@ const contactDetails = [
   {
     icon: MapPin,
     label: "Headquarters",
-    value: "Tampa, FL \u2014 United States",
+    value: "Peoria AZ, United States",
     description: "All orders ship from our climate-controlled facility.",
   },
 ]

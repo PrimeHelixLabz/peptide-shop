@@ -4,7 +4,8 @@
  * Helper functions for working with Supabase Storage
  */
 
-const STORAGE_BUCKET = "products"
+const PRODUCTS_BUCKET = "products"
+const AVATARS_BUCKET = "avatars"
 
 /**
  * Get the public URL for a file in Supabase Storage
@@ -26,9 +27,13 @@ export function getStorageUrl(filePath: string): string {
     return filePath
   }
 
+  // Choose bucket based on path prefix:
+  // - Product images live in the "products" bucket
+  // - Avatars live in the "avatars" bucket and use an "avatars/" path prefix
+  const bucket = cleanPath.startsWith("avatars/") ? AVATARS_BUCKET : PRODUCTS_BUCKET
+
   // Supabase Storage public URL format: {supabaseUrl}/storage/v1/object/public/{bucket}/{path}
-  // Avatars are stored in products bucket under avatars/ directory
-  return `${supabaseUrl}/storage/v1/object/public/${STORAGE_BUCKET}/${cleanPath}`
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${cleanPath}`
 }
 
 /**
@@ -44,7 +49,8 @@ export function getStorageUrls(filePaths: string[]): string[] {
 export function extractStoragePath(url: string): string | null {
   try {
     const urlObj = new URL(url)
-    const match = urlObj.pathname.match(/\/storage\/v1\/object\/public\/products\/(.+)/)
+    // Support both products and avatars buckets; always return the path portion.
+    const match = urlObj.pathname.match(/\/storage\/v1\/object\/public\/(?:products|avatars)\/(.+)/)
     return match ? match[1] : null
   } catch {
     return null

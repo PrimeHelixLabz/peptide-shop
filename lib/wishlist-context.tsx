@@ -17,8 +17,6 @@ interface WishlistContextValue {
 
 const WishlistContext = createContext<WishlistContextValue | undefined>(undefined)
 
-const WISHLIST_STORAGE_KEY = "elysian_wishlist"
-
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,22 +28,12 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   // Check if we're on an admin page
   const isAdminPage = pathname?.startsWith("/admin") ?? false
 
-  // Load wishlist from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(WISHLIST_STORAGE_KEY)
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored)
-        setItems(parsed)
-      } catch (error) {
-        console.error("Error loading wishlist from localStorage:", error)
-      }
-    }
-    setLoading(false)
-  }, [])
-
   const syncWishlistFromDatabase = useCallback(async () => {
-    if (!user || isAdminPage) return
+    if (!user || isAdminPage) {
+      setItems([])
+      setLoading(false)
+      return
+    }
 
     try {
       const response = await fetch("/api/wishlist")
@@ -53,46 +41,20 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json()
         const dbItems = data.items || []
 
-        // Get current localStorage items
-        const stored = localStorage.getItem(WISHLIST_STORAGE_KEY)
-        const localItems: Product[] = stored ? JSON.parse(stored) : []
+        // Convert database items to products
+        const products: Product[] = dbItems
+          .filter((item: any) => item.product) // Only include items with valid products
+          .map((item: any) => item.product)
 
-        // Merge database wishlist with localStorage wishlist
-        const mergedItems: Product[] = []
-        const processedIds = new Set<string>()
-
-        // Add items from database first
-        for (const dbItem of dbItems) {
-          if (dbItem.product) {
-            mergedItems.push(dbItem.product)
-            processedIds.add(dbItem.product.id)
-          }
-        }
-
-        // Add items from localStorage that aren't in database
-        for (const localItem of localItems) {
-          if (!processedIds.has(localItem.id)) {
-            mergedItems.push(localItem)
-            // Add to database
-            try {
-              await fetch("/api/wishlist", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  productId: localItem.id,
-                }),
-              })
-            } catch (err) {
-              console.error("Error adding local item to database:", err)
-            }
-          }
-        }
-
-        setItems(mergedItems)
-        localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(mergedItems))
+        setItems(products)
+      } else {
+        setItems([])
       }
     } catch (error) {
-      console.error("Error syncing wishlist from database:", error)
+      console.error("Error loading wishlist from database:", error)
+      setItems([])
+    } finally {
+      setLoading(false)
     }
   }, [user, isAdminPage])
 
@@ -109,11 +71,11 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
           const dbProductIds = new Set(
             dbItems.map((item: any) => item.product?.id).filter(Boolean)
           )
-          const localProductIds = new Set(wishlistItems.map((item) => item.id))
+          const currentProductIds = new Set(wishlistItems.map((item) => item.id))
 
-          // Remove items from database that aren't in localStorage
+          // Remove items from database that aren't in current wishlist
           for (const dbItem of dbItems) {
-            if (dbItem.product && !localProductIds.has(dbItem.product.id)) {
+            if (dbItem.product && !currentProductIds.has(dbItem.product.id)) {
               await fetch(`/api/wishlist/${dbItem.product.id}`, { method: "DELETE" })
             }
           }
@@ -141,16 +103,27 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   // Reset sync ref when user changes
   useEffect(() => {
     hasSyncedRef.current = false
+    setLoading(true)
   }, [user?.id])
 
-  // Sync with database when user signs in (only once, and not on admin pages)
+  // Load wishlist from database when user signs in (only once, and not on admin pages)
   useEffect(() => {
-    if (user && !loading && !isSyncing && !hasSyncedRef.current && !isAdminPage) {
+    if (isAdminPage) {
+      setItems([])
+      setLoading(false)
+      return
+    }
+
+    if (user && !isSyncing && !hasSyncedRef.current) {
       hasSyncedRef.current = true
       setIsSyncing(true)
       syncWishlistFromDatabase().finally(() => setIsSyncing(false))
+    } else if (!user) {
+      // User logged out - clear wishlist
+      setItems([])
+      setLoading(false)
     }
-  }, [user?.id, loading, isSyncing, isAdminPage, syncWishlistFromDatabase])
+  }, [user?.id, isSyncing, isAdminPage, syncWishlistFromDatabase])
 
   // Listen for auth state changes (skip on admin pages)
   useEffect(() => {
@@ -161,6 +134,9 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         hasSyncedRef.current = true
         setIsSyncing(true)
         syncWishlistFromDatabase().finally(() => setIsSyncing(false))
+      } else if (!user) {
+        setItems([])
+        setLoading(false)
       }
     }
 
@@ -168,26 +144,25 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("auth-state-changed", handleAuthChange)
   }, [user?.id, isSyncing, isAdminPage, syncWishlistFromDatabase])
 
-  // Save to localStorage whenever items change
-  useEffect(() => {
-    if (!loading && !isSyncing) {
-      localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(items))
-    }
-  }, [items, loading, isSyncing])
-
   // Debounced sync to database (only when user is authenticated and not during initial sync, skip on admin pages)
   useEffect(() => {
     if (!user || loading || isSyncing || isAdminPage || !hasSyncedRef.current) return
 
     const timeoutId = setTimeout(() => {
       syncWishlistToDatabase(items)
-    }, 1000) // Increased debounce to 1 second
+    }, 1000) // Debounce to 1 second
 
     return () => clearTimeout(timeoutId)
-  }, [items.length, user?.id, loading, isSyncing, isAdminPage, syncWishlistToDatabase])
+  }, [items, user?.id, loading, isSyncing, isAdminPage, syncWishlistToDatabase])
 
   const addItem = useCallback(
     async (product: Product) => {
+      if (!user) {
+        console.warn("Cannot add to wishlist: user not authenticated")
+        return
+      }
+
+      // Optimistically update UI
       setItems((prev) => {
         if (prev.find((item) => item.id === product.id)) {
           return prev
@@ -195,38 +170,54 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         return [...prev, product]
       })
 
-      // Sync to database if authenticated
-      if (user) {
-        try {
-          await fetch("/api/wishlist", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              productId: product.id,
-            }),
-          })
-        } catch (error) {
-          console.error("Error adding item to database wishlist:", error)
+      // Sync to database
+      try {
+        const response = await fetch("/api/wishlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: product.id,
+          }),
+        })
+        
+        if (!response.ok) {
+          // Revert on error by reloading from database
+          syncWishlistFromDatabase()
         }
+      } catch (error) {
+        console.error("Error adding item to database wishlist:", error)
+        // Revert on error by reloading from database
+        syncWishlistFromDatabase()
       }
     },
-    [user]
+    [user, syncWishlistFromDatabase]
   )
 
   const removeItem = useCallback(
     async (productId: string) => {
+      if (!user) {
+        console.warn("Cannot remove from wishlist: user not authenticated")
+        return
+      }
+
+      // Optimistically update UI
       setItems((prev) => prev.filter((item) => item.id !== productId))
 
-      // Sync to database if authenticated
-      if (user) {
-        try {
-          await fetch(`/api/wishlist/${productId}`, { method: "DELETE" })
-        } catch (error) {
-          console.error("Error removing item from database wishlist:", error)
+      // Sync to database
+      try {
+        const response = await fetch(`/api/wishlist/${productId}`, { method: "DELETE" })
+        
+        if (!response.ok) {
+          // Revert on error by reloading from database
+          syncWishlistFromDatabase()
         }
+      } catch (error) {
+        console.error("Error removing item from database wishlist:", error)
+        // Revert on error by reloading from database
+        syncWishlistFromDatabase()
       }
     },
-    [user]
+    [user, syncWishlistFromDatabase]
   )
 
   const isInWishlist = useCallback(

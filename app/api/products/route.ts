@@ -8,6 +8,7 @@ const productSchema = z.object({
   price: z.number().positive("Price must be a positive number"),
   longDescription: z.string().optional(),
   thumbnailUrl: z.string().url().optional(),
+  coaUrl: z.string().url().optional(),
   image: z.string().refine(
     (val) => val === "" || z.string().url().safeParse(val).success,
     { message: "Image must be a valid URL or empty" }

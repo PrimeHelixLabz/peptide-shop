@@ -2,10 +2,9 @@ import Link from "next/link"
 import Image from "next/image"
 
 const policyLinks = [
-  { label: "Privacy Policy", href: "#" },
-  { label: "Terms of Service", href: "#" },
-  { label: "Refund Policy", href: "#" },
-  { label: "Shipping Policy", href: "#" },
+  { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Terms of Service", href: "/terms-of-service" },
+  { label: "Shipping Policy", href: "/shipping-policy" },
 ]
 
 const siteLinks = [
@@ -24,15 +23,19 @@ export function Footer() {
           {/* Brand Column */}
           <div className="flex flex-col gap-5">
             <div className="flex items-center gap-2.5">
-              <div className="relative h-12 w-24 shrink-0">
+              <div className="relative h-14 sm:h-16 w-14 sm:w-16 shrink-0">
                 <Image
-                  src="/logo.webp"
+                  src="/logo-1.webp"
                   alt="PrimeHelix Labz"
-                  fill
-                  className="object-contain"
-                  sizes="120px"
+                  width={64}
+                  height={64}
+                  className="object-contain h-14 sm:h-16 w-14 sm:w-16"
+                  sizes="(max-width: 640px) 56px, 64px"
                 />
               </div>
+              <span className="text-base sm:text-lg font-semibold uppercase text-foreground">
+                PrimeHelix Labz
+              </span>
             </div>
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
               Premium research-grade peptides for advanced scientific inquiry.

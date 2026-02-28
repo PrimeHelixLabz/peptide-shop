@@ -8,13 +8,16 @@ import type { ProductDetail } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
 
-const tabs = [
-  { id: "description", label: "Description" }
-] as const
-
-type TabId = (typeof tabs)[number]["id"]
+type TabId = "description" | "coa"
 
 export function ProductDetailView({ product }: { product: ProductDetail }) {
+  const hasCoa = !!product.coaUrl
+  const tabs: { id: TabId; label: string }[] = hasCoa
+    ? [
+        { id: "description", label: "Description" },
+        { id: "coa", label: "COA" },
+      ]
+    : [{ id: "description", label: "Description" }]
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState<TabId>("description")
   const [added, setAdded] = useState(false)
@@ -151,7 +154,8 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const descriptionHtml = processHtmlForWrapping(product.longDescription || "")
 
   const tabContent: Record<TabId, string> = {
-    description: descriptionHtml
+    description: descriptionHtml,
+    coa: "Certificate of Analysis (COA) images are provided for this product."
   }
 
   return (
@@ -496,7 +500,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             <div className="flex flex-col items-center gap-1.5">
               <Truck className="h-4 w-4 text-blue-600" />
               <span className="text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Free Shipping
+                Shipping
               </span>
             </div>
           </div>
@@ -542,16 +546,32 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             hidden={activeTab !== tab.id}
             className="p-8 overflow-x-hidden"
           >
-            {tab.id === "description" ? (
+            {tab.id === "description" && (
               <div
                 className="ql-editor-content max-w-3xl w-full"
                 // Admin-authored content
                 dangerouslySetInnerHTML={{ __html: descriptionHtml }}
               />
-            ) : (
-              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground lg:text-base lg:leading-relaxed">
-                {tabContent[tab.id]}
-              </p>
+            )}
+
+            {tab.id === "coa" && hasCoa && (
+              <div className="max-w-3xl space-y-4">
+                <p className="text-sm leading-relaxed text-muted-foreground lg:text-base lg:leading-relaxed">
+                  {tabContent.coa}
+                </p>
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                  <div className="relative w-full max-h-[800px]">
+                    <Image
+                      src={product.coaUrl!}
+                      alt={`${product.name} Certificate of Analysis`}
+                      width={1200}
+                      height={1600}
+                      className="h-auto w-full object-contain bg-white"
+                      unoptimized={product.coaUrl!.includes("supabase")}
+                    />
+                  </div>
+                </div>
+              </div>
             )}
             {tab.id === "description" && sequence && (
               <div className="mt-6 flex flex-col gap-1.5 rounded-2xl bg-gray-50 border-t border-gray-200 pt-6 p-4">

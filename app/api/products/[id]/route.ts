@@ -8,6 +8,7 @@ const updateProductSchema = z.object({
   price: z.number().positive().optional(),
   longDescription: z.string().optional(),
   thumbnailUrl: z.string().url().optional(),
+  coaUrl: z.string().url().optional(),
   category: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   inStock: z.boolean().optional(),

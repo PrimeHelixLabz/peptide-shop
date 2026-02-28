@@ -4,25 +4,16 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ProductDetailView } from "@/components/product-detail"
 import { RelatedProducts } from "@/components/related-products"
-import { getProductBySlug, getRelatedProducts, getAllProducts } from "@/lib/api/server-products"
+import { getProductBySlug, getRelatedProducts } from "@/lib/api/server-products"
 
 interface PageProps {
   params: Promise<{ slug: string }>
 }
 
-export async function generateStaticParams() {
-  try {
-    const products = await getAllProducts()
-    return products.map((product) => ({
-      slug: product.slug,
-    }))
-  } catch (error) {
-    // If static generation fails, return empty array
-    // Page will be generated on-demand
-    console.error("Error generating static params:", error)
-    return []
-  }
-}
+// Use ISR to avoid build-time timeouts while still allowing caching
+// Pages will be generated on-demand and cached for 1 hour
+export const revalidate = 3600 // Revalidate every hour (ISR)
+export const dynamicParams = true // Allow dynamic params not in generateStaticParams
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params

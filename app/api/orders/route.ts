@@ -126,7 +126,7 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
       })
     }
 
-    const shipping = 0 // Free shipping
+    const shipping = 0 // Shipping
     const tax = subtotal * 0.1 // 10% tax (adjust as needed)
     const total = subtotal + shipping + tax
 

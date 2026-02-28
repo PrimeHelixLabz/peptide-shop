@@ -17,7 +17,9 @@ const updateProfileSchema = z.object({
     })
     .optional()
     .nullable(),
-  avatar: z.string().url().optional().nullable(),
+  // Avatar is stored as a Supabase Storage path (not a full URL).
+  // Allow null or empty string to clear the avatar.
+  avatar: z.string().optional().nullable(),
 })
 
 export const GET = requireAuthMiddleware(async (req) => {
@@ -104,7 +106,8 @@ export const PUT = requireAuthMiddleware(async (req) => {
       updateData.address = data.address
     }
     if (data.avatar !== undefined) {
-      updateData.avatar = data.avatar
+      // Treat empty string as null (clear avatar)
+      updateData.avatar = data.avatar || null
     }
 
     const { data: profile, error } = await supabase

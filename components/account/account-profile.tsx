@@ -3,13 +3,21 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useRouter } from "next/navigation"
-import { User, Mail, Phone, MapPin, Upload, X, Save } from "lucide-react"
+import { User, Mail, Phone, MapPin, Upload, X, Save, Lock, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { getStorageUrl } from "@/lib/storage/supabase-storage"
 import { toast } from "sonner"
 
@@ -32,9 +40,20 @@ export function AccountProfile() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  })
 
   useEffect(() => {
     if (!user) {
@@ -75,7 +94,7 @@ export function AccountProfile() {
     }
   }
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -89,17 +108,150 @@ export function AccountProfile() {
       return
     }
 
-    setAvatarFile(file)
+    // Show local preview immediately
     const reader = new FileReader()
     reader.onload = (e) => {
       setAvatarPreview(e.target?.result as string)
     }
     reader.readAsDataURL(file)
+
+    try {
+      // Upload avatar to storage
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const uploadResponse = await fetch("/api/upload/avatar", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        let message = "Failed to upload avatar"
+        try {
+          const errorData = await uploadResponse.json()
+          if (errorData?.error) message = errorData.error
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(message)
+      }
+
+      const uploadData = await uploadResponse.json()
+      const path = uploadData.path as string
+
+      // Update local profile state with new avatar path
+      setProfile((prev) => (prev ? { ...prev, avatar: path } : prev))
+
+      // Persist avatar to profile (without requiring Save button)
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: path }),
+      })
+
+      if (!response.ok) {
+        let message = "Failed to save profile image"
+        try {
+          const errorData = await response.json()
+          if (errorData?.error) message = errorData.error
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(message)
+      }
+
+      toast.success("Profile image updated")
+      await refreshUser()
+    } catch (error) {
+      console.error("Error updating avatar:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to update avatar")
+    }
   }
 
-  const removeAvatar = () => {
-    setAvatarFile(null)
+  const removeAvatar = async () => {
+    // Optimistically clear avatar locally (will fall back to initials)
     setAvatarPreview(null)
+    setProfile((prev) => (prev ? { ...prev, avatar: null } : prev))
+
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: null }),
+      })
+
+      if (!response.ok) {
+        let message = "Failed to remove profile image"
+        try {
+          const errorData = await response.json()
+          if (errorData?.error) message = errorData.error
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(message)
+      }
+
+      toast.success("Profile image removed")
+      await refreshUser()
+      // Notify any listeners that auth-related profile data has changed
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("auth-state-changed"))
+      }
+    } catch (error) {
+      console.error("Error removing avatar:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to remove profile image")
+    }
+  }
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords do not match")
+      return
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters")
+      return
+    }
+
+    setChangingPassword(true)
+
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      })
+
+      if (response.ok) {
+        toast.success("Password changed successfully")
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        })
+        setShowPasswords({
+          current: false,
+          new: false,
+          confirm: false,
+        })
+        setPasswordDialogOpen(false)
+      } else {
+        const errorData = await response.json()
+        const errorMessage = errorData.error || "Failed to change password"
+        toast.error(errorMessage)
+      }
+    } catch (error) {
+      console.error("Error changing password:", error)
+      toast.error("An unexpected error occurred. Please try again.")
+    } finally {
+      setChangingPassword(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,44 +261,30 @@ export function AccountProfile() {
     setSaving(true)
 
     try {
-      // Upload avatar if changed
-      let avatarUrl = profile.avatar
+      // Prepare address - only send if at least one field is filled
+      const addressToSend =
+        profile.address.street ||
+        profile.address.city ||
+        profile.address.state ||
+        profile.address.zipCode ||
+        profile.address.country
+          ? profile.address
+          : null
 
-      if (avatarFile) {
-        const formData = new FormData()
-        formData.append("file", avatarFile)
-
-        const uploadResponse = await fetch("/api/upload/avatar", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (uploadResponse.ok) {
-          const uploadData = await uploadResponse.json()
-          // Extract just the path from the full URL
-          const path = uploadData.path
-          avatarUrl = path
-        } else {
-          throw new Error("Failed to upload avatar")
-        }
-      }
-
-      // Update profile
+      // Update profile (excluding avatar, which is handled separately)
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: profile.name,
           phone: profile.phone || null,
-          address: profile.address.street ? profile.address : null,
-          avatar: avatarUrl,
+          address: addressToSend,
         }),
       })
 
       if (response.ok) {
         toast.success("Profile updated successfully")
         await refreshUser()
-        setAvatarFile(null)
       } else {
         const error = await response.json()
         throw new Error(error.error || "Failed to update profile")
@@ -181,30 +319,44 @@ export function AccountProfile() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {/* Profile Information */}
-      <Card className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-0">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Profile Information
-          </CardTitle>
-          <CardDescription>Update your personal information</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Avatar */}
-          <div className="flex items-center gap-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <Card className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-0">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Profile Information
+            </CardTitle>
+            <CardDescription>Update your personal information</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+          {/* Avatar + Name */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
             <div className="relative">
-              <Avatar className="h-20 w-20">
-                {avatarPreview ? (
-                  <AvatarImage src={avatarPreview} alt={profile.name} />
-                ) : profile.avatar ? (
-                  <AvatarImage src={getStorageUrl(profile.avatar)} alt={profile.name} />
-                ) : null}
-                <AvatarFallback className="bg-primary text-white text-lg">
-                  {getInitials(profile.name)}
-                </AvatarFallback>
-              </Avatar>
+              <label htmlFor="avatar" className="cursor-pointer block">
+                <Avatar
+                  key={avatarPreview || profile.avatar || "no-avatar"}
+                  className="h-20 w-20"
+                >
+                  {avatarPreview && (
+                    <AvatarImage src={avatarPreview} alt={profile.name} />
+                  )}
+                  {!avatarPreview && profile.avatar && (
+                    <AvatarImage src={getStorageUrl(profile.avatar)} alt={profile.name} />
+                  )}
+                  <AvatarFallback className="bg-primary text-white text-lg">
+                    {getInitials(profile.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </label>
+              <Input
+                id="avatar"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
               {(avatarPreview || profile.avatar) && (
                 <button
                   type="button"
@@ -216,52 +368,23 @@ export function AccountProfile() {
                 </button>
               )}
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="avatar" className="text-sm font-medium">
-                Profile Picture
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="name" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Full Name
               </Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="rounded-xl"
-                >
-                  <label htmlFor="avatar" className="cursor-pointer">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload
-                  </label>
-                </Button>
-                <Input
-                  id="avatar"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="hidden"
-                />
-                <span className="text-xs text-muted-foreground">PNG, JPG up to 5MB</span>
-              </div>
+              <Input
+                id="name"
+                value={profile.name}
+                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                placeholder="Enter your full name"
+                required
+                className="rounded-xl"
+              />
             </div>
           </div>
 
           <Separator />
-
-          {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Full Name
-            </Label>
-            <Input
-              id="name"
-              value={profile.name}
-              onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-              placeholder="Enter your full name"
-              required
-              className="rounded-xl"
-            />
-          </div>
 
           {/* Email (read-only) */}
           <div className="space-y-2">
@@ -420,6 +543,176 @@ export function AccountProfile() {
           )}
         </Button>
       </div>
-    </form>
+      </form>
+
+      {/* Password Change Button */}
+      <Card className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-0">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5" />
+            Security
+          </CardTitle>
+          <CardDescription>Manage your account security settings</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="w-full rounded-2xl">
+                <Lock className="h-4 w-4 mr-2" />
+                Change Password
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md rounded-3xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5" />
+                  Change Password
+                </DialogTitle>
+                <DialogDescription>
+                  Update your account password. Make sure to use a strong password.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handlePasswordSubmit} className="space-y-4 mt-4">
+                {/* Current Password */}
+                <div className="space-y-2">
+                  <Label htmlFor="dialogCurrentPassword">Current Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="dialogCurrentPassword"
+                      type={showPasswords.current ? "text" : "password"}
+                      value={passwordData.currentPassword}
+                      onChange={(e) =>
+                        setPasswordData({ ...passwordData, currentPassword: e.target.value })
+                      }
+                      placeholder="Enter your current password"
+                      required
+                      className="rounded-xl pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPasswords({ ...showPasswords, current: !showPasswords.current })
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPasswords.current ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div className="space-y-2">
+                  <Label htmlFor="dialogNewPassword">New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="dialogNewPassword"
+                      type={showPasswords.new ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={(e) =>
+                        setPasswordData({ ...passwordData, newPassword: e.target.value })
+                      }
+                      placeholder="Enter new password (min. 8 characters)"
+                      required
+                      minLength={8}
+                      className="rounded-xl pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPasswords({ ...showPasswords, new: !showPasswords.new })
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPasswords.new ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-2">
+                  <Label htmlFor="dialogConfirmPassword">Confirm New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="dialogConfirmPassword"
+                      type={showPasswords.confirm ? "text" : "password"}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) =>
+                        setPasswordData({ ...passwordData, confirmPassword: e.target.value })
+                      }
+                      placeholder="Confirm new password"
+                      required
+                      minLength={8}
+                      className="rounded-xl pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })
+                      }
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPasswords.confirm ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setPasswordDialogOpen(false)
+                      setPasswordData({
+                        currentPassword: "",
+                        newPassword: "",
+                        confirmPassword: "",
+                      })
+                      setShowPasswords({
+                        current: false,
+                        new: false,
+                        confirm: false,
+                      })
+                    }}
+                    className="flex-1 rounded-2xl"
+                    disabled={changingPassword}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={changingPassword}
+                    className="flex-1 rounded-2xl"
+                  >
+                    {changingPassword ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white mr-2" />
+                        Changing...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4 mr-2" />
+                        Change Password
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -7,7 +7,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
 
 /**
  * Upload user avatar
- * Stores avatars in products bucket under avatars/{userId}/ directory
+ * Stores avatars in dedicated "avatars" bucket under avatars/{userId}/ directory
  */
 export const POST = requireAuthMiddleware(async (req) => {
   try {
@@ -57,16 +57,16 @@ export const POST = requireAuthMiddleware(async (req) => {
 
     // Delete old avatar if exists
     const { data: oldFiles } = await supabase.storage
-      .from("products")
+      .from("avatars")
       .list(`avatars/${authUser.id}`)
 
     if (oldFiles && oldFiles.length > 0) {
       const oldPaths = oldFiles.map((f) => `avatars/${authUser.id}/${f.name}`)
-      await supabase.storage.from("products").remove(oldPaths)
+      await supabase.storage.from("avatars").remove(oldPaths)
     }
 
     const { data, error } = await supabase.storage
-      .from("products")
+      .from("avatars")
       .upload(filepath, buffer, {
         contentType: file.type,
         upsert: false,
@@ -80,7 +80,7 @@ export const POST = requireAuthMiddleware(async (req) => {
     // Get public URL
     const {
       data: { publicUrl },
-    } = supabase.storage.from("products").getPublicUrl(filepath)
+    } = supabase.storage.from("avatars").getPublicUrl(filepath)
 
     return NextResponse.json({
       url: publicUrl,

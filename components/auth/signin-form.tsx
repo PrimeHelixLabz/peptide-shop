@@ -93,6 +93,15 @@ export function SignInForm() {
         )}
       </Button>
 
+      <div className="text-center">
+        <Link
+          href="/forgot-password"
+          className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-muted-foreground"
+        >
+          Forgot password?
+        </Link>
+      </div>
+
       <div className="text-center text-sm text-muted-foreground">
         Don't have an account?{" "}
         <Link

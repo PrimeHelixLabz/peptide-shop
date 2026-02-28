@@ -67,10 +67,13 @@ export function AdminHeader({ title, onMenuToggle }: AdminHeaderProps) {
                 <p className="text-sm font-semibold text-foreground">{user.name}</p>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
-              <Avatar className="h-9 w-9">
-                {user.avatar ? (
+              <Avatar
+                key={user.avatar || "no-avatar"}
+                className="h-9 w-9"
+              >
+                {user.avatar && (
                   <AvatarImage src={getStorageUrl(user.avatar)} alt={user.name} />
-                ) : null}
+                )}
                 <AvatarFallback className="bg-primary text-white text-xs">
                   {getInitials(user.name)}
                 </AvatarFallback>
@@ -79,10 +82,13 @@ export function AdminHeader({ title, onMenuToggle }: AdminHeaderProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64 rounded-2xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-0 p-2">
             <DropdownMenuLabel className="flex items-center gap-3 p-3 rounded-xl">
-              <Avatar className="h-10 w-10">
-                {user.avatar ? (
+              <Avatar
+                key={`dropdown-${user.avatar || "no-avatar"}`}
+                className="h-10 w-10"
+              >
+                {user.avatar && (
                   <AvatarImage src={getStorageUrl(user.avatar)} alt={user.name} />
-                ) : null}
+                )}
                 <AvatarFallback className="bg-primary text-white text-sm">
                   {getInitials(user.name)}
                 </AvatarFallback>

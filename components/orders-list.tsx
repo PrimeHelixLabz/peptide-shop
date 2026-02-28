@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { format } from "date-fns"
-
-const RECENT_ORDERS_KEY = "elysian_recent_orders"
-const LAST_EMAIL_KEY = "elysian_last_order_email"
+import { useAuth } from "@/lib/auth/auth-context"
+import type { Order } from "@/lib/db/schema"
 
 interface RecentOrder {
   orderNumber: string
@@ -20,36 +19,76 @@ interface RecentOrder {
 
 export function OrdersList() {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [orderNumber, setOrderNumber] = useState("")
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(true)
 
-  // Load recent orders and last email from localStorage
+  // Load orders from database for authenticated users
   useEffect(() => {
-    const storedOrders = localStorage.getItem(RECENT_ORDERS_KEY)
-    const lastEmail = localStorage.getItem(LAST_EMAIL_KEY)
-    
-    if (storedOrders) {
-      try {
-        setRecentOrders(JSON.parse(storedOrders))
-      } catch (e) {
-        console.error("Error parsing recent orders:", e)
-      }
+    if (authLoading) return
+
+    if (user) {
+      // Fetch user's orders from API
+      setLoadingOrders(true)
+      fetch("/api/orders")
+        .then((res) => {
+          if (res.ok) {
+            return res.json()
+          }
+          throw new Error("Failed to fetch orders")
+        })
+        .then((data) => {
+          const orders: Order[] = data.orders || []
+          // Convert to RecentOrder format
+          const recent: RecentOrder[] = orders
+            .slice(0, 10) // Show last 10 orders
+            .map((order) => ({
+              orderNumber: order.orderNumber,
+              email: order.email || user.email,
+              createdAt: order.createdAt,
+              total: order.total,
+            }))
+          setRecentOrders(recent)
+          // Set email from user if available
+          if (!email && user.email) {
+            setEmail(user.email)
+          }
+        })
+        .catch((err) => {
+          console.error("Error loading orders:", err)
+        })
+        .finally(() => {
+          setLoadingOrders(false)
+        })
+    } else {
+      // Not authenticated - clear orders
+      setRecentOrders([])
+      setLoadingOrders(false)
     }
-    
-    if (lastEmail) {
-      setEmail(lastEmail)
-    }
-  }, [])
+  }, [user, authLoading, email])
 
   const handleOrderSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     
-    if (!orderNumber.trim() || !email.trim()) {
-      setError("Please enter both order number and email address")
+    if (!orderNumber.trim()) {
+      setError("Please enter an order number")
+      return
+    }
+
+    // If user is authenticated, they can access their orders directly
+    if (user) {
+      router.push(`/orders/${orderNumber.trim()}`)
+      return
+    }
+
+    // For non-authenticated users (shouldn't happen in this app, but keep for safety)
+    if (!email.trim()) {
+      setError("Please enter your email address")
       return
     }
 
@@ -74,8 +113,14 @@ export function OrdersList() {
 
   const handleQuickLookup = (order: RecentOrder) => {
     setOrderNumber(order.orderNumber)
-    setEmail(order.email)
-    router.push(`/orders/${order.orderNumber}?email=${encodeURIComponent(order.email)}`)
+    if (user) {
+      // Authenticated users don't need email in URL
+      router.push(`/orders/${order.orderNumber}`)
+    } else {
+      // Non-authenticated users need email verification
+      setEmail(order.email)
+      router.push(`/orders/${order.orderNumber}?email=${encodeURIComponent(order.email)}`)
+    }
   }
 
   return (
@@ -84,7 +129,9 @@ export function OrdersList() {
       <div className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
         <h2 className="text-2xl font-semibold mb-2">Track Your Order</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Enter your order number and email address to view order details and tracking information.
+          {user 
+            ? "Enter your order number to view order details and tracking information."
+            : "Enter your order number and email address to view order details and tracking information."}
         </p>
         
         <form onSubmit={handleOrderSearch} className="space-y-4">
@@ -104,21 +151,23 @@ export function OrdersList() {
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="email">Email Address *</Label>
-            <div className="relative mt-1">
-              <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter the email address used for this order"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-11"
-                required
-              />
+          {!user && (
+            <div>
+              <Label htmlFor="email">Email Address *</Label>
+              <div className="relative mt-1">
+                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter the email address used for this order"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-11"
+                  required
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-red-50 p-4 text-sm text-red-600">
@@ -129,7 +178,7 @@ export function OrdersList() {
 
           <Button 
             type="submit" 
-            disabled={!orderNumber.trim() || !email.trim() || loading}
+            disabled={!orderNumber.trim() || (!user && !email.trim()) || loading}
             className="w-full h-12"
             size="lg"
           >
@@ -139,7 +188,13 @@ export function OrdersList() {
       </div>
 
       {/* Recent Orders Section */}
-      {recentOrders.length > 0 && (
+      {loadingOrders ? (
+        <div className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
+          <div className="flex items-center justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        </div>
+      ) : recentOrders.length > 0 && (
         <div className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
           <h3 className="text-lg font-semibold mb-4">Recent Orders</h3>
           <div className="space-y-3">

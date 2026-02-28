@@ -20,9 +20,9 @@ const faqItems: FaqItem[] = [
       "Every batch undergoes rigorous third-party testing through independent, ISO-accredited laboratories. We use High-Performance Liquid Chromatography (HPLC) and Mass Spectrometry (MS) to verify identity, purity, and composition. Certificates of Analysis (COAs) are available for every product and can be downloaded directly from the product page.",
   },
   {
-    question: "How should I store peptides after receiving them?",
+    question: "What are your shipping times and methods?",
     answer:
-      "For short-term storage (under 4 weeks), keep lyophilized peptides in a cool, dry location away from direct light, ideally at 4\u00B0C in a standard refrigerator. For long-term storage, we recommend \u221220\u00B0C in a sealed container to prevent moisture exposure. Once reconstituted, peptides should be kept refrigerated at 2\u20138\u00B0C and used within the timeframe specified on the product documentation.",
+      "Orders placed before 2:00 PM EST on business days ship the same day. Standard domestic delivery takes 2\u20135 business days, while express options are available at checkout for 1\u20132 day delivery.",
   },
   {
     question: "How can I track my order?",

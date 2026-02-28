@@ -3,15 +3,15 @@
 import { useCart } from "@/lib/cart-context"
 import { FlaskConical, Shield, Truck } from "lucide-react"
 
-const SHIPPING_RATE = 0
-const SHIPPING_LABEL = "Free"
-const TAX_RATE = 0 // Tax is currently not charged via Stripe; set to 0 for consistency.
+const SHIPPING_RATE = 15
+const SHIPPING_LABEL = "USPS Priority"
+const SERVICE_FEE_RATE = 0.05
 
 export function OrderSummary() {
   const { subtotal, totalItems } = useCart()
 
-  const tax = subtotal * TAX_RATE
-  const total = subtotal + SHIPPING_RATE + tax
+  const serviceFee = subtotal * SERVICE_FEE_RATE
+  const total = subtotal + SHIPPING_RATE + serviceFee
 
   return (
     <div className="flex flex-col gap-6 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
@@ -31,16 +31,20 @@ export function OrderSummary() {
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Shipping</span>
+          <span className="text-sm text-muted-foreground">
+            Shipping ({SHIPPING_LABEL})
+          </span>
           <span className="text-sm font-medium text-foreground">
-            {SHIPPING_LABEL}
+            ${SHIPPING_RATE.toFixed(2)}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Tax</span>
+          <span className="text-sm text-muted-foreground">
+            Service Fee ({(SERVICE_FEE_RATE * 100).toFixed(0)}%)
+          </span>
           <span className="text-sm font-medium text-foreground">
-            ${tax.toFixed(2)}
+            ${serviceFee.toFixed(2)}
           </span>
         </div>
 
@@ -79,7 +83,7 @@ export function OrderSummary() {
         <div className="flex items-center gap-1.5">
           <Truck className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Free Shipping
+            Shipping
           </span>
         </div>
       </div>

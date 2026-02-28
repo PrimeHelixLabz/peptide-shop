@@ -100,7 +100,7 @@ export function ContactForm() {
           <option value="order">Order Inquiry</option>
           <option value="product">Product Question</option>
           <option value="shipping">Shipping Issue</option>
-          <option value="returns">Returns &amp; Refunds</option>
+          <option value="order-issue">Order Issue (non-return)</option>
           <option value="wholesale">Wholesale &amp; Bulk Orders</option>
           <option value="other">Other</option>
         </select>

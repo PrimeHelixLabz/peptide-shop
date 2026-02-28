@@ -7,7 +7,7 @@ import { Menu, X, ShoppingBag, Search, Heart } from "lucide-react"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { SearchModal } from "@/components/search-modal"
-// import { AccountMenu } from "@/components/account-menu"
+import { AccountMenu } from "@/components/account-menu"
 
 const navLinks = [
   { label: "Shop", href: "/shop" },
@@ -41,20 +41,20 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 w-full">
-        <div className="mx-auto max-w-7xl px-6 md:px-10 py-3">
+        <div className="mx-auto max-w-7xl px-6 md:px-10 py-4">
           <div className="rounded-3xl bg-white/80 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
-            <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
+            <div className="flex h-20 items-center justify-between gap-4 px-4 sm:px-6">
               {/* Logo */}
               <Link href="/" className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-                <div className="relative h-8 w-auto sm:h-10 shrink-0" style={{ aspectRatio: 'auto' }}>
+                <div className="relative h-12 w-auto sm:h-14 shrink-0" style={{ aspectRatio: '196/70' }}>
                   {/* Desktop logo */}
                   <Image
                     src="/logo.webp"
                     alt="PrimeHelix Labz"
-                    width={120}
-                    height={32}
-                    className="object-contain h-8 sm:h-10 w-auto hidden md:block"
-                    sizes="(max-width: 640px) 100px, 120px"
+                    width={196}
+                    height={70}
+                    className="object-contain h-12 sm:h-14 w-auto hidden md:block"
+                    sizes="(max-width: 640px) 134px, 157px"
                     priority
                   />
                   
@@ -62,15 +62,15 @@ export function Header() {
                   <Image
                     src="/logo-1.webp"
                     alt="PrimeHelix Labz"
-                    width={120}
-                    height={32}
-                    className="object-contain h-8 sm:h-10 w-auto block md:hidden"
-                    sizes="(max-width: 640px) 100px, 120px"
+                    width={196}
+                    height={70}
+                    className="object-contain h-12 sm:h-14 w-auto block md:hidden"
+                    sizes="(max-width: 640px) 134px, 157px"
                     priority
                   />
                   
                 </div>
-                <span className="text-xs sm:text-sm font-semibold uppercase tracking-[0.15em] text-foreground hidden xs:inline">
+                <span className="text-sm sm:text-base font-semibold uppercase tracking-[0.15em] text-foreground hidden xs:inline">
                   PrimeHelix Labz
                 </span>
               </Link>
@@ -122,7 +122,7 @@ export function Header() {
                     </span>
                   )}
                 </Link>
-                {/* <AccountMenu /> */}
+                <AccountMenu />
               </div>
 
               {/* Mobile right group */}
@@ -146,7 +146,7 @@ export function Header() {
                     </span>
                   )}
                 </Link>
-                {/* <AccountMenu /> */}
+                <AccountMenu />
                 <button
                   className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-gray-100 min-h-[44px] min-w-[44px]"
                   onClick={() => setMobileOpen(!mobileOpen)}

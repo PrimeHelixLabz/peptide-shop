@@ -36,7 +36,11 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
-  const isAuthPage = pathname === "/signin" || pathname === "/signup"
+  const isAuthPage =
+    pathname === "/signin" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password"
   const isAuthApiRoute = pathname.startsWith("/api/auth")
 
   // Global auth guard: require login to view any non-auth, non-API route

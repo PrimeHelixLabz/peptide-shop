@@ -20,7 +20,6 @@ const footerLinks = {
   legal: [
     { href: "#", label: "Privacy Policy" },
     { href: "#", label: "Terms of Service" },
-    { href: "#", label: "Refund Policy" },
   ],
 }
 
@@ -32,17 +31,17 @@ export function SiteFooter() {
           {/* Brand */}
           <div className="md:col-span-2">
             <div className="flex items-center gap-2">
-              <div className="relative h-8 w-auto shrink-0">
+              <div className="relative h-10 sm:h-12 w-auto shrink-0" style={{ aspectRatio: '196/70' }}>
                 <Image
                   src="/logo.webp"
                   alt="PrimeHelix Labz"
-                  width={120}
-                  height={32}
-                  className="object-contain h-8 w-auto"
-                  sizes="120px"
+                  width={196}
+                  height={70}
+                  className="object-contain h-10 sm:h-12 w-auto"
+                  sizes="(max-width: 640px) 112px, 134px"
                 />
               </div>
-              <span className="text-sm font-semibold uppercase tracking-[0.2em] text-background">
+              <span className="text-sm sm:text-base font-semibold uppercase tracking-[0.2em] text-background">
                 PrimeHelix Labz
               </span>
             </div>

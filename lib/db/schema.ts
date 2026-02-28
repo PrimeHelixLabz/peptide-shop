@@ -42,6 +42,10 @@ export interface Product {
    * Stored as a CDN-ready URL in the app layer (DB stores the storage path).
    */
   thumbnailUrl?: string
+  /**
+   * Optional Certificate of Analysis image URL (CDN-ready).
+   */
+  coaUrl?: string
   image: string // Legacy: base/default image (kept for backward compatibility)
   images?: string[] // Legacy: base/default images (kept for backward compatibility)
   category?: string // Legacy: category name (for backward compatibility)

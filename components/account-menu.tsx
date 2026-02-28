@@ -55,15 +55,14 @@ export function AccountMenu({ isMobileDrawer = false, onClose }: { isMobileDrawe
           }`}
           aria-label="Account menu"
         >
-          {user && user.avatar ? (
-            <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
-              <AvatarImage src={getStorageUrl(user.avatar)} alt={user.name} />
-              <AvatarFallback className="bg-primary text-white text-xs">
-                {getInitials(user.name)}
-              </AvatarFallback>
-            </Avatar>
-          ) : user ? (
-            <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
+          {user ? (
+            <Avatar
+              key={user.avatar || "no-avatar"}
+              className="h-9 w-9 sm:h-10 sm:w-10"
+            >
+              {user.avatar && (
+                <AvatarImage src={getStorageUrl(user.avatar)} alt={user.name} />
+              )}
               <AvatarFallback className="bg-primary text-white text-xs">
                 {getInitials(user.name)}
               </AvatarFallback>
@@ -78,10 +77,13 @@ export function AccountMenu({ isMobileDrawer = false, onClose }: { isMobileDrawe
         {user ? (
           <>
             <DropdownMenuLabel className="flex items-center gap-3 p-3 rounded-xl">
-              <Avatar className="h-10 w-10">
-                {user.avatar ? (
+              <Avatar
+                key={`dropdown-${user.avatar || "no-avatar"}`}
+                className="h-10 w-10"
+              >
+                {user.avatar && (
                   <AvatarImage src={getStorageUrl(user.avatar)} alt={user.name} />
-                ) : null}
+                )}
                 <AvatarFallback className="bg-primary text-white text-sm">
                   {getInitials(user.name)}
                 </AvatarFallback>

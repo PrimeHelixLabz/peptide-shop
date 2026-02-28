@@ -41,6 +41,9 @@ export interface ProductFormData {
   categoryId: string
   thumbnailFile?: File
   thumbnailPreview: string
+  // COA (Certificate of Analysis)
+  coaFile?: File
+  coaPreview: string
   specifications: Array<{ key: string; value: string }>
   usage: string
   shipping: string
@@ -55,6 +58,8 @@ const initialFormData: ProductFormData = {
   categoryId: "",
   thumbnailFile: undefined,
   thumbnailPreview: "",
+   coaFile: undefined,
+   coaPreview: "",
   specifications: [{ key: "purity", value: "" }], // Purity as default property for peptides
   usage: "",
   shipping: "",
@@ -72,6 +77,32 @@ const initialFormData: ProductFormData = {
       displayOrder: 0,
     },
   ], // Start with one default variant (required)
+}
+
+async function syncVariantImagesToServer(
+  productId: string,
+  variantId: string,
+  urls: string[],
+  primaryIndex: number
+) {
+  try {
+    await fetch(`/api/products/${productId}/variants/${variantId}/images`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        images: urls.map((url, i) => ({
+          imageUrl: url,
+          isPrimary: i === primaryIndex,
+          sortOrder: i,
+        })),
+      }),
+    })
+  } catch (error) {
+    console.error("Failed to sync variant images:", error)
+    toast.error("Failed to update variant images", {
+      description: "The image changes may not have been saved. Please try again.",
+    })
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -181,6 +212,8 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               categoryId: product.categoryId || "",
               thumbnailFile: undefined,
               thumbnailPreview: product.thumbnailUrl || "",
+              coaFile: undefined,
+              coaPreview: product.coaUrl || "",
               specifications: specsArray,
               usage: product.usage || "",
               shipping: product.shipping || "",
@@ -207,21 +240,157 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
 
   /* ---- Thumbnail handling ---- */
 
-  const handleThumbnailFile = useCallback((file: File | null) => {
-    if (!file) return
-    if (!file.type.startsWith("image/")) return
+  const handleThumbnailFile = useCallback(
+    (file: File | null) => {
+      if (!file) return
+      if (!file.type.startsWith("image/")) return
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const preview = e.target?.result as string
-      setForm((prev) => ({
-        ...prev,
-        thumbnailFile: file,
-        thumbnailPreview: preview,
-      }))
-    }
-    reader.readAsDataURL(file)
-  }, [])
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const preview = e.target?.result as string
+        setForm((prev) => ({
+          ...prev,
+          thumbnailFile: file,
+          thumbnailPreview: preview,
+        }))
+
+        // If editing an existing product, immediately upload and persist thumbnail
+        if (productId) {
+          ;(async () => {
+            try {
+              // Best-effort delete previous thumbnail from storage if it was a storage URL
+              if (form.thumbnailPreview && isStorageUrl(form.thumbnailPreview)) {
+                try {
+                  await fetch("/api/upload/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: form.thumbnailPreview }),
+                  })
+                } catch {
+                  // ignore delete failures here
+                }
+              }
+
+              const thumbFd = new FormData()
+              thumbFd.append("file", file)
+              thumbFd.append("productId", productId)
+              thumbFd.append("kind", "thumbnail")
+
+              const uploadRes = await fetch("/api/upload", { method: "POST", body: thumbFd })
+              if (!uploadRes.ok) {
+                const err = await uploadRes.json().catch(() => ({}))
+                console.error("Failed to upload thumbnail:", err)
+                toast.error("Failed to upload thumbnail", {
+                  description: err.error || "Please try again.",
+                })
+                return
+              }
+
+              const uploadData = await uploadRes.json()
+              const url = uploadData.url as string | undefined
+              if (!url) return
+
+              setForm((prev) => ({
+                ...prev,
+                thumbnailFile: undefined,
+                thumbnailPreview: url,
+              }))
+
+              await fetch(`/api/products/${productId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ thumbnailUrl: url, image: url }),
+              })
+            } catch (error) {
+              console.error("Error saving thumbnail:", error)
+              toast.error("Failed to save thumbnail", {
+                description: "The thumbnail may not have been updated. Please try again.",
+              })
+            }
+          })()
+        }
+      }
+      reader.readAsDataURL(file)
+    },
+    [productId, form.thumbnailPreview]
+  )
+
+  /* ---- COA handling ---- */
+
+  const handleCoaFile = useCallback(
+    (file: File | null) => {
+      if (!file) return
+      if (!file.type.startsWith("image/")) return
+
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const preview = e.target?.result as string
+        setForm((prev) => ({
+          ...prev,
+          coaFile: file,
+          coaPreview: preview,
+        }))
+
+        // If editing an existing product, immediately upload and persist COA image
+        if (productId) {
+          ;(async () => {
+            try {
+              // Best-effort delete previous COA image from storage if it was a storage URL
+              if (form.coaPreview && isStorageUrl(form.coaPreview)) {
+                try {
+                  await fetch("/api/upload/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: form.coaPreview }),
+                  })
+                } catch {
+                  // ignore delete failures here
+                }
+              }
+
+              const coaFd = new FormData()
+              coaFd.append("file", file)
+              coaFd.append("productId", productId)
+              coaFd.append("kind", "coa")
+
+              const uploadRes = await fetch("/api/upload", { method: "POST", body: coaFd })
+              if (!uploadRes.ok) {
+                const err = await uploadRes.json().catch(() => ({}))
+                console.error("Failed to upload COA image:", err)
+                toast.error("Failed to upload COA image", {
+                  description: err.error || "Please try again.",
+                })
+                return
+              }
+
+              const uploadData = await uploadRes.json()
+              const url = uploadData.url as string | undefined
+              if (!url) return
+
+              setForm((prev) => ({
+                ...prev,
+                coaFile: undefined,
+                coaPreview: url,
+              }))
+
+              await fetch(`/api/products/${productId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ coaUrl: url }),
+              })
+            } catch (error) {
+              console.error("Error saving COA image:", error)
+              toast.error("Failed to save COA image", {
+                description: "The COA may not have been updated. Please try again.",
+              })
+            }
+          })()
+        }
+      }
+      reader.readAsDataURL(file)
+    },
+    [productId, form.coaPreview]
+  )
 
   function handleDrag(e: React.DragEvent) {
     e.preventDefault()
@@ -280,6 +449,29 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       thumbnailFile: undefined,
       thumbnailPreview: "",
     }))
+
+    // If editing an existing product, immediately clear thumbnail on the product record
+    if (productId) {
+      try {
+        await fetch(`/api/products/${productId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ thumbnailUrl: null, image: null }),
+        })
+      } catch (error) {
+        console.error("Error clearing thumbnail on product:", error)
+        toast.error("Failed to update product thumbnail", {
+          description: "The thumbnail reference may not have been removed from the product.",
+        })
+      }
+    }
+  }
+
+  /* ---- COA helpers ---- */
+
+  function handleCoaInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null
+    handleCoaFile(file)
   }
 
   function addSpecification() {
@@ -351,38 +543,97 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
   }
 
   // Handle variant image uploads
-  const handleVariantImageFiles = useCallback((variantIndex: number, files: FileList | null) => {
-    if (!files || files.length === 0) return
+  const handleVariantImageFiles = useCallback(
+    async (variantIndex: number, files: FileList | null) => {
+      if (!files || files.length === 0) return
 
-    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"))
-    if (imageFiles.length === 0) return
+      const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"))
+      if (imageFiles.length === 0) return
 
-    const newFiles: File[] = []
-    let loadedCount = 0
+      const targetVariant = form.variants[variantIndex]
 
-    imageFiles.forEach((file) => {
-      newFiles.push(file)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        loadedCount++
-        const preview = e.target?.result as string
-        setForm((prev) => {
-          const updatedVariants = [...prev.variants]
-          const existingCount = updatedVariants[variantIndex].imagePreviews.length
-          updatedVariants[variantIndex] = {
-            ...updatedVariants[variantIndex],
-            imageFiles: [...updatedVariants[variantIndex].imageFiles, file],
-            imageFilePreviews: [...updatedVariants[variantIndex].imageFilePreviews, preview],
-            imagePreviews: [...updatedVariants[variantIndex].imagePreviews, preview],
-            primaryImageIndex:
-              existingCount === 0 ? 0 : updatedVariants[variantIndex].primaryImageIndex,
+      // If we don't yet have a saved product or variant, keep changes local and persist on Save
+      if (!productId || !targetVariant?.id) {
+        imageFiles.forEach((file) => {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            const preview = e.target?.result as string
+            setForm((prev) => {
+              const updatedVariants = [...prev.variants]
+              const v = updatedVariants[variantIndex]
+              const existingCount = v.imagePreviews.length
+              updatedVariants[variantIndex] = {
+                ...v,
+                imageFiles: [...v.imageFiles, file],
+                imageFilePreviews: [...v.imageFilePreviews, preview],
+                imagePreviews: [...v.imagePreviews, preview],
+                primaryImageIndex: existingCount === 0 ? 0 : v.primaryImageIndex,
+              }
+              return { ...prev, variants: updatedVariants }
+            })
           }
-          return { ...prev, variants: updatedVariants }
+          reader.readAsDataURL(file)
+        })
+        return
+      }
+
+      // For existing products and variants, upload immediately and sync to server
+      try {
+        const uploadedUrls: string[] = []
+        for (const file of imageFiles) {
+          const fd = new FormData()
+          fd.append("file", file)
+          fd.append("productId", productId)
+          fd.append("variantId", targetVariant.id)
+          fd.append("kind", "variant")
+
+          const up = await fetch("/api/upload", { method: "POST", body: fd })
+          if (!up.ok) {
+            const err = await up.json().catch(() => ({}))
+            console.error("Failed to upload variant image:", err)
+            toast.error("Failed to upload variant image", {
+              description: err.error || "Please try again.",
+            })
+            continue
+          }
+          const upData = await up.json()
+          if (upData?.url) {
+            uploadedUrls.push(upData.url)
+          }
+        }
+
+        if (uploadedUrls.length === 0) return
+
+        const basePreviews = targetVariant.imagePreviews || []
+        const nextPreviews = [...basePreviews, ...uploadedUrls]
+        const nextPrimary =
+          basePreviews.length === 0 ? 0 : targetVariant.primaryImageIndex ?? 0
+
+        setForm((prev) => ({
+          ...prev,
+          variants: prev.variants.map((v, i) =>
+            i === variantIndex
+              ? {
+                  ...v,
+                  imagePreviews: nextPreviews,
+                  imageFiles: [],
+                  imageFilePreviews: [],
+                  primaryImageIndex: nextPrimary,
+                }
+              : v
+          ),
+        }))
+
+        await syncVariantImagesToServer(productId, targetVariant.id, nextPreviews, nextPrimary)
+      } catch (error) {
+        console.error("Error uploading variant images:", error)
+        toast.error("Failed to upload variant images", {
+          description: "Please try again.",
         })
       }
-      reader.readAsDataURL(file)
-    })
-  }, [])
+    },
+    [form.variants, productId]
+  )
 
   async function removeVariantImage(variantIndex: number, imageIndex: number) {
     const variant = form.variants[variantIndex]
@@ -401,7 +652,9 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
           const errorData = await response.json()
           console.error("Failed to delete image from storage:", errorData)
           toast.error("Failed to delete image from storage", {
-            description: errorData.error || "The image was removed from the form but may still exist in storage.",
+            description:
+              errorData.error ||
+              "The image was removed from the form but may still exist in storage.",
           })
         }
       } catch (error) {
@@ -412,33 +665,43 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       }
     }
 
-    // Remove from form state
-    setForm((prev) => {
-      const updatedVariants = [...prev.variants]
-      const currentPrimary = updatedVariants[variantIndex].primaryImageIndex ?? 0
-      let nextFiles = updatedVariants[variantIndex].imageFiles
-      let nextFilePreviews = updatedVariants[variantIndex].imageFilePreviews
-      if (preview && !preview.startsWith("http")) {
-        const fileIdx = nextFilePreviews.indexOf(preview)
-        if (fileIdx >= 0) {
-          nextFiles = nextFiles.filter((_, i) => i !== fileIdx)
-          nextFilePreviews = nextFilePreviews.filter((_, i) => i !== fileIdx)
-        }
+    // Compute next state for this variant
+    let nextFiles = variant.imageFiles
+    let nextFilePreviews = variant.imageFilePreviews
+    if (preview && !preview.startsWith("http")) {
+      const fileIdx = nextFilePreviews.indexOf(preview)
+      if (fileIdx >= 0) {
+        nextFiles = nextFiles.filter((_, i) => i !== fileIdx)
+        nextFilePreviews = nextFilePreviews.filter((_, i) => i !== fileIdx)
       }
-      const nextPreviews = updatedVariants[variantIndex].imagePreviews.filter((_, i) => i !== imageIndex)
-      let nextPrimary = currentPrimary
-      if (imageIndex === currentPrimary) nextPrimary = 0
-      else if (imageIndex < currentPrimary) nextPrimary = Math.max(0, currentPrimary - 1)
-      if (nextPreviews.length === 0) nextPrimary = 0
-      updatedVariants[variantIndex] = {
-        ...updatedVariants[variantIndex],
-        imageFiles: nextFiles,
-        imageFilePreviews: nextFilePreviews,
-        imagePreviews: nextPreviews,
-        primaryImageIndex: nextPrimary,
-      }
-      return { ...prev, variants: updatedVariants }
-    })
+    }
+
+    const nextPreviews = variant.imagePreviews.filter((_, i) => i !== imageIndex)
+    let nextPrimary = variant.primaryImageIndex ?? 0
+    if (imageIndex === nextPrimary) nextPrimary = 0
+    else if (imageIndex < nextPrimary) nextPrimary = Math.max(0, nextPrimary - 1)
+    if (nextPreviews.length === 0) nextPrimary = 0
+
+    // Update local form state
+    setForm((prev) => ({
+      ...prev,
+      variants: prev.variants.map((v, i) =>
+        i === variantIndex
+          ? {
+              ...v,
+              imageFiles: nextFiles,
+              imageFilePreviews: nextFilePreviews,
+              imagePreviews: nextPreviews,
+              primaryImageIndex: nextPrimary,
+            }
+          : v
+      ),
+    }))
+
+    // If this is an existing variant on an existing product, immediately sync images
+    if (productId && variant.id) {
+      await syncVariantImagesToServer(productId, variant.id, nextPreviews, nextPrimary)
+    }
   }
 
   /* ---- Submit ---- */
@@ -567,6 +830,24 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ thumbnailUrl: uploadData.url, image: uploadData.url }),
+            })
+          }
+        }
+
+        // Upload COA image if provided
+        if (form.coaFile && savedProductId) {
+          const coaFd = new FormData()
+          coaFd.append("file", form.coaFile)
+          coaFd.append("productId", savedProductId)
+          coaFd.append("kind", "coa")
+
+          const coaUploadRes = await fetch("/api/upload", { method: "POST", body: coaFd })
+          if (coaUploadRes.ok) {
+            const uploadData = await coaUploadRes.json()
+            await fetch(`/api/products/${savedProductId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ coaUrl: uploadData.url }),
             })
           }
         }
@@ -868,38 +1149,49 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                                       10
                                     )
                                     if (!Number.isNaN(fromIndex) && fromIndex !== imgIndex) {
-                                      setForm((prev) => {
-                                        const variants = [...prev.variants]
-                                        const v = variants[index]
-                                        const nextPreviews = [...v.imagePreviews]
-                                        const [moved] = nextPreviews.splice(fromIndex, 1)
-                                        nextPreviews.splice(imgIndex, 0, moved)
+                                      const nextPreviews = [...variant.imagePreviews]
+                                      const [moved] = nextPreviews.splice(fromIndex, 1)
+                                      nextPreviews.splice(imgIndex, 0, moved)
 
-                                        let nextPrimary = v.primaryImageIndex ?? 0
-                                        if (fromIndex === nextPrimary) {
-                                          nextPrimary = imgIndex
-                                        } else if (
-                                          fromIndex < nextPrimary &&
-                                          imgIndex >= nextPrimary
-                                        ) {
-                                          nextPrimary = Math.max(0, nextPrimary - 1)
-                                        } else if (
-                                          fromIndex > nextPrimary &&
-                                          imgIndex <= nextPrimary
-                                        ) {
-                                          nextPrimary = Math.min(
-                                            nextPreviews.length - 1,
-                                            nextPrimary + 1
-                                          )
-                                        }
+                                      let nextPrimary = variant.primaryImageIndex ?? 0
+                                      if (fromIndex === nextPrimary) {
+                                        nextPrimary = imgIndex
+                                      } else if (
+                                        fromIndex < nextPrimary &&
+                                        imgIndex >= nextPrimary
+                                      ) {
+                                        nextPrimary = Math.max(0, nextPrimary - 1)
+                                      } else if (
+                                        fromIndex > nextPrimary &&
+                                        imgIndex <= nextPrimary
+                                      ) {
+                                        nextPrimary = Math.min(
+                                          nextPreviews.length - 1,
+                                          nextPrimary + 1
+                                        )
+                                      }
 
-                                        variants[index] = {
-                                          ...v,
-                                          imagePreviews: nextPreviews,
-                                          primaryImageIndex: nextPrimary,
-                                        }
-                                        return { ...prev, variants }
-                                      })
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        variants: prev.variants.map((v, i) =>
+                                          i === index
+                                            ? {
+                                                ...v,
+                                                imagePreviews: nextPreviews,
+                                                primaryImageIndex: nextPrimary,
+                                              }
+                                            : v
+                                        ),
+                                      }))
+
+                                      if (productId && variant.id) {
+                                        void syncVariantImagesToServer(
+                                          productId,
+                                          variant.id,
+                                          nextPreviews,
+                                          nextPrimary
+                                        )
+                                      }
                                     }
                                   }}
                                 >
@@ -921,16 +1213,25 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      setForm((prev) => {
-                                        const variants = [...prev.variants]
-                                        variants[index] = {
-                                          ...variants[index],
-                                          primaryImageIndex: imgIndex,
-                                        }
-                                        return { ...prev, variants }
-                                      })
-                                    }
+                                    onClick={() => {
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        variants: prev.variants.map((v, i) =>
+                                          i === index
+                                            ? { ...v, primaryImageIndex: imgIndex }
+                                            : v
+                                        ),
+                                      }))
+
+                                      if (productId && variant.id && variant.imagePreviews.length) {
+                                        void syncVariantImagesToServer(
+                                          productId,
+                                          variant.id,
+                                          variant.imagePreviews,
+                                          imgIndex
+                                        )
+                                      }
+                                    }}
                                     className={cn(
                                       "absolute left-1 bottom-1 rounded-full px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm",
                                       variant.primaryImageIndex === imgIndex
@@ -1152,6 +1453,43 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 className="sr-only"
                 aria-label="Choose thumbnail image"
               />
+            </div>
+          </AdminCard>
+
+          {/* COA upload card */}
+          <AdminCard title="Certificate of Analysis (COA)">
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Upload an image of the lab Certificate of Analysis. When present, a COA tab will appear on the product detail page.
+              </p>
+
+              {form.coaPreview && (
+                <div className="relative overflow-hidden rounded-xl bg-muted border border-border">
+                  <Image
+                    src={form.coaPreview}
+                    alt="COA preview"
+                    width={800}
+                    height={1000}
+                    className="h-auto w-full object-contain bg-white"
+                    unoptimized={form.coaPreview.startsWith("http")}
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  COA Image (optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoaInputChange}
+                  className="block w-full rounded-xl border border-gray-200 bg-background px-3 py-2 text-xs text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground hover:file:bg-muted/80"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  JPEG, PNG, or WebP up to 5MB. For structured details like lab name or test date, use Specifications.
+                </p>
+              </div>
             </div>
           </AdminCard>
 
