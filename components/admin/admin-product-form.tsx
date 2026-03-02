@@ -119,6 +119,8 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     ...initialFormData,
     ...initialData,
   }))
+  // Tracks whether the product has an explicitly selected thumbnail (vs. a derived one from variants)
+  const [hasExplicitThumbnail, setHasExplicitThumbnail] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
@@ -204,6 +206,13 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               })
             )
 
+            // Determine if the current thumbnail is explicitly selected or derived from variants.
+            // Thumbnails derived from variants are stored under .../variants/{variantId}/...
+            const thumbnailUrl: string | undefined = product.thumbnailUrl
+            const isDerivedFromVariant =
+              !!thumbnailUrl && thumbnailUrl.includes("/variants/")
+            const explicitThumbnailPreview = !isDerivedFromVariant ? (thumbnailUrl || "") : ""
+
             setForm({
               name: product.name || "",
               // description: product.description || "", // DISABLED
@@ -211,7 +220,10 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               longDescription: product.longDescription || "",
               categoryId: product.categoryId || "",
               thumbnailFile: undefined,
-              thumbnailPreview: product.thumbnailUrl || "",
+              // For the admin form, only show an explicit thumbnail here.
+              // If the product is using a derived thumbnail from a variant,
+              // we keep this empty so the admin can see that no explicit thumbnail is selected.
+              thumbnailPreview: explicitThumbnailPreview,
               coaFile: undefined,
               coaPreview: product.coaUrl || "",
               specifications: specsArray,
@@ -220,6 +232,8 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               status: product.inStock ? "Active" : "Inactive",
               variants: variantsWithImages,
             })
+
+            setHasExplicitThumbnail(!isDerivedFromVariant && !!explicitThumbnailPreview)
           }
         } catch (error) {
           console.error("Error loading product:", error)
@@ -253,6 +267,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
           thumbnailFile: file,
           thumbnailPreview: preview,
         }))
+        setHasExplicitThumbnail(true)
 
         // If editing an existing product, immediately upload and persist thumbnail
         if (productId) {
@@ -449,6 +464,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       thumbnailFile: undefined,
       thumbnailPreview: "",
     }))
+    setHasExplicitThumbnail(false)
 
     // If editing an existing product, immediately clear thumbnail on the product record
     if (productId) {
@@ -711,6 +727,37 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     setSubmitting(true)
 
     try {
+      // If creating a new product and a thumbnail file has been selected,
+      // upload it now and capture the resulting URL so it can be saved
+      // on the initial product record.
+      let explicitThumbnailUrl: string | undefined = undefined
+      let explicitThumbnailPath: string | undefined = undefined
+      if (!productId && form.thumbnailFile) {
+        try {
+          const thumbFd = new FormData()
+          thumbFd.append("file", form.thumbnailFile)
+          thumbFd.append("kind", "thumbnail")
+
+          const uploadRes = await fetch("/api/upload", { method: "POST", body: thumbFd })
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json()
+            explicitThumbnailUrl = uploadData.url as string | undefined
+            explicitThumbnailPath = uploadData.path as string | undefined
+          } else {
+            const err = await uploadRes.json().catch(() => ({}))
+            console.error("Failed to upload thumbnail during create:", err)
+            toast.error("Failed to upload thumbnail", {
+              description: err.error || "The product will be saved without a thumbnail.",
+            })
+          }
+        } catch (error) {
+          console.error("Error uploading thumbnail during create:", error)
+          toast.error("Failed to upload thumbnail", {
+            description: "The product will be saved without a thumbnail.",
+          })
+        }
+      }
+
       // Validate that Purity is provided (required default property)
       const puritySpec = form.specifications.find((spec) => spec.key.toLowerCase() === "purity")
       if (!puritySpec || !puritySpec.value.trim()) {
@@ -773,10 +820,10 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       const productData = {
         name: form.name,
         price: defaultVariant ? parseFloat(defaultVariant.price) : 0, // Backward compatibility
+        ...(explicitThumbnailUrl ? { thumbnailUrl: explicitThumbnailUrl } : {}),
         // description: form.description, // DISABLED
         description: "", // DISABLED - keeping empty string for API compatibility
         longDescription: form.longDescription,
-        thumbnailUrl: !form.thumbnailFile && form.thumbnailPreview?.startsWith("http") ? form.thumbnailPreview : undefined,
         image: "", // legacy
         images: [], // legacy
         categoryId: form.categoryId || undefined,
@@ -803,52 +850,32 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
           throw new Error("Failed to determine saved product id")
         }
 
-        // Upload/replace thumbnail if provided
-        if (form.thumbnailFile) {
-          // Best-effort delete existing thumbnail if it was a storage URL
-          if (form.thumbnailPreview && isStorageUrl(form.thumbnailPreview)) {
-            try {
-              await fetch("/api/upload/delete", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: form.thumbnailPreview }),
-              })
-            } catch {
-              // ignore
+        // If we created the product and initially uploaded the thumbnail to temp/,
+        // move it into the product's directory and update the product to point to
+        // the moved file. This keeps storage tidy and product assets grouped.
+        if (!productId && explicitThumbnailPath) {
+          try {
+            const moveRes = await fetch("/api/upload/move", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sourcePath: explicitThumbnailPath, productId: savedProductId }),
+            })
+            if (moveRes.ok) {
+              const moveData = await moveRes.json()
+              const movedUrl = moveData.url as string | undefined
+              if (movedUrl) {
+                await fetch(`/api/products/${savedProductId}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ thumbnailUrl: movedUrl, image: movedUrl }),
+                })
+              }
+            } else {
+              const moveErr = await moveRes.json().catch(() => ({}))
+              console.error("Failed to move thumbnail from temp:", moveErr)
             }
-          }
-
-          const thumbFd = new FormData()
-          thumbFd.append("file", form.thumbnailFile)
-          thumbFd.append("productId", savedProductId)
-          thumbFd.append("kind", "thumbnail")
-
-          const uploadRes = await fetch("/api/upload", { method: "POST", body: thumbFd })
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json()
-            await fetch(`/api/products/${savedProductId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ thumbnailUrl: uploadData.url, image: uploadData.url }),
-            })
-          }
-        }
-
-        // Upload COA image if provided
-        if (form.coaFile && savedProductId) {
-          const coaFd = new FormData()
-          coaFd.append("file", form.coaFile)
-          coaFd.append("productId", savedProductId)
-          coaFd.append("kind", "coa")
-
-          const coaUploadRes = await fetch("/api/upload", { method: "POST", body: coaFd })
-          if (coaUploadRes.ok) {
-            const uploadData = await coaUploadRes.json()
-            await fetch(`/api/products/${savedProductId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ coaUrl: uploadData.url }),
-            })
+          } catch (moveError) {
+            console.error("Error moving thumbnail from temp:", moveError)
           }
         }
 
@@ -951,11 +978,6 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                   })),
                 }),
               })
-            }
-
-            // If no explicit thumbnail was provided, derive from default variant primary image.
-            if (!form.thumbnailFile && (!form.thumbnailPreview || form.thumbnailPreview.trim() === "")) {
-              await fetch(`/api/products/${savedProductId}/sync-thumbnail`, { method: "POST" })
             }
           } catch (variantError) {
             console.error("Error saving variants:", variantError)
@@ -1404,6 +1426,13 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
+              )}
+
+              {!form.thumbnailPreview && (
+                <p className="text-xs text-muted-foreground">
+                  No explicit thumbnail selected. The shop and admin lists will use the primary image
+                  from the default variant until you upload a thumbnail here.
+                </p>
               )}
 
               {/* Upload area */}

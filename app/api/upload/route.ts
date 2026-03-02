@@ -47,26 +47,31 @@ export const POST = requireAuthMiddleware(async (req) => {
         ? "thumbnail"
         : productId && kind === "variant" && variantId
           ? `variants/${variantId}`
-          : ""
+          : productId && kind === "coa"
+            ? "coa"
+            : ""
 
     const directory = subDir ? `${baseDir}/${subDir}` : baseDir
     const filepath = `${directory}/${filename}`
 
     // Upload to Supabase Storage
     const supabase = await createClient()
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
 
+    // Pass the File object directly to Supabase. This avoids relying on Node's
+    // Buffer API and works in both Node.js and edge-like runtimes.
     const { data, error } = await supabase.storage
       .from("products")
-      .upload(filepath, buffer, {
+      .upload(filepath, file, {
         contentType: file.type,
         upsert: false,
       })
 
     if (error) {
       console.error("Upload error:", error)
-      return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
+      return NextResponse.json(
+        { error: "Failed to upload file", details: error.message ?? String(error) },
+        { status: 500 }
+      )
     }
 
     // Get public URL

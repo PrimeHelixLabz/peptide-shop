@@ -634,11 +634,13 @@ export async function setDefaultVariant(
     .update({ is_default: true })
     .eq("id", variantId)
     .eq("product_id", productId)
-
   if (setError) throw setError
 
+  // Only derive product thumbnail from the default variant when the product
+  // does not already have an explicit thumbnail.
+  // This prevents clobbering admin-uploaded thumbnails on every save.
   if (options?.syncThumbnail ?? true) {
-    await syncProductThumbnailToDefaultVariant(productId, { force: true })
+    await syncProductThumbnailToDefaultVariant(productId, { force: false })
   }
 }
 
