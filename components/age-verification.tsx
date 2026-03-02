@@ -34,35 +34,35 @@ export function AgeVerification() {
     return () => clearTimeout(timer)
   }, [authLoading, user?.ageVerified])
 
-  const handleAgree = async () => {
+  const handleAgree = () => {
     if (!ageConfirmed || !termsAccepted) return
+
+    // Close the dialog immediately for a snappy UX
+    setIsVerified(true)
+    setIsOpen(false)
 
     // If a user is logged in, persist verification to their profile in the database
     if (user) {
-      try {
-        const response = await fetch("/api/profile", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ageVerified: true }),
-        })
+      ;(async () => {
+        try {
+          const response = await fetch("/api/profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ageVerified: true }),
+          })
 
-        if (!response.ok) {
-          // If the update fails, keep the modal open to avoid bypassing the gate
-          console.error("Failed to persist age verification")
-          return
+          if (!response.ok) {
+            console.error("Failed to persist age verification")
+            return
+          }
+
+          // Refresh auth user so ageVerified is reflected across the app
+          await refreshUser()
+        } catch (error) {
+          console.error("Error updating age verification:", error)
         }
-
-        // Refresh auth user so ageVerified is reflected across the app
-        await refreshUser()
-      } catch (error) {
-        console.error("Error updating age verification:", error)
-        return
-      }
+      })()
     }
-
-    // For guests, verification is only for the current session (not persisted in client storage)
-    setIsVerified(true)
-    setIsOpen(false)
   }
 
   const handleExit = () => {
