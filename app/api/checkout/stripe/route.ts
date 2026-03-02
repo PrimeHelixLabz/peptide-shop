@@ -5,6 +5,9 @@ import { getProductById, getVariantById, createOrder } from "@/lib/db/supabase"
 import type { Order, OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
 
+const SHIPPING_RATE = 15
+const SERVICE_FEE_RATE = 0.05
+
 const createStripeCheckoutSchema = z.object({
   cartItems: z.array(
     z.object({
@@ -125,10 +128,12 @@ export const POST = requireAuthMiddleware(
         })
       }
 
-      const shipping = 0
-      // For now, tax is handled outside of Stripe (set to 0 for consistency with charged amount).
-      const tax = 0
-      const total = subtotal + shipping + tax
+      // Compute shipping and service fee to match frontend OrderSummary
+      const shipping = SHIPPING_RATE
+      const serviceFee = subtotal * SERVICE_FEE_RATE
+      // Store service fee in the tax field for now to keep schema unchanged.
+      const tax = serviceFee
+      const total = subtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()
         .toString(36)
@@ -179,6 +184,34 @@ export const POST = requireAuthMiddleware(
           },
         }
       })
+
+      // Add shipping as a separate line item so Stripe total matches our order summary.
+      if (shipping > 0) {
+        lineItems.push({
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(shipping * 100),
+            product_data: {
+              name: "Shipping (USPS Priority)",
+            },
+          },
+        })
+      }
+
+      // Add service fee as a separate line item.
+      if (serviceFee > 0) {
+        lineItems.push({
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(serviceFee * 100),
+            product_data: {
+              name: `Service Fee (${(SERVICE_FEE_RATE * 100).toFixed(0)}%)`,
+            },
+          },
+        })
+      }
 
       const origin = new URL(req.url).origin
 

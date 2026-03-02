@@ -42,8 +42,8 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 
 export function CheckoutForm() {
   const router = useRouter()
-  const { items, subtotal, totalItems } = useCart()
-  const { user } = useAuth()
+  const { items, subtotal, totalItems, loading: cartLoading } = useCart()
+  const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   
@@ -135,6 +135,18 @@ export function CheckoutForm() {
       setError(err instanceof Error ? err.message : "An error occurred. Please try again.")
       setLoading(false)
     }
+  }
+
+  // Show a loading state while auth or cart data is loading to avoid flickering
+  if (authLoading || cartLoading) {
+    return (
+      <div className="rounded-3xl bg-white p-12 text-center shadow-[0_10px_30px_rgba(0,0,0,0.05)] space-y-4">
+        <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Preparing your checkout...
+        </p>
+      </div>
+    )
   }
 
   if (!user) {
@@ -394,7 +406,7 @@ export function CheckoutForm() {
 
       {/* Order Summary */}
       <div className="lg:sticky lg:top-28 lg:self-start">
-        <OrderSummary />
+        <OrderSummary showCheckoutButton={false} />
       </div>
     </div>
   )

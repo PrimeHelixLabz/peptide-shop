@@ -226,7 +226,7 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>
-                <span>Free</span>
+                <span>${order.shipping.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax</span>

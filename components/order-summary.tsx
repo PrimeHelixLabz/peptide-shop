@@ -7,7 +7,11 @@ const SHIPPING_RATE = 15
 const SHIPPING_LABEL = "USPS Priority"
 const SERVICE_FEE_RATE = 0.05
 
-export function OrderSummary() {
+interface OrderSummaryProps {
+  showCheckoutButton?: boolean
+}
+
+export function OrderSummary({ showCheckoutButton = true }: OrderSummaryProps) {
   const { subtotal, totalItems } = useCart()
 
   const serviceFee = subtotal * SERVICE_FEE_RATE
@@ -59,12 +63,14 @@ export function OrderSummary() {
       </div>
 
       {/* Checkout Button */}
-      <a
-        href="/checkout"
-        className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-40 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
-      >
-        Proceed to Checkout
-      </a>
+      {showCheckoutButton && (
+        <a
+          href="/checkout"
+          className="flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-40 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
+        >
+          Proceed to Checkout
+        </a>
+      )}
 
       {/* Trust indicators */}
       <div className="flex items-center justify-center gap-6 border-t border-gray-200 pt-5">
