@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getProductById, updateProduct, deleteProduct } from "@/lib/db/supabase"
+import { getProductById, updateProduct, deleteProduct, archiveProduct } from "@/lib/db/supabase"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
 import { z } from "zod"
 
@@ -66,21 +66,36 @@ export const PUT = requireAdminMiddleware(async (
   }
 })
 
-export const DELETE = requireAdminMiddleware(async (
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) => {
-  try {
-    const { id } = await params
-    const archived = await deleteProduct(id) // This now archives instead of deleting
+export const DELETE = requireAdminMiddleware(
+  async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    try {
+      const { id } = await params
+      const url = new URL(req.url)
+      const mode = url.searchParams.get("mode") ?? "archive"
 
-    if (!archived) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+      if (mode === "delete") {
+        const deleted = await deleteProduct(id)
+
+        if (!deleted) {
+          return NextResponse.json({ error: "Product not found" }, { status: 404 })
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: "Product deleted permanently",
+        })
+      }
+
+      const archived = await archiveProduct(id)
+
+      if (!archived) {
+        return NextResponse.json({ error: "Product not found" }, { status: 404 })
+      }
+
+      return NextResponse.json({ success: true, message: "Product archived successfully" })
+    } catch (error) {
+      console.error("Archive/delete product error:", error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
-
-    return NextResponse.json({ success: true, message: "Product archived successfully" })
-  } catch (error) {
-    console.error("Archive product error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
-})
+)

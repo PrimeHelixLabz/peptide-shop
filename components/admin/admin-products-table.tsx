@@ -143,29 +143,43 @@ export function AdminProductsTable({
 
     setDeleting(true)
     try {
-      const response = await fetch(`/api/products/${productToDelete.id}`, {
+      const isArchived = productToDelete.isArchived
+      const url = isArchived
+        ? `/api/products/${productToDelete.id}?mode=delete`
+        : `/api/products/${productToDelete.id}`
+
+      const response = await fetch(url, {
         method: "DELETE",
       })
 
       if (response.ok) {
-        toast.success("Product archived successfully")
-        // Update the product to show it's archived instead of removing it
-        setProducts((prev) =>
-          prev.map((p) =>
-            p.id === productToDelete.id ? { ...p, isArchived: true, status: "Inactive" as const } : p
+        if (isArchived) {
+          toast.success("Product deleted permanently")
+          // Remove the product from the list entirely
+          setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id))
+        } else {
+          toast.success("Product archived successfully")
+          // Update the product to show it's archived instead of removing it
+          setProducts((prev) =>
+            prev.map((p) =>
+              p.id === productToDelete.id
+                ? { ...p, isArchived: true, status: "Inactive" as const }
+                : p
+            )
           )
-        )
+        }
+
         setDeleteDialogOpen(false)
         setProductToDelete(null)
       } else {
         const error = await response.json()
-        toast.error("Failed to archive product", {
+        toast.error(isArchived ? "Failed to delete product" : "Failed to archive product", {
           description: error.error || "An unexpected error occurred",
         })
       }
     } catch (error) {
-      console.error("Error archiving product:", error)
-      toast.error("Failed to archive product", {
+      console.error("Error deleting/archiving product:", error)
+      toast.error(isArchived ? "Failed to delete product" : "Failed to archive product", {
         description: "An unexpected error occurred. Please try again.",
       })
     } finally {
@@ -550,10 +564,22 @@ export function AdminProductsTable({
         <AlertDialogContent className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-0">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold text-foreground">
-              Archive Product
+              {productToDelete?.isArchived ? "Delete Product Permanently" : "Archive Product"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground">
-              Are you sure you want to archive <strong>{productToDelete?.name}</strong>? The product will be hidden from the store but will remain in the database to preserve order history. You can restore it later if needed.
+              {productToDelete?.isArchived ? (
+                <>
+                  Are you sure you want to permanently delete{" "}
+                  <strong>{productToDelete?.name}</strong>? This action cannot be
+                  undone and will remove the product and its variants from the database.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to archive <strong>{productToDelete?.name}</strong>? The
+                  product will be hidden from the store but will remain in the database to preserve
+                  order history. You can restore it later if needed.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
@@ -564,11 +590,21 @@ export function AdminProductsTable({
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDelete}
+              onClick={(e) => {
+                // Keep dialog open during async action; close only on success.
+                e.preventDefault()
+                confirmDelete()
+              }}
               disabled={deleting}
               className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90 px-5 py-2.5 text-sm font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              {deleting ? "Archiving..." : "Archive Product"}
+              {deleting
+                ? productToDelete?.isArchived
+                  ? "Deleting..."
+                  : "Archiving..."
+                : productToDelete?.isArchived
+                  ? "Delete Permanently"
+                  : "Archive Product"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
