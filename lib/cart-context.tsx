@@ -13,10 +13,10 @@ export interface CartItem {
 
 interface CartContextValue {
   items: CartItem[]
-  addItem: (product: Product, quantity?: number, variantId?: string) => void
-  removeItem: (productId: string, variantId?: string) => void
-  updateQuantity: (productId: string, quantity: number, variantId?: string) => void
-  clearCart: () => void
+  addItem: (product: Product, quantity?: number, variantId?: string) => Promise<void>
+  removeItem: (productId: string, variantId?: string) => Promise<void>
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => Promise<void>
+  clearCart: () => Promise<void>
   totalItems: number
   subtotal: number
   loading: boolean
@@ -30,21 +30,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const pathname = usePathname()
   const hasSyncedRef = useRef(false)
+  const operationInProgressRef = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const reloadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Check if we're on an admin page
   const isAdminPage = pathname?.startsWith("/admin") ?? false
 
   const [isSyncing, setIsSyncing] = useState(false)
 
-  const syncCartFromDatabase = useCallback(async () => {
+  // Load cart from database - this is the source of truth
+  const syncCartFromDatabase = useCallback(async (abortSignal?: AbortSignal, skipLoadingState = false) => {
     if (!user || isAdminPage) {
       setItems([])
-      setLoading(false)
+      if (!skipLoadingState) {
+        setLoading(false)
+      }
       return
     }
 
     try {
-      const response = await fetch("/api/cart")
+      const response = await fetch("/api/cart", {
+        signal: abortSignal,
+      })
+      
+      if (abortSignal?.aborted) return
+      
       if (response.ok) {
         const data = await response.json()
         const dbItems = data.items || []
@@ -62,35 +73,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       } else {
         setItems([])
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') return
       console.error("Error loading cart from database:", error)
       setItems([])
     } finally {
-      setLoading(false)
-    }
-  }, [user, isAdminPage])
-
-  const syncCartToDatabase = useCallback(async (cartItems: CartItem[]) => {
-    if (!user || isAdminPage) return
-
-    try {
-      // Clear database cart first
-      await fetch("/api/cart", { method: "DELETE" })
-
-      // Add all items to database
-      for (const item of cartItems) {
-        await fetch("/api/cart", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            productId: item.product.id,
-            quantity: item.quantity,
-            variantId: item.variantId || undefined,
-          }),
-        })
+      if (!abortSignal?.aborted && !skipLoadingState) {
+        setLoading(false)
       }
-    } catch (error) {
-      console.error("Error syncing cart to database:", error)
     }
   }, [user, isAdminPage])
 
@@ -98,6 +88,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     hasSyncedRef.current = false
     setLoading(true)
+    operationInProgressRef.current = false
+    // Cancel any pending operations
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
   }, [user?.id])
 
   // Load cart from database when user signs in (only once, and not on admin pages)
@@ -111,7 +107,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (user && !isSyncing && !hasSyncedRef.current) {
       hasSyncedRef.current = true
       setIsSyncing(true)
-      syncCartFromDatabase().finally(() => setIsSyncing(false))
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      syncCartFromDatabase(controller.signal).finally(() => {
+        if (!controller.signal.aborted) {
+          setIsSyncing(false)
+          abortControllerRef.current = null
+        }
+      })
     } else if (!user) {
       // User logged out - clear cart
       setItems([])
@@ -127,7 +130,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (user && !isSyncing && !hasSyncedRef.current) {
         hasSyncedRef.current = true
         setIsSyncing(true)
-        syncCartFromDatabase().finally(() => setIsSyncing(false))
+        const controller = new AbortController()
+        abortControllerRef.current = controller
+        syncCartFromDatabase(controller.signal).finally(() => {
+          if (!controller.signal.aborted) {
+            setIsSyncing(false)
+            abortControllerRef.current = null
+          }
+        })
       } else if (!user) {
         setItems([])
         setLoading(false)
@@ -138,16 +148,77 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("auth-state-changed", handleAuthChange)
   }, [user?.id, isSyncing, isAdminPage, syncCartFromDatabase])
 
-  // Debounced sync to database (only when user is authenticated and not during initial sync, skip on admin pages)
+  // Refresh cart when navigating to cart or checkout pages to ensure accuracy
   useEffect(() => {
-    if (!user || loading || isSyncing || isAdminPage || !hasSyncedRef.current) return
+    if (isAdminPage || !user || !hasSyncedRef.current) return
 
-    const timeoutId = setTimeout(() => {
-      syncCartToDatabase(items)
-    }, 1000) // Debounce to 1 second
+    const isCartPage = pathname === "/cart" || pathname === "/checkout"
+    if (isCartPage && !isSyncing && !operationInProgressRef.current) {
+      // Small delay to ensure page has loaded
+      const timeoutId = setTimeout(() => {
+        const controller = new AbortController()
+        abortControllerRef.current = controller
+        syncCartFromDatabase(controller.signal, true).finally(() => {
+          if (!controller.signal.aborted) {
+            abortControllerRef.current = null
+          }
+        })
+      }, 100)
 
-    return () => clearTimeout(timeoutId)
-  }, [items, user?.id, loading, isSyncing, isAdminPage, syncCartToDatabase])
+      return () => clearTimeout(timeoutId)
+    }
+  }, [pathname, user, isAdminPage, isSyncing, syncCartFromDatabase])
+
+  // Refresh cart when page becomes visible (user switches back to tab)
+  useEffect(() => {
+    if (isAdminPage || !user || !hasSyncedRef.current) return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && !isSyncing && !operationInProgressRef.current) {
+        const controller = new AbortController()
+        abortControllerRef.current = controller
+        syncCartFromDatabase(controller.signal, true).finally(() => {
+          if (!controller.signal.aborted) {
+            abortControllerRef.current = null
+          }
+        })
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [user, isAdminPage, isSyncing, syncCartFromDatabase])
+
+  // Reload cart after successful operations to ensure consistency
+  // Uses debouncing to prevent multiple rapid reloads
+  const reloadCartAfterOperation = useCallback(async () => {
+    // Clear any pending reload timeout
+    if (reloadTimeoutRef.current) {
+      clearTimeout(reloadTimeoutRef.current)
+    }
+
+    // Cancel any pending fetch
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Debounce the reload to batch rapid operations
+    return new Promise<void>((resolve) => {
+      reloadTimeoutRef.current = setTimeout(async () => {
+        const controller = new AbortController()
+        abortControllerRef.current = controller
+        
+        // Skip loading state during operation reloads to avoid UI flicker
+        await syncCartFromDatabase(controller.signal, true)
+        
+        if (!controller.signal.aborted) {
+          abortControllerRef.current = null
+        }
+        
+        resolve()
+      }, 150) // Small debounce to batch rapid operations
+    })
+  }, [syncCartFromDatabase])
 
   const addItem = useCallback(
     async (product: Product, quantity = 1, variantId?: string) => {
@@ -156,9 +227,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      // Prevent concurrent operations
+      if (operationInProgressRef.current) {
+        console.warn("Cart operation already in progress, please wait")
+        return
+      }
+
+      operationInProgressRef.current = true
+
       // Optimistically update UI
-      setItems((prev) => {
-        // Find existing item with same product AND variant
+      const optimisticItems = (prev: CartItem[]) => {
         const existing = prev.find(
           (item) => item.product.id === product.id && item.variantId === variantId
         )
@@ -171,9 +249,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           )
         }
         return [...prev, { product, quantity, variantId }]
-      })
+      }
 
-      // Sync to database
+      setItems(optimisticItems)
+
+      // Sync to database immediately
       try {
         const response = await fetch("/api/cart", {
           method: "POST",
@@ -187,15 +267,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         
         if (!response.ok) {
           // Revert on error by reloading from database
-          syncCartFromDatabase()
+          await reloadCartAfterOperation()
+        } else {
+          // Reload from server to ensure consistency (server is source of truth)
+          await reloadCartAfterOperation()
         }
       } catch (error) {
         console.error("Error adding item to database cart:", error)
         // Revert on error by reloading from database
-        syncCartFromDatabase()
+        await reloadCartAfterOperation()
+      } finally {
+        operationInProgressRef.current = false
       }
     },
-    [user, syncCartFromDatabase]
+    [user, reloadCartAfterOperation]
   )
 
   const removeItem = useCallback(
@@ -205,6 +290,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      // Prevent concurrent operations
+      if (operationInProgressRef.current) {
+        console.warn("Cart operation already in progress, please wait")
+        return
+      }
+
+      operationInProgressRef.current = true
+
       // Optimistically update UI
       setItems((prev) =>
         prev.filter(
@@ -213,7 +306,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         )
       )
 
-      // Sync to database
+      // Sync to database immediately
       try {
         const url = variantId
           ? `/api/cart/${productId}?variantId=${variantId}`
@@ -222,15 +315,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         
         if (!response.ok) {
           // Revert on error by reloading from database
-          syncCartFromDatabase()
+          await reloadCartAfterOperation()
+        } else {
+          // Reload from server to ensure consistency
+          await reloadCartAfterOperation()
         }
       } catch (error) {
         console.error("Error removing item from database cart:", error)
         // Revert on error by reloading from database
-        syncCartFromDatabase()
+        await reloadCartAfterOperation()
+      } finally {
+        operationInProgressRef.current = false
       }
     },
-    [user, syncCartFromDatabase]
+    [user, reloadCartAfterOperation]
   )
 
   const updateQuantity = useCallback(
@@ -241,9 +339,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (quantity < 1) {
-        removeItem(productId, variantId)
+        await removeItem(productId, variantId)
         return
       }
+
+      // Prevent concurrent operations
+      if (operationInProgressRef.current) {
+        console.warn("Cart operation already in progress, please wait")
+        return
+      }
+
+      operationInProgressRef.current = true
 
       // Optimistically update UI
       setItems((prev) =>
@@ -254,7 +360,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         )
       )
 
-      // Sync to database
+      // Sync to database immediately
       try {
         const url = variantId
           ? `/api/cart/${productId}?variantId=${variantId}`
@@ -267,15 +373,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         
         if (!response.ok) {
           // Revert on error by reloading from database
-          syncCartFromDatabase()
+          await reloadCartAfterOperation()
+        } else {
+          // Reload from server to ensure consistency
+          await reloadCartAfterOperation()
         }
       } catch (error) {
         console.error("Error updating quantity in database cart:", error)
         // Revert on error by reloading from database
-        syncCartFromDatabase()
+        await reloadCartAfterOperation()
+      } finally {
+        operationInProgressRef.current = false
       }
     },
-    [user, removeItem, syncCartFromDatabase]
+    [user, removeItem, reloadCartAfterOperation]
   )
 
   const clearCart = useCallback(async () => {
@@ -284,18 +395,36 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    // Prevent concurrent operations
+    if (operationInProgressRef.current) {
+      console.warn("Cart operation already in progress, please wait")
+      return
+    }
+
+    operationInProgressRef.current = true
+
     // Optimistically update UI
     setItems([])
 
-    // Sync to database
+    // Sync to database immediately
     try {
-      await fetch("/api/cart", { method: "DELETE" })
+      const response = await fetch("/api/cart", { method: "DELETE" })
+      
+      if (!response.ok) {
+        // Revert on error by reloading from database
+        await reloadCartAfterOperation()
+      } else {
+        // Reload from server to ensure consistency
+        await reloadCartAfterOperation()
+      }
     } catch (error) {
       console.error("Error clearing database cart:", error)
       // Revert on error by reloading from database
-      syncCartFromDatabase()
+      await reloadCartAfterOperation()
+    } finally {
+      operationInProgressRef.current = false
     }
-  }, [user, syncCartFromDatabase])
+  }, [user, reloadCartAfterOperation])
 
   const totalItems = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),

@@ -792,7 +792,12 @@ export async function addCartItem(
     query = query.is("variant_id", null)
   }
 
-  const { data: existing } = await query.single()
+  const { data: existing, error: queryError } = await query.maybeSingle()
+
+  if (queryError && queryError.code !== 'PGRST116') {
+    // PGRST116 is "not found" which is expected, other errors should be thrown
+    throw queryError
+  }
 
   if (existing) {
     const newQuantity = Math.min(existing.quantity + quantity, 10)
