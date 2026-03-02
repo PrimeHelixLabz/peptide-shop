@@ -187,6 +187,7 @@ export async function getUserById(id: string): Promise<User | null> {
     avatar: data.avatar,
     phone: data.phone,
     address: data.address,
+    ageVerified: data.age_verified ?? false,
   }
 }
 
@@ -211,6 +212,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     avatar: data.avatar,
     phone: data.phone,
     address: data.address,
+    ageVerified: data.age_verified ?? false,
   }
 }
 
@@ -225,6 +227,7 @@ export async function updateUser(
   if (updates.avatar !== undefined) updateData.avatar = updates.avatar
   if (updates.phone !== undefined) updateData.phone = updates.phone
   if (updates.address !== undefined) updateData.address = updates.address
+  if (updates.ageVerified !== undefined) updateData.age_verified = updates.ageVerified
 
   const { data, error } = await supabase
     .from("profiles")
@@ -246,6 +249,7 @@ export async function updateUser(
     avatar: data.avatar,
     phone: data.phone,
     address: data.address,
+    ageVerified: data.age_verified ?? false,
   }
 }
 

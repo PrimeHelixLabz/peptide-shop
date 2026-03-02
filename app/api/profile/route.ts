@@ -20,6 +20,8 @@ const updateProfileSchema = z.object({
   // Avatar is stored as a Supabase Storage path (not a full URL).
   // Allow null or empty string to clear the avatar.
   avatar: z.string().optional().nullable(),
+  // Age verification flag stored on the user profile.
+  ageVerified: z.boolean().optional(),
 })
 
 export const GET = requireAuthMiddleware(async (req) => {
@@ -54,6 +56,7 @@ export const GET = requireAuthMiddleware(async (req) => {
         avatar: profile?.avatar || null,
         phone: profile?.phone || null,
         address: profile?.address || null,
+        ageVerified: profile?.age_verified ?? false,
       },
     })
   } catch (error) {
@@ -109,6 +112,9 @@ export const PUT = requireAuthMiddleware(async (req) => {
       // Treat empty string as null (clear avatar)
       updateData.avatar = data.avatar || null
     }
+    if (data.ageVerified !== undefined) {
+      updateData.age_verified = data.ageVerified
+    }
 
     const { data: profile, error } = await supabase
       .from("profiles")
@@ -136,6 +142,7 @@ export const PUT = requireAuthMiddleware(async (req) => {
         avatar: profile.avatar || null,
         phone: profile.phone || null,
         address: profile.address || null,
+        ageVerified: profile.age_verified ?? false,
       },
     })
   } catch (error) {

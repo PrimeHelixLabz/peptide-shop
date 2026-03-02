@@ -16,6 +16,11 @@ export interface User {
   avatar?: string
   phone?: string
   address?: Address
+  /**
+   * Whether the user has passed the age verification gate.
+   * Backed by the `age_verified` boolean column on the `profiles` table.
+   */
+  ageVerified?: boolean
 }
 
 export interface Address {

@@ -24,6 +24,11 @@ export interface AuthUser {
     zipCode: string
     country: string
   }
+  /**
+   * Whether this authenticated user has passed the age verification gate.
+   * Sourced from the `age_verified` column on the `profiles` table.
+   */
+  ageVerified?: boolean
 }
 
 interface AuthContextValue {
@@ -91,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           avatar: profile.avatar,
           phone: profile.phone,
           address: profile.address,
+          ageVerified: profile.age_verified ?? false,
         })
       } else {
         setUser({
@@ -98,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: authUser.email!,
           name: authUser.email!,
           role: "user",
+          ageVerified: false,
         })
       }
     } catch (error) {

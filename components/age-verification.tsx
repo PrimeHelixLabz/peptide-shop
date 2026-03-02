@@ -6,35 +6,63 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Modal, ModalHeader, ModalContent, ModalFooter } from "@/components/ui/modal"
-
-const AGE_VERIFICATION_KEY = "age_verified"
+import { useAuth } from "@/lib/auth/auth-context"
 
 export function AgeVerification() {
+  const { user, loading: authLoading, refreshUser } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isVerified, setIsVerified] = useState(false)
   const [ageConfirmed, setAgeConfirmed] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
 
   useEffect(() => {
-    // Check if user has already verified their age
-    const verified = localStorage.getItem(AGE_VERIFICATION_KEY)
-    if (verified === "true") {
-      setIsVerified(true)
-    } else {
-      // Show popup after a short delay for better UX
-      const timer = setTimeout(() => {
-        setIsOpen(true)
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [])
+    // Wait for auth to resolve before deciding whether to show the gate
+    if (authLoading) return
 
-  const handleAgree = () => {
-    if (ageConfirmed && termsAccepted) {
-      localStorage.setItem(AGE_VERIFICATION_KEY, "true")
+    // If the authenticated user has already verified their age in the database, skip the modal
+    if (user?.ageVerified) {
       setIsVerified(true)
       setIsOpen(false)
+      return
     }
+
+    // For guests or users without age verification, show the popup
+    const timer = setTimeout(() => {
+      setIsOpen(true)
+    }, 100)
+
+    return () => clearTimeout(timer)
+  }, [authLoading, user?.ageVerified])
+
+  const handleAgree = async () => {
+    if (!ageConfirmed || !termsAccepted) return
+
+    // If a user is logged in, persist verification to their profile in the database
+    if (user) {
+      try {
+        const response = await fetch("/api/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ageVerified: true }),
+        })
+
+        if (!response.ok) {
+          // If the update fails, keep the modal open to avoid bypassing the gate
+          console.error("Failed to persist age verification")
+          return
+        }
+
+        // Refresh auth user so ageVerified is reflected across the app
+        await refreshUser()
+      } catch (error) {
+        console.error("Error updating age verification:", error)
+        return
+      }
+    }
+
+    // For guests, verification is only for the current session (not persisted in client storage)
+    setIsVerified(true)
+    setIsOpen(false)
   }
 
   const handleExit = () => {
