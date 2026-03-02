@@ -5,6 +5,8 @@ import Link from "next/link"
 import { Search, Eye, ChevronDown } from "lucide-react"
 import { Pagination } from "./pagination"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
+import { useScrollRestoration } from "@/hooks/useScrollRestoration"
+import { usePersistentTableState } from "@/hooks/usePersistentTableState"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -64,13 +66,21 @@ const shippingFilterOptions: { value: ShippingFilter; label: string }[] = [
 /* ------------------------------------------------------------------ */
 
 export function AdminOrdersTable() {
-  const [query, setQuery] = useState("")
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all")
-  const [shippingFilter, setShippingFilter] = useState<ShippingFilter>("all")
+  // Persist scroll position for this admin page
+  useScrollRestoration("admin-orders-scroll")
+
+  const [tableState, setTableState] = usePersistentTableState("admin-orders-table", {
+    query: "",
+    paymentFilter: "all" as PaymentFilter,
+    shippingFilter: "all" as ShippingFilter,
+    currentPage: 1,
+    itemsPerPage: 20,
+  })
+
+  const { query, paymentFilter, shippingFilter, currentPage, itemsPerPage } = tableState
+
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [loading, setLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(20)
 
   useEffect(() => {
     async function fetchOrders() {
@@ -116,8 +126,8 @@ export function AdminOrdersTable() {
 
   // Reset to page 1 when search or filter changes
   useEffect(() => {
-    setCurrentPage(1)
-  }, [query, paymentFilter, shippingFilter])
+    setTableState((prev) => ({ ...prev, currentPage: 1 }))
+  }, [query, paymentFilter, shippingFilter, setTableState])
 
   // Paginate filtered results
   const paginated = useMemo(() => {
@@ -139,7 +149,12 @@ export function AdminOrdersTable() {
             type="text"
             placeholder="Search orders..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) =>
+              setTableState((prev) => ({
+                ...prev,
+                query: e.target.value,
+              }))
+            }
             className="h-12 w-full rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-11 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20"
             aria-label="Search orders"
           />
@@ -155,7 +170,10 @@ export function AdminOrdersTable() {
             <select
               value={paymentFilter}
               onChange={(e) =>
-                setPaymentFilter(e.target.value as PaymentFilter)
+                setTableState((prev) => ({
+                  ...prev,
+                  paymentFilter: e.target.value as PaymentFilter,
+                }))
               }
               className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
               aria-label="Filter by payment status"
@@ -172,7 +190,10 @@ export function AdminOrdersTable() {
             <select
               value={shippingFilter}
               onChange={(e) =>
-                setShippingFilter(e.target.value as ShippingFilter)
+                setTableState((prev) => ({
+                  ...prev,
+                  shippingFilter: e.target.value as ShippingFilter,
+                }))
               }
               className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
               aria-label="Filter by shipping status"
@@ -284,13 +305,21 @@ export function AdminOrdersTable() {
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            onPageChange={setCurrentPage}
+            onPageChange={(page) =>
+              setTableState((prev) => ({
+                ...prev,
+                currentPage: page,
+              }))
+            }
             itemsPerPage={itemsPerPage}
             totalItems={filtered.length}
-            onItemsPerPageChange={(newItemsPerPage) => {
-              setItemsPerPage(newItemsPerPage)
-              setCurrentPage(1)
-            }}
+            onItemsPerPageChange={(newItemsPerPage) =>
+              setTableState((prev) => ({
+                ...prev,
+                itemsPerPage: newItemsPerPage,
+                currentPage: 1,
+              }))
+            }
           />
         )}
 
@@ -316,9 +345,13 @@ export function AdminOrdersTable() {
             {query.trim() || paymentFilter !== "all" || shippingFilter !== "all" ? (
               <button
                 onClick={() => {
-                  setQuery("")
-                  setPaymentFilter("all")
-                  setShippingFilter("all")
+                  setTableState((prev) => ({
+                    ...prev,
+                    query: "",
+                    paymentFilter: "all",
+                    shippingFilter: "all",
+                    currentPage: 1,
+                  }))
                 }}
                 className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-muted-foreground transition-colors"
               >

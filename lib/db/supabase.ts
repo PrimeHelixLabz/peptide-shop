@@ -384,6 +384,7 @@ export async function getProductById(id: string): Promise<Product | null> {
       )
     `)
     .eq("id", id)
+    .eq("is_archived", false)
     .single()
 
   if (error || !data) return null
@@ -413,6 +414,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
       )
     `)
     .eq("slug", slug)
+    .eq("is_archived", false)
     .single()
 
   if (error || !data) return null
@@ -480,7 +482,55 @@ export async function archiveProduct(id: string): Promise<boolean> {
 
 // Keep deleteProduct for backward compatibility, but it now archives
 export async function deleteProduct(id: string): Promise<boolean> {
-  return archiveProduct(id)
+  const supabase = await createClient()
+
+  // Permanently delete variant images for this product's variants
+  const { data: variants, error: variantsError } = await supabase
+    .from("product_variants")
+    .select("id")
+    .eq("product_id", id)
+
+  if (variantsError) {
+    console.error("Error fetching variants for delete:", variantsError)
+    return false
+  }
+
+  const variantIds = (variants || []).map((v: any) => v.id)
+
+  if (variantIds.length > 0) {
+    const { error: imagesError } = await supabase
+      .from("variant_images")
+      .delete()
+      .in("variant_id", variantIds)
+
+    if (imagesError) {
+      console.error("Error deleting variant images:", imagesError)
+      return false
+    }
+
+    const { error: deleteVariantsError } = await supabase
+      .from("product_variants")
+      .delete()
+      .in("id", variantIds)
+
+    if (deleteVariantsError) {
+      console.error("Error deleting variants:", deleteVariantsError)
+      return false
+    }
+  }
+
+  // Finally, delete the product row itself
+  const { error: deleteProductError } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id)
+
+  if (deleteProductError) {
+    console.error("Error deleting product:", deleteProductError)
+    return false
+  }
+
+  return true
 }
 
 // Product Variants

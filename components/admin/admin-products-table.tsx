@@ -10,6 +10,8 @@ import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { Pagination } from "./pagination"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/status-badge"
+import { useScrollRestoration } from "@/hooks/useScrollRestoration"
+import { usePersistentTableState } from "@/hooks/usePersistentTableState"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,13 +38,22 @@ export function AdminProductsTable({
 }: {
   products: AdminProduct[]
 }) {
+  // Persist scroll position for this admin page
+  useScrollRestoration("admin-products-scroll")
+
+  const [tableState, setTableState] = usePersistentTableState("admin-products-table", {
+    query: "",
+    statusFilter: "all" as StatusFilter,
+    categoryFilter: "all",
+    archivedFilter: "active" as ArchivedFilter,
+    currentPage: 1,
+    itemsPerPage: 20,
+  })
+
+  const { query, statusFilter, categoryFilter, archivedFilter, currentPage, itemsPerPage } =
+    tableState
+
   const [products, setProducts] = useState(initialProducts)
-  const [query, setQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [categoryFilter, setCategoryFilter] = useState<string>("all")
-  const [archivedFilter, setArchivedFilter] = useState<ArchivedFilter>("active")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(20)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -114,8 +125,8 @@ export function AdminProductsTable({
 
   // Reset to page 1 when search or filters change
   useEffect(() => {
-    setCurrentPage(1)
-  }, [query, statusFilter, categoryFilter, archivedFilter, sortBy])
+    setTableState((prev) => ({ ...prev, currentPage: 1 }))
+  }, [query, statusFilter, categoryFilter, archivedFilter, sortBy, setTableState])
 
   // Sync products when initialProducts changes
   useEffect(() => {
@@ -220,7 +231,12 @@ export function AdminProductsTable({
             type="text"
             placeholder="Search products..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) =>
+              setTableState((prev) => ({
+                ...prev,
+                query: e.target.value,
+              }))
+            }
             className="h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-11 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20"
             aria-label="Search products"
           />
@@ -258,7 +274,12 @@ export function AdminProductsTable({
         <div className="relative">
           <select
             value={archivedFilter}
-            onChange={(e) => setArchivedFilter(e.target.value as ArchivedFilter)}
+            onChange={(e) =>
+              setTableState((prev) => ({
+                ...prev,
+                archivedFilter: e.target.value as ArchivedFilter,
+              }))
+            }
             className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
             aria-label="Filter by archived status"
           >
@@ -273,7 +294,12 @@ export function AdminProductsTable({
         <div className="relative">
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            onChange={(e) =>
+              setTableState((prev) => ({
+                ...prev,
+                statusFilter: e.target.value as StatusFilter,
+              }))
+            }
             className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
             aria-label="Filter by status"
           >
@@ -288,7 +314,12 @@ export function AdminProductsTable({
         <div className="relative">
           <select
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={(e) =>
+              setTableState((prev) => ({
+                ...prev,
+                categoryFilter: e.target.value,
+              }))
+            }
             className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
             aria-label="Filter by category"
           >
@@ -466,13 +497,21 @@ export function AdminProductsTable({
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            onPageChange={setCurrentPage}
+            onPageChange={(page) =>
+              setTableState((prev) => ({
+                ...prev,
+                currentPage: page,
+              }))
+            }
             itemsPerPage={itemsPerPage}
             totalItems={filtered.length}
-            onItemsPerPageChange={(newItemsPerPage) => {
-              setItemsPerPage(newItemsPerPage)
-              setCurrentPage(1)
-            }}
+            onItemsPerPageChange={(newItemsPerPage) =>
+              setTableState((prev) => ({
+                ...prev,
+                itemsPerPage: newItemsPerPage,
+                currentPage: 1,
+              }))
+            }
           />
         )}
 
@@ -488,10 +527,14 @@ export function AdminProductsTable({
             {(query.trim() || statusFilter !== "all" || categoryFilter !== "all" || archivedFilter !== "active") && (
               <button
                 onClick={() => {
-                  setQuery("")
-                  setStatusFilter("all")
-                  setCategoryFilter("all")
-                  setArchivedFilter("active")
+                  setTableState((prev) => ({
+                    ...prev,
+                    query: "",
+                    statusFilter: "all",
+                    categoryFilter: "all",
+                    archivedFilter: "active",
+                    currentPage: 1,
+                  }))
                 }}
                 className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-muted-foreground transition-colors"
               >
