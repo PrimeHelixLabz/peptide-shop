@@ -3,6 +3,71 @@ import { requireAdminMiddleware, type AuthenticatedRequest } from "@/lib/auth/mi
 import { getProducts, getProductById, getProductVariants, updateProduct, updateVariant } from "@/lib/db/supabase"
 import { stripe } from "@/lib/stripe"
 
+async function ensureStripePriceForVariant(args: {
+  stripeProductId: string
+  productId: string
+  variant: { id: string; sku: string; price: number; stripePriceId?: string }
+}) {
+  const { stripeProductId, productId, variant } = args
+  const desiredUnitAmount = Math.round(variant.price * 100)
+
+  // Stripe Prices are immutable for amount/currency; if the amount changes, create a new price,
+  // deactivate the old one, and update our DB mapping.
+  if (variant.stripePriceId) {
+    try {
+      const existing = await stripe.prices.retrieve(variant.stripePriceId)
+      const existingAmount = existing.unit_amount ?? null
+      const existingCurrency = existing.currency
+
+      const needsNew =
+        existingAmount !== desiredUnitAmount || existingCurrency.toLowerCase() !== "usd"
+
+      if (!needsNew) {
+        return variant.stripePriceId
+      }
+
+      const next = await stripe.prices.create({
+        currency: "usd",
+        unit_amount: desiredUnitAmount,
+        product: stripeProductId,
+        nickname: variant.sku,
+        metadata: {
+          variantId: variant.id,
+          productId,
+          replacesPriceId: variant.stripePriceId,
+        },
+      })
+
+      // Best-effort deactivate old price so it doesn't show up as selectable in Stripe UI.
+      try {
+        await stripe.prices.update(variant.stripePriceId, { active: false })
+      } catch (e) {
+        console.warn("Failed to deactivate old Stripe price", variant.stripePriceId, e)
+      }
+
+      await updateVariant(variant.id, { stripePriceId: next.id })
+      return next.id
+    } catch (e) {
+      // If retrieval fails (deleted/invalid), fall through to creating a new price.
+      console.warn("Failed to retrieve Stripe price, will recreate", variant.stripePriceId, e)
+    }
+  }
+
+  const created = await stripe.prices.create({
+    currency: "usd",
+    unit_amount: desiredUnitAmount,
+    product: stripeProductId,
+    nickname: variant.sku,
+    metadata: {
+      variantId: variant.id,
+      productId,
+    },
+  })
+
+  await updateVariant(variant.id, { stripePriceId: created.id })
+  return created.id
+}
+
 export const POST = requireAdminMiddleware(async (req: AuthenticatedRequest) => {
   try {
     // Fetch all products (including archived) so we can sync the full catalog.
@@ -34,7 +99,8 @@ export const POST = requireAdminMiddleware(async (req: AuthenticatedRequest) => 
         if (!stripeProductId) {
           const stripeProduct = await stripe.products.create({
             name: product.name,
-            description: product.longDescription || undefined,
+            // We don't store description on Stripe; always keep it empty/cleared.
+            description: "",
             active: !product.isArchived,
             metadata: {
               productId: product.id,
@@ -47,30 +113,24 @@ export const POST = requireAdminMiddleware(async (req: AuthenticatedRequest) => 
         } else {
           await stripe.products.update(stripeProductId, {
             name: product.name,
-            description: product.longDescription || undefined,
+            // We don't store description on Stripe; always keep it empty/cleared.
+            description: "",
             active: !product.isArchived,
           })
         }
 
         // Ensure Stripe prices for all variants
         for (const variant of variants) {
-          const unitAmount = Math.round(variant.price * 100)
-          let stripePriceId = variant.stripePriceId
-
-          if (!stripePriceId) {
-            const price = await stripe.prices.create({
-              currency: "usd",
-              unit_amount: unitAmount,
-              product: stripeProductId,
-              nickname: variant.sku,
-              metadata: {
-                variantId: variant.id,
-                productId: product.id,
-              },
-            })
-            stripePriceId = price.id
-            await updateVariant(variant.id, { stripePriceId })
-          }
+          await ensureStripePriceForVariant({
+            stripeProductId,
+            productId: product.id,
+            variant: {
+              id: variant.id,
+              sku: variant.sku,
+              price: variant.price,
+              stripePriceId: variant.stripePriceId,
+            },
+          })
         }
 
         results.push({ productId: product.id, stripeProductId, synced: true })
