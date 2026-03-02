@@ -1135,12 +1135,18 @@ export async function updateOrder(
   if (updates.paymentStatus !== undefined) updateData.payment_status = updates.paymentStatus
   if (updates.trackingNumber !== undefined) updateData.tracking_number = updates.trackingNumber
 
+  console.log("Updating order", id)
+  console.log("Update data", updateData)
+
   const { data, error } = await supabase
     .from("orders")
     .update(updateData)
     .eq("id", id)
     .select()
     .single()
+
+  console.log("Updated order", data)
+  console.log("Error", error)
 
   if (error || !data) return null
 

@@ -28,6 +28,9 @@ export const POST = async (req: NextRequest) => {
         const userId = session.metadata?.userId as string | undefined
 
         if (orderId) {
+          console.log("Updating order", orderId)
+          console.log("Payment status", "paid")
+          console.log("Status", "processing")
           await updateOrder(orderId, {
             paymentStatus: "paid",
             status: "processing",
