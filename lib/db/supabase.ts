@@ -9,6 +9,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createPublicClient } from "@/lib/supabase/public"
+import { createAdminClient } from "@/lib/supabase/admin"
 import type {
   User,
   Product,
@@ -1169,5 +1170,66 @@ export async function updateOrder(
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
+  }
+}
+
+/**
+ * Admin-only order update that bypasses RLS using the service role.
+ * Intended for background jobs and webhooks (e.g. Stripe).
+ */
+export async function updateOrderAsAdmin(
+  id: string,
+  updates: Partial<Order>
+): Promise<Order | null> {
+  const supabase = createAdminClient()
+  const updateData: any = {}
+
+  if (updates.status !== undefined) updateData.status = updates.status
+  if (updates.paymentStatus !== undefined) updateData.payment_status = updates.paymentStatus
+  if (updates.trackingNumber !== undefined) updateData.tracking_number = updates.trackingNumber
+
+  const { data, error } = await supabase
+    .from("orders")
+    .update(updateData)
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error || !data) {
+    console.error("updateOrderAsAdmin error", error)
+    return null
+  }
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    email: data.email,
+    orderNumber: data.order_number,
+    status: data.status,
+    items: data.items,
+    subtotal: parseFloat(data.subtotal),
+    shipping: parseFloat(data.shipping),
+    tax: parseFloat(data.tax),
+    total: parseFloat(data.total),
+    shippingAddress: data.shipping_address,
+    billingAddress: data.billing_address,
+    paymentMethod: data.payment_method,
+    paymentStatus: data.payment_status,
+    trackingNumber: data.tracking_number,
+    notes: data.notes,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }
+}
+
+/**
+ * Admin-only cart clear that bypasses RLS using the service role.
+ * Used by Stripe webhook after successful checkout.
+ */
+export async function clearCartAsAdmin(userId: string): Promise<void> {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("cart_items").delete().eq("user_id", userId)
+  if (error) {
+    console.error("clearCartAsAdmin error", error)
   }
 }

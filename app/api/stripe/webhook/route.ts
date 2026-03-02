@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
-import { updateOrder, clearCart } from "@/lib/db/supabase"
+import { updateOrderAsAdmin, clearCartAsAdmin } from "@/lib/db/supabase"
 
 export const POST = async (req: NextRequest) => {
   const sig = req.headers.get("stripe-signature")
@@ -28,18 +28,16 @@ export const POST = async (req: NextRequest) => {
         const userId = session.metadata?.userId as string | undefined
 
         if (orderId) {
-          console.log("Updating order", orderId)
-          console.log("Payment status", "paid")
-          console.log("Status", "processing")
-          await updateOrder(orderId, {
+          console.log("Webhook: updating order (paid/processing)", orderId)
+          await updateOrderAsAdmin(orderId, {
             paymentStatus: "paid",
             status: "processing",
           })
         }
 
         if (userId) {
-          // Best-effort clear cart for authenticated users
-          await clearCart(userId)
+          // Best-effort clear cart for authenticated users (admin client bypasses RLS)
+          await clearCartAsAdmin(userId)
         }
         break
       }
@@ -48,7 +46,8 @@ export const POST = async (req: NextRequest) => {
         const session = event.data.object as any
         const orderId = session.metadata?.orderId as string | undefined
         if (orderId) {
-          await updateOrder(orderId, {
+          console.log("Webhook: updating order (failed/cancelled)", orderId)
+          await updateOrderAsAdmin(orderId, {
             paymentStatus: "failed",
             status: "cancelled",
           })
