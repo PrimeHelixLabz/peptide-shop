@@ -9,7 +9,7 @@
 
 import type { ProductDetail } from "./types"
 
-export const mockProducts: ProductDetail[] = [
+export const mockProducts: Partial<ProductDetail>[] = [
   {
     id: "bpc-157",
     name: "BPC-157",
@@ -21,7 +21,7 @@ export const mockProducts: ProductDetail[] = [
     usage:
       "For research use only. Reconstitute with bacteriostatic water at the desired concentration. Store reconstituted solution at 2-8°C and use within 30 days. Lyophilized powder may be stored at -20°C for long-term preservation. Always handle under sterile conditions following laboratory safety protocols.",
     shipping:
-      "Ships within 24 hours of order placement via insulated cold-chain packaging. All domestic orders include free priority shipping (2-3 business days). International orders are available with tracked express delivery (5-7 business days). Each shipment includes a certificate of analysis and is sealed for tamper evidence.",
+      "Ships within 24 hours of order placement in protective packaging. All domestic orders include free priority shipping (2-3 business days). International orders are available with tracked express delivery (5-7 business days). Each shipment includes a certificate of analysis and is sealed for tamper evidence.",
     image: "/images/product-bpc157.jpg",
     category: "Repair",
     inStock: true,
@@ -43,7 +43,7 @@ export const mockProducts: ProductDetail[] = [
     usage:
       "For research use only. Reconstitute with bacteriostatic water. Recommended storage at 2-8°C once reconstituted, with use within 21 days. Lyophilized form should be kept at -20°C. Handle with sterile technique and appropriate PPE in a controlled laboratory setting.",
     shipping:
-      "Ships within 24 hours via temperature-controlled packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Includes certificate of analysis and tamper-evident sealing.",
+      "Ships within 24 hours in protective packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Includes certificate of analysis and tamper-evident sealing.",
     image: "/images/product-tb500.jpg",
     category: "Recovery",
     inStock: true,
@@ -87,7 +87,7 @@ export const mockProducts: ProductDetail[] = [
     usage:
       "For research use only. Reconstitute with bacteriostatic water. Store reconstituted solution at 2-8°C with recommended use within 28 days. Lyophilized form stable at -20°C. Maintain sterile handling conditions per laboratory protocols.",
     shipping:
-      "Ships within 24 hours via cold-chain logistics. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Full certificate of analysis and tamper-evident packaging included.",
+      "Ships within 24 hours via tracked logistics. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Full certificate of analysis and tamper-evident packaging included.",
     image: "/images/product-ipamorelin.jpg",
     category: "Growth",
     inStock: true,
@@ -109,7 +109,7 @@ export const mockProducts: ProductDetail[] = [
     usage:
       "For research use only. Reconstitute with bacteriostatic water at desired concentration. Store reconstituted product at 2-8°C and use within 21 days. Lyophilized powder stable at -20°C for long-term storage. Use strict aseptic technique.",
     shipping:
-      "Ships within 24 hours with temperature-controlled packaging. Free domestic priority shipping (2-3 business days). International express delivery available (5-7 business days). Certificate of analysis and COA documentation included.",
+      "Ships within 24 hours in protective packaging. Free domestic priority shipping (2-3 business days). International express delivery available (5-7 business days). Certificate of analysis and COA documentation included.",
     image: "/images/product-cjc1295.jpg",
     category: "Growth",
     inStock: true,
@@ -132,7 +132,7 @@ export const mockProducts: ProductDetail[] = [
     usage:
       "For research use only. Reconstitute with sterile water or appropriate buffer. Store reconstituted solution at 2-8°C and use within 14 days. Lyophilized form stable at -20°C. LL-37 is sensitive to repeated freeze-thaw cycles — aliquot as needed.",
     shipping:
-      "Ships within 24 hours via insulated cold-chain packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Certificate of analysis, MSDS, and tamper-evident sealing included.",
+      "Ships within 24 hours via insulated protective packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Certificate of analysis, MSDS, and tamper-evident sealing included.",
     image: "/images/product-ll37.jpg",
     category: "Immune",
     inStock: false,

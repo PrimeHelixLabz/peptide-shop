@@ -8,12 +8,6 @@ const details = [
       "Orders confirmed before 2 PM EST Monday through Friday are processed and handed off to carriers the same business day.",
   },
   {
-    icon: Thermometer,
-    title: "Temperature-Controlled Packaging",
-    description:
-      "Every shipment uses insulated containers with cold packs to maintain peptide stability from our facility to your lab.",
-  },
-  {
     icon: Truck,
     title: "Tracked Delivery",
     description:

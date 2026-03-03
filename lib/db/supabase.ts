@@ -165,6 +165,120 @@ function productToRow(product: Partial<Product>): any {
   return row
 }
 
+/**
+ * Admin-only helper to decrement inventory for all items in an order.
+ *
+ * This is intended to be called from background jobs and webhooks (e.g. Stripe)
+ * after a successful payment.
+ */
+export async function adjustInventoryForOrderAsAdmin(orderId: string): Promise<void> {
+  const supabase = createAdminClient()
+
+  // Fetch order items using admin client to bypass RLS
+  const { data: orderRow, error: orderError } = await supabase
+    .from("orders")
+    .select("id, items")
+    .eq("id", orderId)
+    .single()
+
+  if (orderError || !orderRow) {
+    console.error("adjustInventoryForOrderAsAdmin: failed to load order", orderError, {
+      orderId,
+    })
+    return
+  }
+
+  const items: OrderItem[] = orderRow.items || []
+
+  for (const item of items) {
+    try {
+      // If the order item references a specific variant, decrement that variant's stock.
+      if (item.variantId) {
+        const { data: variantRow, error: variantError } = await supabase
+          .from("product_variants")
+          .select("id, stock, stock_quantity, in_stock")
+          .eq("id", item.variantId)
+          .single()
+
+        if (variantError || !variantRow) {
+          console.error(
+            "adjustInventoryForOrderAsAdmin: failed to load variant",
+            variantError,
+            { variantId: item.variantId, orderId }
+          )
+          continue
+        }
+
+        const currentStock =
+          (variantRow as any).stock ??
+          (variantRow as any).stock_quantity ??
+          0
+        const newStock = Math.max(0, currentStock - item.quantity)
+
+        const { error: updateVariantError } = await supabase
+          .from("product_variants")
+          .update({
+            stock: newStock,
+            stock_quantity: newStock,
+            in_stock: newStock > 0,
+          })
+          .eq("id", item.variantId)
+
+        if (updateVariantError) {
+          console.error(
+            "adjustInventoryForOrderAsAdmin: failed to update variant stock",
+            updateVariantError,
+            { variantId: item.variantId, orderId }
+          )
+        }
+
+        continue
+      }
+
+      // Otherwise, decrement the base product stock.
+      const { data: productRow, error: productError } = await supabase
+        .from("products")
+        .select("id, stock_quantity, in_stock")
+        .eq("id", item.productId)
+        .single()
+
+      if (productError || !productRow) {
+        console.error(
+          "adjustInventoryForOrderAsAdmin: failed to load product",
+          productError,
+          { productId: item.productId, orderId }
+        )
+        continue
+      }
+
+      const currentStock = (productRow as any).stock_quantity ?? 0
+      const newStock = Math.max(0, currentStock - item.quantity)
+
+      const { error: updateProductError } = await supabase
+        .from("products")
+        .update({
+          stock_quantity: newStock,
+          in_stock: newStock > 0,
+        })
+        .eq("id", item.productId)
+
+      if (updateProductError) {
+        console.error(
+          "adjustInventoryForOrderAsAdmin: failed to update product stock",
+          updateProductError,
+          { productId: item.productId, orderId }
+        )
+      }
+    } catch (err) {
+      console.error(
+        "adjustInventoryForOrderAsAdmin: unexpected error adjusting item",
+        err,
+        { orderId, item }
+      )
+    }
+  }
+}
+
 // Users
 export async function getUserById(id: string): Promise<User | null> {
   const supabase = await createClient()

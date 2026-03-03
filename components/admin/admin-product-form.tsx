@@ -485,6 +485,60 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
 
   /* ---- COA helpers ---- */
 
+  async function clearCoa() {
+    const preview = form.coaPreview
+
+    // If it's an existing image from Supabase storage, delete it from storage
+    if (preview && isStorageUrl(preview)) {
+      try {
+        const response = await fetch("/api/upload/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: preview }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Failed to delete COA image from storage:", errorData)
+          toast.error("Failed to delete COA image from storage", {
+            description:
+              errorData.error ||
+              "The COA was removed from the form but may still exist in storage.",
+          })
+        }
+      } catch (error) {
+        console.error("Error deleting COA image from storage:", error)
+        toast.error("Error deleting COA image", {
+          description:
+            "The COA was removed from the form but may still exist in storage.",
+        })
+      }
+    }
+
+    // Remove from form state
+    setForm((prev) => ({
+      ...prev,
+      coaFile: undefined,
+      coaPreview: "",
+    }))
+
+    // If editing an existing product, immediately clear COA on the product record
+    if (productId) {
+      try {
+        await fetch(`/api/products/${productId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coaUrl: null }),
+        })
+      } catch (error) {
+        console.error("Error clearing COA on product:", error)
+        toast.error("Failed to update product COA", {
+          description: "The COA reference may not have been removed from the product.",
+        })
+      }
+    }
+  }
+
   function handleCoaInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] || null
     handleCoaFile(file)
@@ -1502,6 +1556,14 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                     className="h-auto w-full object-contain bg-white"
                     unoptimized={form.coaPreview.startsWith("http")}
                   />
+                  <button
+                    type="button"
+                    onClick={clearCoa}
+                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-background/90 text-foreground backdrop-blur-sm transition-colors hover:bg-accent"
+                    aria-label="Remove COA"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
 

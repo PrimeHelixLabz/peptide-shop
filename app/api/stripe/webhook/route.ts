@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
-import { updateOrderAsAdmin, clearCartAsAdmin } from "@/lib/db/supabase"
+import {
+  updateOrderAsAdmin,
+  clearCartAsAdmin,
+  adjustInventoryForOrderAsAdmin,
+} from "@/lib/db/supabase"
 
 export const POST = async (req: NextRequest) => {
   const sig = req.headers.get("stripe-signature")
@@ -33,6 +37,10 @@ export const POST = async (req: NextRequest) => {
             paymentStatus: "paid",
             status: "processing",
           })
+
+          // Decrement inventory for all items in the paid order.
+          // Uses admin client to bypass RLS and operate safely in webhook context.
+          await adjustInventoryForOrderAsAdmin(orderId)
         }
 
         if (userId) {

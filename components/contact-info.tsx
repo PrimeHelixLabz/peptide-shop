@@ -13,13 +13,7 @@ const contactDetails = [
     label: "Business Hours",
     value: "Mon \u2013 Fri, 9:00 AM \u2013 5:00 PM EST",
     description: "We respond to all inquiries within one business day.",
-  },
-  {
-    icon: MapPin,
-    label: "Headquarters",
-    value: "Peoria AZ, United States",
-    description: "All orders ship from our climate-controlled facility.",
-  },
+  }
 ]
 
 export function ContactInfo() {

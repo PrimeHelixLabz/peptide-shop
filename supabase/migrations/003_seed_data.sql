@@ -30,7 +30,7 @@ INSERT INTO public.products (
   100,
   '{"purity": "99.1%", "weight": "5mg", "form": "Lyophilized", "sequence": "Gly-Glu-Pro-Pro-Pro-Gly-Lys-Pro-Ala-Asp-Asp-Ala-Gly-Leu-Val"}'::jsonb,
   'For research use only. Reconstitute with bacteriostatic water at the desired concentration. Store reconstituted solution at 2-8°C and use within 30 days. Lyophilized powder may be stored at -20°C for long-term preservation. Always handle under sterile conditions following laboratory safety protocols.',
-  'Ships within 24 hours of order placement via insulated cold-chain packaging. All domestic orders include free priority shipping (2-3 business days). International orders are available with tracked express delivery (5-7 business days). Each shipment includes a certificate of analysis and is sealed for tamper evidence.'
+  'Ships within 24 hours of order placement in protective packaging. All domestic orders include free priority shipping (2-3 business days). International orders are available with tracked express delivery (5-7 business days). Each shipment includes a certificate of analysis and is sealed for tamper evidence.'
 ),
 (
   'TB-500',
@@ -44,7 +44,7 @@ INSERT INTO public.products (
   100,
   '{"purity": "98.7%", "weight": "5mg", "form": "Lyophilized", "sequence": "Ac-SDKP (active fragment)"}'::jsonb,
   'For research use only. Reconstitute with bacteriostatic water. Recommended storage at 2-8°C once reconstituted, with use within 21 days. Lyophilized form should be kept at -20°C. Handle with sterile technique and appropriate PPE in a controlled laboratory setting.',
-  'Ships within 24 hours via temperature-controlled packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Includes certificate of analysis and tamper-evident sealing.'
+  'Ships within 24 hours in protective packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Includes certificate of analysis and tamper-evident sealing.'
 ),
 (
   'GHK-Cu',
@@ -72,7 +72,7 @@ INSERT INTO public.products (
   100,
   '{"purity": "99.0%", "weight": "5mg", "form": "Lyophilized", "sequence": "Aib-His-D-2-Nal-D-Phe-Lys-NH2"}'::jsonb,
   'For research use only. Reconstitute with bacteriostatic water. Store reconstituted solution at 2-8°C with recommended use within 28 days. Lyophilized form stable at -20°C. Maintain sterile handling conditions per laboratory protocols.',
-  'Ships within 24 hours via cold-chain logistics. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Full certificate of analysis and tamper-evident packaging included.'
+  'Ships within 24 hours via tracked logistics. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Full certificate of analysis and tamper-evident packaging included.'
 ),
 (
   'CJC-1295',
@@ -86,7 +86,7 @@ INSERT INTO public.products (
   100,
   '{"purity": "98.5%", "weight": "5mg", "form": "Lyophilized", "sequence": "Tyr-D-Ala-Asp-Ala-Ile-Phe-Thr-Gln-Ser-Tyr-Arg-Lys-Val-Leu-Ala-Gln-Leu-Ser-Ala-Arg-Lys-Leu-Leu-Gln-Asp-Ile-Leu-Ser-Arg-DAC"}'::jsonb,
   'For research use only. Reconstitute with bacteriostatic water at desired concentration. Store reconstituted product at 2-8°C and use within 21 days. Lyophilized powder stable at -20°C for long-term storage. Use strict aseptic technique.',
-  'Ships within 24 hours with temperature-controlled packaging. Free domestic priority shipping (2-3 business days). International express delivery available (5-7 business days). Certificate of analysis and COA documentation included.'
+  'Ships within 24 hours in protective packaging. Free domestic priority shipping (2-3 business days). International express delivery available (5-7 business days). Certificate of analysis and COA documentation included.'
 ),
 (
   'LL-37',
@@ -100,7 +100,7 @@ INSERT INTO public.products (
   0,
   '{"purity": "98.9%", "weight": "5mg", "form": "Lyophilized", "sequence": "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES"}'::jsonb,
   'For research use only. Reconstitute with sterile water or appropriate buffer. Store reconstituted solution at 2-8°C and use within 14 days. Lyophilized form stable at -20°C. LL-37 is sensitive to repeated freeze-thaw cycles — aliquot as needed.',
-  'Ships within 24 hours via insulated cold-chain packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Certificate of analysis, MSDS, and tamper-evident sealing included.'
+  'Ships within 24 hours in insulated protective packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Certificate of analysis, MSDS, and tamper-evident sealing included.'
 )
 ON CONFLICT DO NOTHING;
 

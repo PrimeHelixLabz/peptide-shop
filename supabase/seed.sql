@@ -33,7 +33,7 @@ INSERT INTO public.products (
   100,
   '{"purity": "99.1%", "weight": "5mg", "form": "Lyophilized", "sequence": "Gly-Glu-Pro-Pro-Pro-Gly-Lys-Pro-Ala-Asp-Asp-Ala-Gly-Leu-Val"}'::jsonb,
   'For research use only. Reconstitute with bacteriostatic water at the desired concentration.',
-  'Ships within 24 hours via insulated cold-chain packaging.'
+  'Ships within 24 hours in protective packaging.'
 ),
 (
   'TB-500',
@@ -47,7 +47,7 @@ INSERT INTO public.products (
   100,
   '{"purity": "98.7%", "weight": "5mg", "form": "Lyophilized", "sequence": "Ac-SDKP (active fragment)"}'::jsonb,
   'For research use only. Reconstitute with bacteriostatic water.',
-  'Ships within 24 hours via temperature-controlled packaging.'
+  'Ships within 24 hours in protective packaging.'
 ),
 (
   'GHK-Cu',
@@ -75,7 +75,7 @@ INSERT INTO public.products (
   100,
   '{"purity": "99.0%", "weight": "5mg", "form": "Lyophilized", "sequence": "Aib-His-D-2-Nal-D-Phe-Lys-NH2"}'::jsonb,
   'For research use only. Reconstitute with bacteriostatic water.',
-  'Ships within 24 hours via cold-chain logistics.'
+  'Ships within 24 hours via tracked logistics.'
 ),
 (
   'CJC-1295',
@@ -89,7 +89,7 @@ INSERT INTO public.products (
   100,
   '{"purity": "98.5%", "weight": "5mg", "form": "Lyophilized", "sequence": "Tyr-D-Ala-Asp-Ala-Ile-Phe-Thr-Gln-Ser-Tyr-Arg-Lys-Val-Leu-Ala-Gln-Leu-Ser-Ala-Arg-Lys-Leu-Leu-Gln-Asp-Ile-Leu-Ser-Arg-DAC"}'::jsonb,
   'For research use only. Reconstitute with bacteriostatic water.',
-  'Ships within 24 hours with temperature-controlled packaging.'
+  'Ships within 24 hours in protective packaging.'
 ),
 (
   'LL-37',
@@ -103,7 +103,7 @@ INSERT INTO public.products (
   0,
   '{"purity": "98.9%", "weight": "5mg", "form": "Lyophilized", "sequence": "LLGDFFRKSKEKIGKEFKRIVQRIKDFLRNLVPRTES"}'::jsonb,
   'For research use only. Reconstitute with sterile water or appropriate buffer.',
-  'Ships within 24 hours via insulated cold-chain packaging.'
+  'Ships within 24 hours in protective packaging.'
 )
 ON CONFLICT DO NOTHING;
 
