@@ -1,102 +1,158 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react"
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react"
 import { usePathname } from "next/navigation"
-import { useAuth } from "@/lib/auth/auth-context"
 import type { Product } from "@/components/product-card"
 
 export interface CartItem {
   product: Product
   quantity: number
-  variantId?: string // Optional variant ID
+  variantId?: string
+}
+
+// Simplified cart item for localStorage (without full product data)
+interface LocalCartItem {
+  productId: string
+  quantity: number
+  variantId?: string
 }
 
 interface CartContextValue {
   items: CartItem[]
-  addItem: (product: Product, quantity?: number, variantId?: string) => Promise<void>
-  removeItem: (productId: string, variantId?: string) => Promise<void>
-  updateQuantity: (productId: string, quantity: number, variantId?: string) => Promise<void>
-  clearCart: () => Promise<void>
+  addItem: (product: Product, quantity?: number, variantId?: string) => void
+  removeItem: (productId: string, variantId?: string) => void
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => void
+  clearCart: () => void
   totalItems: number
   subtotal: number
   loading: boolean
 }
+
+const CART_STORAGE_KEY = "cart_items"
+const CART_VERSION = "1"
 
 const CartContext = createContext<CartContextValue | undefined>(undefined)
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
-  const { user } = useAuth()
   const pathname = usePathname()
-  const hasSyncedRef = useRef(false)
-  const operationInProgressRef = useRef(false)
-  const abortControllerRef = useRef<AbortController | null>(null)
-  const reloadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Check if we're on an admin page
   const isAdminPage = pathname?.startsWith("/admin") ?? false
 
-  const [isSyncing, setIsSyncing] = useState(false)
-
-  // Load cart from database - this is the source of truth
-  const syncCartFromDatabase = useCallback(async (abortSignal?: AbortSignal, skipLoadingState = false) => {
-    if (!user || isAdminPage) {
-      setItems([])
-      if (!skipLoadingState) {
-        setLoading(false)
+  // Get cart from localStorage
+  const getLocalCart = useCallback((): LocalCartItem[] => {
+    if (typeof window === "undefined") return []
+    
+    try {
+      const stored = localStorage.getItem(CART_STORAGE_KEY)
+      if (!stored) return []
+      
+      const data = JSON.parse(stored)
+      // Support versioning for future migrations
+      if (data.version === CART_VERSION && Array.isArray(data.items)) {
+        return data.items
       }
+      // Legacy format (array directly)
+      if (Array.isArray(data)) {
+        return data
+      }
+      return []
+    } catch (error) {
+      console.error("Error reading cart from localStorage:", error)
+      return []
+    }
+  }, [])
+
+  // Save cart to localStorage
+  const saveLocalCart = useCallback((localItems: LocalCartItem[]) => {
+    if (typeof window === "undefined") return
+    
+    try {
+      const data = {
+        version: CART_VERSION,
+        items: localItems,
+      }
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(data))
+    } catch (error) {
+      console.error("Error saving cart to localStorage:", error)
+    }
+  }, [])
+
+  // Convert local cart items to full cart items by fetching product data
+  const enrichCartItems = useCallback(async (localItems: LocalCartItem[]): Promise<CartItem[]> => {
+    if (localItems.length === 0) return []
+
+    try {
+      // Fetch all products in parallel
+      const productPromises = localItems.map(async (item) => {
+        try {
+          const response = await fetch(`/api/products/${item.productId}`)
+          if (response.ok) {
+            const data = await response.json()
+            const product = data.product
+            if (product) {
+              return { item, product }
+            }
+          }
+          // Product not found or archived - remove from cart
+          console.warn(`Product ${item.productId} not found, removing from cart`)
+          return null
+        } catch (error) {
+          console.error(`Error fetching product ${item.productId}:`, error)
+          return null
+        }
+      })
+
+      const results = await Promise.all(productPromises)
+      
+      // Filter out failed fetches and build cart items
+      const validResults = results.filter((result): result is { item: LocalCartItem; product: Product } => result !== null)
+      
+      // Update localStorage to remove invalid products
+      const validVariantKeys = new Set(
+        validResults.map(r => `${r.item.productId}-${r.item.variantId || 'none'}`)
+      )
+      
+      const cleanedLocalItems = localItems.filter(item => {
+        const key = `${item.productId}-${item.variantId || 'none'}`
+        return validVariantKeys.has(key)
+      })
+      
+      if (cleanedLocalItems.length !== localItems.length) {
+        saveLocalCart(cleanedLocalItems)
+      }
+      
+      const cartItems: CartItem[] = validResults.map(({ item, product }) => ({
+        product,
+        quantity: item.quantity,
+        variantId: item.variantId,
+      }))
+
+      return cartItems
+    } catch (error) {
+      console.error("Error enriching cart items:", error)
+      return []
+    }
+  }, [saveLocalCart])
+
+  // Load cart from localStorage and enrich with product data
+  const loadLocalCart = useCallback(async () => {
+    const localItems = getLocalCart()
+    
+    if (localItems.length === 0) {
+      setItems([])
+      setLoading(false)
       return
     }
 
-    try {
-      const response = await fetch("/api/cart", {
-        signal: abortSignal,
-      })
-      
-      if (abortSignal?.aborted) return
-      
-      if (response.ok) {
-        const data = await response.json()
-        const dbItems = data.items || []
-        
-        // Convert database items to cart items
-        const cartItems: CartItem[] = dbItems
-          .filter((item: any) => item.product) // Only include items with valid products
-          .map((item: any) => ({
-            product: item.product,
-            quantity: item.quantity,
-            variantId: item.variantId || undefined,
-          }))
+    const enrichedItems = await enrichCartItems(localItems)
+    setItems(enrichedItems)
+    setLoading(false)
+  }, [getLocalCart, enrichCartItems])
 
-        setItems(cartItems)
-      } else {
-        setItems([])
-      }
-    } catch (error: any) {
-      if (error.name === 'AbortError') return
-      console.error("Error loading cart from database:", error)
-      setItems([])
-    } finally {
-      if (!abortSignal?.aborted && !skipLoadingState) {
-        setLoading(false)
-      }
-    }
-  }, [user, isAdminPage])
-
-  // Reset sync ref when user changes
-  useEffect(() => {
-    hasSyncedRef.current = false
-    setLoading(true)
-    operationInProgressRef.current = false
-    // Cancel any pending operations
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-    }
-  }, [user?.id])
-
-  // Load cart from database when user signs in (only once, and not on admin pages)
+  // Initialize cart on mount
   useEffect(() => {
     if (isAdminPage) {
       setItems([])
@@ -104,139 +160,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    if (user && !isSyncing && !hasSyncedRef.current) {
-      hasSyncedRef.current = true
-      setIsSyncing(true)
-      const controller = new AbortController()
-      abortControllerRef.current = controller
-      syncCartFromDatabase(controller.signal).finally(() => {
-        if (!controller.signal.aborted) {
-          setIsSyncing(false)
-          abortControllerRef.current = null
-        }
-      })
-    } else if (!user) {
-      // User logged out - clear cart
-      setItems([])
-      setLoading(false)
-    }
-  }, [user?.id, isSyncing, isAdminPage, syncCartFromDatabase])
-
-  // Listen for auth state changes (skip on admin pages)
-  useEffect(() => {
-    if (isAdminPage) return
-
-    const handleAuthChange = () => {
-      if (user && !isSyncing && !hasSyncedRef.current) {
-        hasSyncedRef.current = true
-        setIsSyncing(true)
-        const controller = new AbortController()
-        abortControllerRef.current = controller
-        syncCartFromDatabase(controller.signal).finally(() => {
-          if (!controller.signal.aborted) {
-            setIsSyncing(false)
-            abortControllerRef.current = null
-          }
-        })
-      } else if (!user) {
-        setItems([])
-        setLoading(false)
-      }
-    }
-
-    window.addEventListener("auth-state-changed", handleAuthChange)
-    return () => window.removeEventListener("auth-state-changed", handleAuthChange)
-  }, [user?.id, isSyncing, isAdminPage, syncCartFromDatabase])
-
-  // Refresh cart when navigating to cart or checkout pages to ensure accuracy
-  useEffect(() => {
-    if (isAdminPage || !user || !hasSyncedRef.current) return
-
-    const isCartPage = pathname === "/cart" || pathname === "/checkout"
-    if (isCartPage && !isSyncing && !operationInProgressRef.current) {
-      // Small delay to ensure page has loaded
-      const timeoutId = setTimeout(() => {
-        const controller = new AbortController()
-        abortControllerRef.current = controller
-        syncCartFromDatabase(controller.signal, true).finally(() => {
-          if (!controller.signal.aborted) {
-            abortControllerRef.current = null
-          }
-        })
-      }, 100)
-
-      return () => clearTimeout(timeoutId)
-    }
-  }, [pathname, user, isAdminPage, isSyncing, syncCartFromDatabase])
-
-  // Refresh cart when page becomes visible (user switches back to tab)
-  useEffect(() => {
-    if (isAdminPage || !user || !hasSyncedRef.current) return
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && !isSyncing && !operationInProgressRef.current) {
-        const controller = new AbortController()
-        abortControllerRef.current = controller
-        syncCartFromDatabase(controller.signal, true).finally(() => {
-          if (!controller.signal.aborted) {
-            abortControllerRef.current = null
-          }
-        })
-      }
-    }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [user, isAdminPage, isSyncing, syncCartFromDatabase])
-
-  // Reload cart after successful operations to ensure consistency
-  // Uses debouncing to prevent multiple rapid reloads
-  const reloadCartAfterOperation = useCallback(async () => {
-    // Clear any pending reload timeout
-    if (reloadTimeoutRef.current) {
-      clearTimeout(reloadTimeoutRef.current)
-    }
-
-    // Cancel any pending fetch
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    // Debounce the reload to batch rapid operations
-    return new Promise<void>((resolve) => {
-      reloadTimeoutRef.current = setTimeout(async () => {
-        const controller = new AbortController()
-        abortControllerRef.current = controller
-        
-        // Skip loading state during operation reloads to avoid UI flicker
-        await syncCartFromDatabase(controller.signal, true)
-        
-        if (!controller.signal.aborted) {
-          abortControllerRef.current = null
-        }
-        
-        resolve()
-      }, 150) // Small debounce to batch rapid operations
-    })
-  }, [syncCartFromDatabase])
+    loadLocalCart()
+  }, [isAdminPage, loadLocalCart])
 
   const addItem = useCallback(
-    async (product: Product, quantity = 1, variantId?: string) => {
-      if (!user) {
-        console.warn("Cannot add to cart: user not authenticated")
-        return
+    (product: Product, quantity = 1, variantId?: string) => {
+      // Update localStorage immediately (synchronous, instant!)
+      const localItems = getLocalCart()
+      const key = `${product.id}-${variantId || 'none'}`
+      const existingIndex = localItems.findIndex(
+        item => `${item.productId}-${item.variantId || 'none'}` === key
+      )
+
+      let updatedItems: LocalCartItem[]
+      if (existingIndex >= 0) {
+        // Update existing item - increment quantity
+        updatedItems = localItems.map((item, index) =>
+          index === existingIndex
+            ? { ...item, quantity: Math.min(item.quantity + quantity, 10) }
+            : item
+        )
+      } else {
+        // Add new item
+        updatedItems = [
+          ...localItems,
+          { productId: product.id, quantity, variantId },
+        ]
       }
 
-      // Prevent concurrent operations
-      if (operationInProgressRef.current) {
-        console.warn("Cart operation already in progress, please wait")
-        return
-      }
+      saveLocalCart(updatedItems)
 
-      operationInProgressRef.current = true
-
-      // Optimistically update UI
-      const optimisticItems = (prev: CartItem[]) => {
+      // Update state immediately with optimistic update
+      setItems((prev) => {
         const existing = prev.find(
           (item) => item.product.id === product.id && item.variantId === variantId
         )
@@ -249,109 +204,52 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           )
         }
         return [...prev, { product, quantity, variantId }]
-      }
-
-      setItems(optimisticItems)
-
-      // Sync to database immediately
-      try {
-        const response = await fetch("/api/cart", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            productId: product.id,
-            quantity,
-            variantId: variantId || undefined,
-          }),
-        })
-        
-        if (!response.ok) {
-          // Revert on error by reloading from database
-          await reloadCartAfterOperation()
-        } else {
-          // Reload from server to ensure consistency (server is source of truth)
-          await reloadCartAfterOperation()
-        }
-      } catch (error) {
-        console.error("Error adding item to database cart:", error)
-        // Revert on error by reloading from database
-        await reloadCartAfterOperation()
-      } finally {
-        operationInProgressRef.current = false
-      }
+      })
     },
-    [user, reloadCartAfterOperation]
+    [getLocalCart, saveLocalCart]
   )
 
   const removeItem = useCallback(
-    async (productId: string, variantId?: string) => {
-      if (!user) {
-        console.warn("Cannot remove from cart: user not authenticated")
-        return
-      }
+    (productId: string, variantId?: string) => {
+      // Update localStorage immediately
+      const localItems = getLocalCart()
+      const key = `${productId}-${variantId || 'none'}`
+      const updatedItems = localItems.filter(
+        item => `${item.productId}-${item.variantId || 'none'}` !== key
+      )
 
-      // Prevent concurrent operations
-      if (operationInProgressRef.current) {
-        console.warn("Cart operation already in progress, please wait")
-        return
-      }
+      saveLocalCart(updatedItems)
 
-      operationInProgressRef.current = true
-
-      // Optimistically update UI
+      // Update state immediately
       setItems((prev) =>
         prev.filter(
           (item) =>
             !(item.product.id === productId && item.variantId === variantId)
         )
       )
-
-      // Sync to database immediately
-      try {
-        const url = variantId
-          ? `/api/cart/${productId}?variantId=${variantId}`
-          : `/api/cart/${productId}`
-        const response = await fetch(url, { method: "DELETE" })
-        
-        if (!response.ok) {
-          // Revert on error by reloading from database
-          await reloadCartAfterOperation()
-        } else {
-          // Reload from server to ensure consistency
-          await reloadCartAfterOperation()
-        }
-      } catch (error) {
-        console.error("Error removing item from database cart:", error)
-        // Revert on error by reloading from database
-        await reloadCartAfterOperation()
-      } finally {
-        operationInProgressRef.current = false
-      }
     },
-    [user, reloadCartAfterOperation]
+    [getLocalCart, saveLocalCart]
   )
 
   const updateQuantity = useCallback(
-    async (productId: string, quantity: number, variantId?: string) => {
-      if (!user) {
-        console.warn("Cannot update cart: user not authenticated")
-        return
-      }
-
+    (productId: string, quantity: number, variantId?: string) => {
       if (quantity < 1) {
-        await removeItem(productId, variantId)
+        removeItem(productId, variantId)
         return
       }
 
-      // Prevent concurrent operations
-      if (operationInProgressRef.current) {
-        console.warn("Cart operation already in progress, please wait")
-        return
-      }
+      // Update localStorage immediately
+      const localItems = getLocalCart()
+      const key = `${productId}-${variantId || 'none'}`
+      const updatedItems = localItems.map((item) =>
+        `${item.productId}-${item.variantId || 'none'}` === key
+          ? { ...item, quantity: Math.min(quantity, 10) }
+          : item
+      )
 
-      operationInProgressRef.current = true
+      saveLocalCart(updatedItems)
 
-      // Optimistically update UI
+      // Update state immediately
       setItems((prev) =>
         prev.map((item) =>
           item.product.id === productId && item.variantId === variantId
@@ -359,72 +257,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             : item
         )
       )
-
-      // Sync to database immediately
-      try {
-        const url = variantId
-          ? `/api/cart/${productId}?variantId=${variantId}`
-          : `/api/cart/${productId}`
-        const response = await fetch(url, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quantity, variantId: variantId || undefined }),
-        })
-        
-        if (!response.ok) {
-          // Revert on error by reloading from database
-          await reloadCartAfterOperation()
-        } else {
-          // Reload from server to ensure consistency
-          await reloadCartAfterOperation()
-        }
-      } catch (error) {
-        console.error("Error updating quantity in database cart:", error)
-        // Revert on error by reloading from database
-        await reloadCartAfterOperation()
-      } finally {
-        operationInProgressRef.current = false
-      }
     },
-    [user, removeItem, reloadCartAfterOperation]
+    [removeItem, getLocalCart, saveLocalCart]
   )
 
-  const clearCart = useCallback(async () => {
-    if (!user) {
-      console.warn("Cannot clear cart: user not authenticated")
-      return
-    }
+  const clearCart = useCallback(() => {
+    // Clear localStorage immediately
+    saveLocalCart([])
 
-    // Prevent concurrent operations
-    if (operationInProgressRef.current) {
-      console.warn("Cart operation already in progress, please wait")
-      return
-    }
-
-    operationInProgressRef.current = true
-
-    // Optimistically update UI
+    // Update state immediately
     setItems([])
-
-    // Sync to database immediately
-    try {
-      const response = await fetch("/api/cart", { method: "DELETE" })
-      
-      if (!response.ok) {
-        // Revert on error by reloading from database
-        await reloadCartAfterOperation()
-      } else {
-        // Reload from server to ensure consistency
-        await reloadCartAfterOperation()
-      }
-    } catch (error) {
-      console.error("Error clearing database cart:", error)
-      // Revert on error by reloading from database
-      await reloadCartAfterOperation()
-    } finally {
-      operationInProgressRef.current = false
-    }
-  }, [user, reloadCartAfterOperation])
+  }, [saveLocalCart])
 
   const totalItems = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
@@ -432,7 +275,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   )
 
   const subtotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+    () => items.reduce((sum, item) => {
+      const variant = item.variantId && item.product.variants
+        ? item.product.variants.find(v => v.id === item.variantId)
+        : null
+      const price = variant?.price || item.product.price
+      return sum + price * item.quantity
+    }, 0),
     [items]
   )
 

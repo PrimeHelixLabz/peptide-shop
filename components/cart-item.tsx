@@ -104,10 +104,17 @@ export function CartItemRow({ item }: { item: CartItem }) {
             </button>
           </div>
 
-          {/* Line total */}
-          <span className="text-lg font-semibold text-foreground sm:text-xl">
-            ${(displayPrice * quantity).toFixed(2)}
-          </span>
+          {/* Price info */}
+          <div className="flex flex-col items-end gap-0.5">
+            {/* Unit price */}
+            <span className="text-xs text-muted-foreground">
+              ${displayPrice.toFixed(2)} each
+            </span>
+            {/* Line total */}
+            <span className="text-lg font-semibold text-foreground sm:text-xl">
+              ${(displayPrice * quantity).toFixed(2)}
+            </span>
+          </div>
         </div>
       </div>
     </div>
