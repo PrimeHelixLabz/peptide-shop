@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, Lock } from "lucide-react"
-import { OrderSummary } from "@/components/order-summary"
+import { Loader2, Lock, Truck, MapPin } from "lucide-react"
+import { OrderSummary, type ShippingMethod } from "@/components/order-summary"
 
 const checkoutSchema = z.object({
   // Shipping Address
@@ -46,6 +46,7 @@ export function CheckoutForm() {
   const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("ship")
   
   const {
     register,
@@ -106,6 +107,7 @@ export function CheckoutForm() {
               country: data.billingCountry!,
             },
         notes: data.notes,
+        shippingMethod,
       }
 
       // Create Stripe Checkout session (and order on the server)
@@ -195,9 +197,46 @@ export function CheckoutForm() {
       {/* Checkout Form */}
       <div className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          {/* Delivery Method */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Delivery Method</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setShippingMethod("ship")}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                  shippingMethod === "ship"
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <Truck className={`h-5 w-5 ${shippingMethod === "ship" ? "text-primary" : "text-muted-foreground"}`} />
+                <div>
+                  <p className="text-sm font-medium">Ship to Address</p>
+                  <p className="text-xs text-muted-foreground">USPS Priority &middot; $15.00</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShippingMethod("local-pickup")}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                  shippingMethod === "local-pickup"
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <MapPin className={`h-5 w-5 ${shippingMethod === "local-pickup" ? "text-primary" : "text-muted-foreground"}`} />
+                <div>
+                  <p className="text-sm font-medium">Local Pickup</p>
+                  <p className="text-xs text-muted-foreground">Pick up in person &middot; FREE</p>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Shipping Address */}
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Shipping Address</h2>
+            <h2 className="text-xl font-semibold">{shippingMethod === "local-pickup" ? "Contact Information" : "Shipping Address"}</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="shippingFirstName">First Name *</Label>
@@ -406,7 +445,7 @@ export function CheckoutForm() {
 
       {/* Order Summary */}
       <div className="lg:sticky lg:top-28 lg:self-start">
-        <OrderSummary showCheckoutButton={false} />
+        <OrderSummary showCheckoutButton={false} shippingMethod={shippingMethod} />
       </div>
     </div>
   )

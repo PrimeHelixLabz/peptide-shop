@@ -37,6 +37,7 @@ const createStripeCheckoutSchema = z.object({
     })
     .optional(),
   notes: z.string().optional(),
+  shippingMethod: z.enum(["ship", "local-pickup"]).default("ship"),
 }).passthrough()
 
 export const POST = requireAuthMiddleware(
@@ -44,7 +45,7 @@ export const POST = requireAuthMiddleware(
     try {
       const userId = req.user!.id
       const body = await req.json()
-      const { cartItems, shippingAddress, billingAddress, notes } =
+      const { cartItems, shippingAddress, billingAddress, notes, shippingMethod } =
         createStripeCheckoutSchema.parse(body)
 
       if (cartItems.length === 0) {
@@ -129,7 +130,7 @@ export const POST = requireAuthMiddleware(
       }
 
       // Compute shipping and service fee to match frontend OrderSummary
-      const shipping = SHIPPING_RATE
+      const shipping = shippingMethod === "local-pickup" ? 0 : SHIPPING_RATE
       const serviceFee = subtotal * SERVICE_FEE_RATE
       // Store service fee in the tax field for now to keep schema unchanged.
       const tax = serviceFee
@@ -198,6 +199,7 @@ export const POST = requireAuthMiddleware(
           },
         })
       }
+      // No shipping line item for local pickup (shipping = $0)
 
       // Add service fee as a separate line item.
       if (serviceFee > 0) {

@@ -4,18 +4,22 @@ import { useCart } from "@/lib/cart-context"
 import { FlaskConical, Shield, Truck } from "lucide-react"
 
 const SHIPPING_RATE = 15
-const SHIPPING_LABEL = "USPS Priority"
 const SERVICE_FEE_RATE = 0.05
+
+export type ShippingMethod = "ship" | "local-pickup"
 
 interface OrderSummaryProps {
   showCheckoutButton?: boolean
+  shippingMethod?: ShippingMethod
 }
 
-export function OrderSummary({ showCheckoutButton = true }: OrderSummaryProps) {
+export function OrderSummary({ showCheckoutButton = true, shippingMethod = "ship" }: OrderSummaryProps) {
   const { subtotal, totalItems } = useCart()
 
+  const shipping = shippingMethod === "local-pickup" ? 0 : SHIPPING_RATE
+  const shippingLabel = shippingMethod === "local-pickup" ? "Local Pickup" : "USPS Priority"
   const serviceFee = subtotal * SERVICE_FEE_RATE
-  const total = subtotal + SHIPPING_RATE + serviceFee
+  const total = subtotal + shipping + serviceFee
 
   return (
     <div className="flex flex-col gap-6 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
@@ -36,10 +40,10 @@ export function OrderSummary({ showCheckoutButton = true }: OrderSummaryProps) {
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Shipping ({SHIPPING_LABEL})
+            Shipping ({shippingLabel})
           </span>
           <span className="text-sm font-medium text-foreground">
-            ${SHIPPING_RATE.toFixed(2)}
+            {shipping === 0 ? "FREE" : `$${shipping.toFixed(2)}`}
           </span>
         </div>
 
