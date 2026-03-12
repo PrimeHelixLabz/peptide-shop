@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
-import { getProductById, getVariantById, createOrder } from "@/lib/db/supabase"
-import type { Order, OrderItem } from "@/lib/db/schema"
+import { getProductById, getVariantById, createPendingCheckoutAsAdmin } from "@/lib/db/supabase"
+import type { OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
 
 const SHIPPING_RATE = 15
@@ -132,36 +132,12 @@ export const POST = requireAuthMiddleware(
       // Compute shipping and service fee to match frontend OrderSummary
       const shipping = shippingMethod === "local-pickup" ? 0 : SHIPPING_RATE
       const serviceFee = subtotal * SERVICE_FEE_RATE
-      const serviceFeeAmount = serviceFee
       const total = subtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()
         .toString(36)
         .substring(2, 9)
         .toUpperCase()}`
-
-      const paymentMethod = "stripe"
-      const paymentStatus: Order["paymentStatus"] = "pending"
-
-      const order: Omit<Order, "createdAt" | "updatedAt"> = {
-        id: crypto.randomUUID(),
-        userId,
-        email: shippingAddress.email,
-        orderNumber,
-        status: "pending",
-        items: orderItems,
-        subtotal,
-        shipping,
-        serviceFee: serviceFeeAmount,
-        total,
-        shippingAddress,
-        billingAddress: billingAddress || shippingAddress,
-        paymentMethod,
-        paymentStatus,
-        notes,
-      }
-
-      const createdOrder = await createOrder(order)
 
       // Build Stripe Checkout line items.
       // Prefer stored Stripe price IDs when available; otherwise fall back to inline price_data.
@@ -216,25 +192,51 @@ export const POST = requireAuthMiddleware(
 
       const origin = new URL(req.url).origin
 
+      // Store checkout data temporarily. The actual order will only be created
+      // in the Stripe webhook after payment succeeds.
+      const pendingCheckoutId = crypto.randomUUID()
+
+      const checkoutDataForStorage = {
+        orderNumber,
+        userId,
+        email: shippingAddress.email,
+        items: orderItems,
+        subtotal,
+        shipping,
+        serviceFee,
+        total,
+        shippingAddress,
+        billingAddress: billingAddress || shippingAddress,
+        notes,
+      }
+
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         line_items: lineItems,
         customer_email: shippingAddress.email,
-        success_url: `${origin}/orders/${createdOrder.orderNumber}?email=${encodeURIComponent(
+        success_url: `${origin}/orders/${orderNumber}?email=${encodeURIComponent(
           shippingAddress.email
         )}`,
         cancel_url: `${origin}/checkout?canceled=1`,
         metadata: {
-          orderId: createdOrder.id,
-          orderNumber: createdOrder.orderNumber,
+          pendingCheckoutId,
+          orderNumber,
           userId,
         },
+      })
+
+      // Save pending checkout with the Stripe session ID for cross-referencing
+      await createPendingCheckoutAsAdmin({
+        id: pendingCheckoutId,
+        userId,
+        stripeSessionId: session.id,
+        checkoutData: checkoutDataForStorage,
       })
 
       return NextResponse.json(
         {
           checkoutUrl: session.url,
-          orderNumber: createdOrder.orderNumber,
+          orderNumber,
         },
         { status: 201 }
       )

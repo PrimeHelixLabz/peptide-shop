@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
 import {
-  updateOrderAsAdmin,
+  createOrderAsAdmin,
   clearCartAsAdmin,
   adjustInventoryForOrderAsAdmin,
+  getPendingCheckoutAsAdmin,
+  deletePendingCheckoutAsAdmin,
 } from "@/lib/db/supabase"
 import { sendOrderNotificationEmail } from "@/lib/email"
 
@@ -29,26 +31,51 @@ export const POST = async (req: NextRequest) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as any
-        const orderId = session.metadata?.orderId as string | undefined
+        const pendingCheckoutId = session.metadata?.pendingCheckoutId as string | undefined
         const userId = session.metadata?.userId as string | undefined
 
-        if (orderId) {
-          console.log("Webhook: updating order (paid/processing)", orderId)
-          const updatedOrder = await updateOrderAsAdmin(orderId, {
-            paymentStatus: "paid",
+        if (pendingCheckoutId) {
+          // Retrieve the stored checkout data
+          const pendingCheckout = await getPendingCheckoutAsAdmin(pendingCheckoutId)
+          if (!pendingCheckout) {
+            console.error("Webhook: pending checkout not found", pendingCheckoutId)
+            break
+          }
+
+          const checkoutData = pendingCheckout.checkout_data
+
+          // NOW create the order — only after payment has succeeded
+          const orderId = crypto.randomUUID()
+          console.log("Webhook: creating order after successful payment", checkoutData.orderNumber)
+
+          const createdOrder = await createOrderAsAdmin({
+            id: orderId,
+            userId: checkoutData.userId,
+            email: checkoutData.email,
+            orderNumber: checkoutData.orderNumber,
             status: "processing",
+            paymentStatus: "paid",
+            items: checkoutData.items,
+            subtotal: checkoutData.subtotal,
+            shipping: checkoutData.shipping,
+            serviceFee: checkoutData.serviceFee,
+            total: checkoutData.total,
+            shippingAddress: checkoutData.shippingAddress,
+            billingAddress: checkoutData.billingAddress,
+            paymentMethod: "stripe",
+            notes: checkoutData.notes,
           })
 
-          // Decrement inventory for all items in the paid order.
-          // Uses admin client to bypass RLS and operate safely in webhook context.
-          await adjustInventoryForOrderAsAdmin(orderId)
+          // Decrement inventory for all items in the paid order
+          await adjustInventoryForOrderAsAdmin(createdOrder.id)
 
           // Send order notification email to support (non-blocking)
-          if (updatedOrder) {
-            sendOrderNotificationEmail(updatedOrder).catch((err) =>
-              console.error("Failed to send order notification:", err)
-            )
-          }
+          sendOrderNotificationEmail(createdOrder).catch((err) =>
+            console.error("Failed to send order notification:", err)
+          )
+
+          // Clean up the pending checkout
+          await deletePendingCheckoutAsAdmin(pendingCheckoutId)
         }
 
         if (userId) {
@@ -60,13 +87,11 @@ export const POST = async (req: NextRequest) => {
       case "checkout.session.expired":
       case "payment_intent.payment_failed": {
         const session = event.data.object as any
-        const orderId = session.metadata?.orderId as string | undefined
-        if (orderId) {
-          console.log("Webhook: updating order (failed/cancelled)", orderId)
-          await updateOrderAsAdmin(orderId, {
-            paymentStatus: "failed",
-            status: "cancelled",
-          })
+        const pendingCheckoutId = session.metadata?.pendingCheckoutId as string | undefined
+        if (pendingCheckoutId) {
+          // Payment failed or session expired — just clean up, no order was created
+          console.log("Webhook: cleaning up pending checkout (payment failed/expired)", pendingCheckoutId)
+          await deletePendingCheckoutAsAdmin(pendingCheckoutId)
         }
         break
       }

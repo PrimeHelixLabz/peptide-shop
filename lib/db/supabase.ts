@@ -1345,6 +1345,112 @@ export async function updateOrderAsAdmin(
   }
 }
 
+// Pending Checkouts (admin-only, used by Stripe checkout flow)
+
+/**
+ * Save checkout data to pending_checkouts table.
+ * Called from the checkout API before redirecting to Stripe.
+ */
+export async function createPendingCheckoutAsAdmin(data: {
+  id: string
+  userId: string
+  stripeSessionId: string
+  checkoutData: any
+}): Promise<void> {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("pending_checkouts").insert({
+    id: data.id,
+    user_id: data.userId,
+    stripe_session_id: data.stripeSessionId,
+    checkout_data: data.checkoutData,
+  })
+  if (error) {
+    console.error("createPendingCheckoutAsAdmin error", error)
+    throw error
+  }
+}
+
+/**
+ * Retrieve pending checkout data by its ID.
+ */
+export async function getPendingCheckoutAsAdmin(id: string): Promise<any | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("pending_checkouts")
+    .select("*")
+    .eq("id", id)
+    .single()
+
+  if (error || !data) return null
+  return data
+}
+
+/**
+ * Delete a pending checkout (after order creation or on failure).
+ */
+export async function deletePendingCheckoutAsAdmin(id: string): Promise<void> {
+  const supabase = createAdminClient()
+  await supabase.from("pending_checkouts").delete().eq("id", id)
+}
+
+/**
+ * Admin-only order creation that bypasses RLS using the service role.
+ * Used by Stripe webhook to create orders after successful payment.
+ */
+export async function createOrderAsAdmin(
+  order: Omit<Order, "createdAt" | "updatedAt">
+): Promise<Order> {
+  const supabase = createAdminClient()
+
+  const email = order.email || (order.shippingAddress as any)?.email || null
+
+  const { data, error } = await supabase
+    .from("orders")
+    .insert({
+      id: order.id,
+      user_id: order.userId,
+      email: email,
+      order_number: order.orderNumber,
+      status: order.status,
+      items: order.items,
+      subtotal: order.subtotal,
+      shipping: order.shipping,
+      service_fee: order.serviceFee,
+      total: order.total,
+      shipping_address: order.shippingAddress,
+      billing_address: order.billingAddress,
+      payment_method: order.paymentMethod,
+      payment_status: order.paymentStatus,
+      tracking_number: order.trackingNumber,
+      notes: order.notes,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    email: data.email,
+    orderNumber: data.order_number,
+    status: data.status,
+    items: data.items,
+    subtotal: parseFloat(data.subtotal),
+    shipping: parseFloat(data.shipping),
+    serviceFee: parseFloat(data.service_fee),
+    total: parseFloat(data.total),
+    shippingAddress: data.shipping_address,
+    billingAddress: data.billing_address,
+    paymentMethod: data.payment_method,
+    paymentStatus: data.payment_status,
+    trackingNumber: data.tracking_number,
+    notes: data.notes,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }
+}
+
 /**
  * Admin-only cart clear that bypasses RLS using the service role.
  * Used by Stripe webhook after successful checkout.

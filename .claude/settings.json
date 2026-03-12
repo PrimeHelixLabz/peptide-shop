@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(grep -n \"payment\\\\|status\" /e/work/Brandon/peptide-e-commerce-landing-page/app/api/orders/[id]/route.ts)"
     ]
   }
 }
