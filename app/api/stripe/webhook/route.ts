@@ -5,6 +5,7 @@ import {
   clearCartAsAdmin,
   adjustInventoryForOrderAsAdmin,
 } from "@/lib/db/supabase"
+import { sendOrderNotificationEmail } from "@/lib/email"
 
 export const POST = async (req: NextRequest) => {
   const sig = req.headers.get("stripe-signature")
@@ -33,7 +34,7 @@ export const POST = async (req: NextRequest) => {
 
         if (orderId) {
           console.log("Webhook: updating order (paid/processing)", orderId)
-          await updateOrderAsAdmin(orderId, {
+          const updatedOrder = await updateOrderAsAdmin(orderId, {
             paymentStatus: "paid",
             status: "processing",
           })
@@ -41,6 +42,13 @@ export const POST = async (req: NextRequest) => {
           // Decrement inventory for all items in the paid order.
           // Uses admin client to bypass RLS and operate safely in webhook context.
           await adjustInventoryForOrderAsAdmin(orderId)
+
+          // Send order notification email to support (non-blocking)
+          if (updatedOrder) {
+            sendOrderNotificationEmail(updatedOrder).catch((err) =>
+              console.error("Failed to send order notification:", err)
+            )
+          }
         }
 
         if (userId) {

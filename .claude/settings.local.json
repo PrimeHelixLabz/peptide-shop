@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"resend\\\\|email\\\\|notification\\\\|sendEmail\" /e/work/Brandon/peptide-e-commerce-landing-page/app --include=*.ts --include=*.tsx -l)",
+      "Read(//c/Users/Admin/AppData/Local/Temp/claude/e--work-Brandon-peptide-e-commerce-landing-page/2a649d2d-16ae-4e86-bb6a-fa8ade9c77b2/tasks/**)",
+      "Bash(find /e/work/Brandon/peptide-e-commerce-landing-page -type f -name *.md)",
+      "Bash(xargs grep:*)",
+      "Bash(xargs ls:*)",
+      "Bash(npm install:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx pnpm:*)"
+    ]
+  }
+}
