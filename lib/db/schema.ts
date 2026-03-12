@@ -124,7 +124,7 @@ export interface Order {
   items: OrderItem[]
   subtotal: number
   shipping: number
-  tax: number
+  serviceFee: number
   total: number
   shippingAddress: Address
   billingAddress?: Address

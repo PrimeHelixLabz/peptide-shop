@@ -173,7 +173,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
     : order.email || "Guest Customer"
 
   const subtotal = order.subtotal
-  const tax = order.tax
+  const serviceFee = order.serviceFee
   const shipping = order.shipping
 
   return (
@@ -249,8 +249,8 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   <span className="text-sm font-semibold text-foreground">${shipping.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Tax</span>
-                  <span className="text-sm font-semibold text-foreground">${tax.toFixed(2)}</span>
+                  <span className="text-xs text-muted-foreground">Service Fee</span>
+                  <span className="text-sm font-semibold text-foreground">${serviceFee.toFixed(2)}</span>
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3">
                   <span className="text-base font-semibold uppercase tracking-wider text-foreground">

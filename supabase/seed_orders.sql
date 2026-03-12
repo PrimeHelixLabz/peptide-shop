@@ -27,7 +27,7 @@ INSERT INTO public.orders (
   items,
   subtotal,
   shipping,
-  tax,
+  service_fee,
   total,
   shipping_address,
   billing_address,

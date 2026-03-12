@@ -229,8 +229,8 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
                 <span>${order.shipping.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax</span>
-                <span>${order.tax.toFixed(2)}</span>
+                <span className="text-muted-foreground">Service Fee</span>
+                <span>${order.serviceFee.toFixed(2)}</span>
               </div>
               <div className="h-px bg-gray-200 my-3" />
               <div className="flex justify-between text-lg font-semibold">

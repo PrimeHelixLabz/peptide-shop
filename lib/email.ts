@@ -97,7 +97,7 @@ export async function sendOrderNotificationEmail(order: Order): Promise<void> {
             <div style="text-align: right; margin: 16px 0;">
               <p style="margin: 4px 0; color: #6b7280;">Subtotal: ${formatCurrency(order.subtotal)}</p>
               <p style="margin: 4px 0; color: #6b7280;">Shipping: ${formatCurrency(order.shipping)}</p>
-              <p style="margin: 4px 0; color: #6b7280;">Tax: ${formatCurrency(order.tax)}</p>
+              <p style="margin: 4px 0; color: #6b7280;">Service Fee: ${formatCurrency(order.serviceFee)}</p>
               <p style="margin: 8px 0 0; color: #111827; font-size: 18px; font-weight: 700;">Total: ${formatCurrency(order.total)}</p>
             </div>
 

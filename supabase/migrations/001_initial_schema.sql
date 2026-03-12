@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   items JSONB NOT NULL DEFAULT '[]'::jsonb,
   subtotal DECIMAL(10, 2) NOT NULL CHECK (subtotal >= 0),
   shipping DECIMAL(10, 2) NOT NULL DEFAULT 0 CHECK (shipping >= 0),
-  tax DECIMAL(10, 2) NOT NULL DEFAULT 0 CHECK (tax >= 0),
+  service_fee DECIMAL(10, 2) NOT NULL DEFAULT 0 CHECK (service_fee >= 0),
   total DECIMAL(10, 2) NOT NULL CHECK (total >= 0),
   shipping_address JSONB NOT NULL,
   billing_address JSONB,

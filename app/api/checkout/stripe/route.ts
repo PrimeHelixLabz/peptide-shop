@@ -132,8 +132,7 @@ export const POST = requireAuthMiddleware(
       // Compute shipping and service fee to match frontend OrderSummary
       const shipping = shippingMethod === "local-pickup" ? 0 : SHIPPING_RATE
       const serviceFee = subtotal * SERVICE_FEE_RATE
-      // Store service fee in the tax field for now to keep schema unchanged.
-      const tax = serviceFee
+      const serviceFeeAmount = serviceFee
       const total = subtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()
@@ -153,7 +152,7 @@ export const POST = requireAuthMiddleware(
         items: orderItems,
         subtotal,
         shipping,
-        tax,
+        serviceFee: serviceFeeAmount,
         total,
         shippingAddress,
         billingAddress: billingAddress || shippingAddress,
