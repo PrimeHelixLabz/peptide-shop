@@ -6,6 +6,7 @@ import {
   adjustInventoryForOrderAsAdmin,
   getPendingCheckoutAsAdmin,
   deletePendingCheckoutAsAdmin,
+  getOrderByNumber,
 } from "@/lib/db/supabase"
 import { sendOrderNotificationEmail } from "@/lib/email"
 
@@ -32,42 +33,63 @@ export const POST = async (req: NextRequest) => {
       case "checkout.session.completed": {
         const session = event.data.object as any
         const pendingCheckoutId = session.metadata?.pendingCheckoutId as string | undefined
-        const userId = session.metadata?.userId as string | undefined
 
         if (pendingCheckoutId) {
           // Retrieve the stored checkout data
           const pendingCheckout = await getPendingCheckoutAsAdmin(pendingCheckoutId)
           if (!pendingCheckout) {
-            console.error("Webhook: pending checkout not found", pendingCheckoutId)
+            // Pending checkout already processed or cleaned up — idempotent, skip.
+            console.warn("Webhook: pending checkout not found (already processed?)", pendingCheckoutId)
             break
           }
 
           const checkoutData = pendingCheckout.checkout_data
 
+          // Idempotency check: if order with this orderNumber already exists, skip creation
+          const existingOrder = await getOrderByNumber(checkoutData.orderNumber)
+          if (existingOrder) {
+            console.warn("Webhook: order already exists, skipping duplicate", checkoutData.orderNumber)
+            // Clean up pending checkout since order was already created
+            await deletePendingCheckoutAsAdmin(pendingCheckoutId)
+            break
+          }
+
           // NOW create the order — only after payment has succeeded
           const orderId = crypto.randomUUID()
           console.log("Webhook: creating order after successful payment", checkoutData.orderNumber)
 
-          const createdOrder = await createOrderAsAdmin({
-            id: orderId,
-            userId: checkoutData.userId,
-            email: checkoutData.email,
-            orderNumber: checkoutData.orderNumber,
-            status: "processing",
-            paymentStatus: "paid",
-            items: checkoutData.items,
-            subtotal: checkoutData.subtotal,
-            shipping: checkoutData.shipping,
-            serviceFee: checkoutData.serviceFee,
-            total: checkoutData.total,
-            shippingAddress: checkoutData.shippingAddress,
-            billingAddress: checkoutData.billingAddress,
-            paymentMethod: "stripe",
-            notes: checkoutData.notes,
-          })
+          // Use userId from the pending checkout (trusted), not from Stripe metadata
+          const trustedUserId = pendingCheckout.user_id
 
-          // Decrement inventory for all items in the paid order
-          await adjustInventoryForOrderAsAdmin(createdOrder.id)
+          let createdOrder
+          try {
+            createdOrder = await createOrderAsAdmin({
+              id: orderId,
+              userId: trustedUserId,
+              email: checkoutData.email,
+              orderNumber: checkoutData.orderNumber,
+              status: "processing",
+              paymentStatus: "paid",
+              items: checkoutData.items,
+              subtotal: checkoutData.subtotal,
+              shipping: checkoutData.shipping,
+              serviceFee: checkoutData.serviceFee,
+              total: checkoutData.total,
+              shippingAddress: checkoutData.shippingAddress,
+              billingAddress: checkoutData.billingAddress,
+              paymentMethod: "stripe",
+              notes: checkoutData.notes,
+            })
+
+            // Decrement inventory for all items in the paid order
+            await adjustInventoryForOrderAsAdmin(createdOrder.id)
+          } catch (orderError) {
+            // If order creation or inventory adjustment fails, clean up pending checkout
+            // so Stripe retry doesn't leave it in limbo
+            console.error("Webhook: failed to create order or adjust inventory", orderError)
+            await deletePendingCheckoutAsAdmin(pendingCheckoutId)
+            throw orderError
+          }
 
           // Send order notification email to support (non-blocking)
           sendOrderNotificationEmail(createdOrder).catch((err) =>
@@ -76,11 +98,11 @@ export const POST = async (req: NextRequest) => {
 
           // Clean up the pending checkout
           await deletePendingCheckoutAsAdmin(pendingCheckoutId)
-        }
 
-        if (userId) {
-          // Best-effort clear cart for authenticated users (admin client bypasses RLS)
-          await clearCartAsAdmin(userId)
+          // Best-effort clear cart for authenticated users (use trusted userId from DB)
+          if (trustedUserId) {
+            await clearCartAsAdmin(trustedUserId)
+          }
         }
         break
       }

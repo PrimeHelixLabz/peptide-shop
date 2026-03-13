@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { optionalAuthMiddleware } from "@/lib/auth/middleware"
-import { getOrderById, getOrderByNumber, updateOrder } from "@/lib/db/supabase"
+import { getOrderById, getOrderByNumber, getOrderByIdAsAdmin, getOrderByNumberAsAdmin, updateOrder } from "@/lib/db/supabase"
 import { z } from "zod"
 
 const updateOrderSchema = z.object({
@@ -27,52 +27,61 @@ export async function GET(
     const { searchParams } = new URL(req.url)
     const email = searchParams.get("email")
     
-    // Try to get order by ID or order number
-    const order = isOrderNumber(id) 
-      ? await getOrderByNumber(id)
-      : await getOrderById(id)
-    
-    if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 })
-    }
-
-    // If user is authenticated, check permissions
+    // If user is authenticated, check permissions first
     if (user) {
       const userId = user.id
       const isAdmin = user.role === "admin"
 
-      // Admins can see all orders
+      // Admins can see all orders (use admin client to bypass RLS)
       if (isAdmin) {
+        const order = isOrderNumber(id)
+          ? await getOrderByNumberAsAdmin(id)
+          : await getOrderByIdAsAdmin(id)
+        if (!order) {
+          return NextResponse.json({ error: "Order not found" }, { status: 404 })
+        }
         return NextResponse.json({ order })
       }
 
-      // Authenticated users can only see their own orders
-      if (order.userId !== null && order.userId === userId) {
+      // Authenticated users can see their own orders (RLS handles this)
+      const order = isOrderNumber(id)
+        ? await getOrderByNumber(id)
+        : await getOrderById(id)
+      if (order && order.userId === userId) {
         return NextResponse.json({ order })
       }
     }
 
-    // For guest orders (userId is null), require email verification
-    if (order.userId === null) {
-      if (!email) {
-        return NextResponse.json({ 
-          error: "Email address required to view guest orders" 
-        }, { status: 400 })
-      }
+    // Guest order flow: require email verification
+    // Use admin client since RLS no longer allows public access to guest orders
+    if (!email) {
+      return NextResponse.json({
+        error: "Email address required to view guest orders"
+      }, { status: 400 })
+    }
 
-      // Verify email matches the order
-      const orderEmail = order.email?.toLowerCase() || 
-        (order.shippingAddress as any)?.email?.toLowerCase()
-      const providedEmail = email.toLowerCase().trim()
+    const order = isOrderNumber(id)
+      ? await getOrderByNumberAsAdmin(id)
+      : await getOrderByIdAsAdmin(id)
 
-      if (orderEmail !== providedEmail) {
-        return NextResponse.json({ 
-          error: "Email address does not match this order" 
-        }, { status: 403 })
-      }
-    } else {
-      // Authenticated order but user is not authenticated or doesn't own it
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+
+    // Only allow access to guest orders via email verification
+    if (order.userId !== null) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // Verify email matches the order
+    const orderEmail = (order.email?.toLowerCase() ||
+      (order.shippingAddress as any)?.email?.toLowerCase() || "").trim()
+    const providedEmail = email.toLowerCase().trim()
+
+    if (orderEmail !== providedEmail) {
+      return NextResponse.json({
+        error: "Email address does not match this order"
+      }, { status: 403 })
     }
 
     return NextResponse.json({ order })

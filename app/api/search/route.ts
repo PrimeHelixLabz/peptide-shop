@@ -88,16 +88,19 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category")
     const limit = parseInt(searchParams.get("limit") || "10")
 
-    if (!q || q.length < 2) {
+    if (!q || q.length < 2 || q.length > 200) {
       return NextResponse.json({ products: [] })
     }
+
+    // Cap limit to prevent abuse
+    const cappedLimit = Math.min(Math.max(limit, 1), 50)
 
     // Use RPC function for full-text search if available
     const supabase = await createClient()
     const { data, error } = await supabase.rpc("search_products", {
       search_query: q,
       category_filter: category && category !== "All" ? category : null,
-      limit_count: limit,
+      limit_count: cappedLimit,
     })
 
     if (!error && data) {
@@ -120,7 +123,7 @@ export async function GET(request: NextRequest) {
           product.category?.toLowerCase().includes(query) ||
           product.longDescription?.toLowerCase().includes(query)
       )
-      .slice(0, limit)
+      .slice(0, cappedLimit)
 
     return NextResponse.json({ products: results })
   } catch (error) {

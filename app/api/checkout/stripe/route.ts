@@ -4,9 +4,7 @@ import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/mid
 import { getProductById, getVariantById, createPendingCheckoutAsAdmin } from "@/lib/db/supabase"
 import type { OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
-
-const SHIPPING_RATE = 15
-const SERVICE_FEE_RATE = 0.05
+import { SHIPPING_RATE, SERVICE_FEE_RATE } from "@/lib/order-constants"
 
 const createStripeCheckoutSchema = z.object({
   cartItems: z.array(

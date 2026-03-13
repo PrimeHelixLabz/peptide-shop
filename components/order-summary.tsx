@@ -2,9 +2,7 @@
 
 import { useCart } from "@/lib/cart-context"
 import { FlaskConical, Shield, Truck } from "lucide-react"
-
-const SHIPPING_RATE = 15
-const SERVICE_FEE_RATE = 0.05
+import { SHIPPING_RATE, SERVICE_FEE_RATE } from "@/lib/order-constants"
 
 export type ShippingMethod = "ship" | "local-pickup"
 

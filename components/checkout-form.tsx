@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth/auth-context"
@@ -47,6 +47,7 @@ export function CheckoutForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("ship")
+  const submittingRef = useRef(false)
   
   const {
     register,
@@ -64,13 +65,19 @@ export function CheckoutForm() {
   const billingSameAsShipping = watch("billingSameAsShipping")
 
   const onSubmit = async (data: CheckoutFormData) => {
+    // Prevent double-submit (ref check is synchronous, prevents rapid clicks)
+    if (submittingRef.current) return
+    submittingRef.current = true
+
     if (!user) {
+      submittingRef.current = false
       setError("You must be signed in to complete your purchase.")
       router.push(`/signin?redirect=/checkout`)
       return
     }
 
     if (items.length === 0) {
+      submittingRef.current = false
       setError("Your cart is empty")
       return
     }
@@ -136,6 +143,7 @@ export function CheckoutForm() {
       console.error("Checkout error:", err)
       setError(err instanceof Error ? err.message : "An error occurred. Please try again.")
       setLoading(false)
+      submittingRef.current = false
     }
   }
 

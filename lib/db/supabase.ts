@@ -1351,6 +1351,78 @@ export async function updateOrderAsAdmin(
  * Save checkout data to pending_checkouts table.
  * Called from the checkout API before redirecting to Stripe.
  */
+/**
+ * Admin-level order lookup by ID (bypasses RLS).
+ * Used when guest orders need to be fetched without an authenticated session.
+ */
+export async function getOrderByIdAsAdmin(id: string): Promise<Order | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("id", id)
+    .single()
+
+  if (error || !data) return null
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    email: data.email,
+    orderNumber: data.order_number,
+    status: data.status,
+    items: data.items,
+    subtotal: parseFloat(data.subtotal),
+    shipping: parseFloat(data.shipping),
+    serviceFee: parseFloat(data.service_fee),
+    total: parseFloat(data.total),
+    shippingAddress: data.shipping_address,
+    billingAddress: data.billing_address,
+    paymentMethod: data.payment_method,
+    paymentStatus: data.payment_status,
+    trackingNumber: data.tracking_number,
+    notes: data.notes,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }
+}
+
+/**
+ * Admin-level order lookup by order number (bypasses RLS).
+ * Used when guest orders need to be fetched without an authenticated session.
+ */
+export async function getOrderByNumberAsAdmin(orderNumber: string): Promise<Order | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("order_number", orderNumber)
+    .single()
+
+  if (error || !data) return null
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    email: data.email,
+    orderNumber: data.order_number,
+    status: data.status,
+    items: data.items,
+    subtotal: parseFloat(data.subtotal),
+    shipping: parseFloat(data.shipping),
+    serviceFee: parseFloat(data.service_fee),
+    total: parseFloat(data.total),
+    shippingAddress: data.shipping_address,
+    billingAddress: data.billing_address,
+    paymentMethod: data.payment_method,
+    paymentStatus: data.payment_status,
+    trackingNumber: data.tracking_number,
+    notes: data.notes,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }
+}
+
 export async function createPendingCheckoutAsAdmin(data: {
   id: string
   userId: string

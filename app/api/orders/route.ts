@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
-import { getOrders, createOrder } from "@/lib/db/supabase"
+import { getOrders, createOrder, adjustInventoryForOrderAsAdmin } from "@/lib/db/supabase"
 import { getCartItems, clearCart } from "@/lib/db/supabase"
 import { getProductById, getVariantById } from "@/lib/db/supabase"
 import { z } from "zod"
 import type { Order, OrderItem, Address } from "@/lib/db/schema"
+import { SHIPPING_RATE, SERVICE_FEE_RATE } from "@/lib/order-constants"
 
 const createOrderSchema = z.object({
   cartItems: z.array(z.object({
@@ -126,8 +127,8 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
       })
     }
 
-    const shipping = 0 // Shipping
-    const serviceFee = subtotal * 0.1 // 10% service fee (adjust as needed)
+    const shipping = 0 // Shipping (non-Stripe path, no method selection)
+    const serviceFee = subtotal * SERVICE_FEE_RATE
     const total = subtotal + shipping + serviceFee
 
     // Generate order number
@@ -157,6 +158,9 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
     }
 
     const createdOrder = await createOrder(order)
+
+    // Decrement inventory for all items in the order
+    await adjustInventoryForOrderAsAdmin(createdOrder.id)
 
     // Clear cart if authenticated
     if (req.user) {

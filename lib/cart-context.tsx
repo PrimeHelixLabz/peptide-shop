@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react"
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import type { Product } from "@/components/product-card"
 
@@ -37,6 +37,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
   const pathname = usePathname()
+  // Ref to hold the authoritative local cart state, preventing race conditions
+  // when multiple cart operations fire in quick succession
+  const localCartRef = useRef<LocalCartItem[]>([])
 
   // Check if we're on an admin page
   const isAdminPage = pathname?.startsWith("/admin") ?? false
@@ -140,7 +143,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Load cart from localStorage and enrich with product data
   const loadLocalCart = useCallback(async () => {
     const localItems = getLocalCart()
-    
+    localCartRef.current = localItems
+
     if (localItems.length === 0) {
       setItems([])
       setLoading(false)
@@ -165,8 +169,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = useCallback(
     (product: Product, quantity = 1, variantId?: string) => {
-      // Update localStorage immediately (synchronous, instant!)
-      const localItems = getLocalCart()
+      // Use ref as source of truth to prevent race conditions
+      const localItems = localCartRef.current
       const key = `${product.id}-${variantId || 'none'}`
       const existingIndex = localItems.findIndex(
         item => `${item.productId}-${item.variantId || 'none'}` === key
@@ -174,20 +178,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       let updatedItems: LocalCartItem[]
       if (existingIndex >= 0) {
-        // Update existing item - increment quantity
         updatedItems = localItems.map((item, index) =>
           index === existingIndex
             ? { ...item, quantity: Math.min(item.quantity + quantity, 10) }
             : item
         )
       } else {
-        // Add new item
         updatedItems = [
           ...localItems,
           { productId: product.id, quantity, variantId },
         ]
       }
 
+      localCartRef.current = updatedItems
       saveLocalCart(updatedItems)
 
       // Update state immediately with optimistic update
@@ -206,21 +209,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return [...prev, { product, quantity, variantId }]
       })
     },
-    [getLocalCart, saveLocalCart]
+    [saveLocalCart]
   )
 
   const removeItem = useCallback(
     (productId: string, variantId?: string) => {
-      // Update localStorage immediately
-      const localItems = getLocalCart()
       const key = `${productId}-${variantId || 'none'}`
-      const updatedItems = localItems.filter(
+      const updatedItems = localCartRef.current.filter(
         item => `${item.productId}-${item.variantId || 'none'}` !== key
       )
 
+      localCartRef.current = updatedItems
       saveLocalCart(updatedItems)
 
-      // Update state immediately
       setItems((prev) =>
         prev.filter(
           (item) =>
@@ -228,7 +229,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         )
       )
     },
-    [getLocalCart, saveLocalCart]
+    [saveLocalCart]
   )
 
   const updateQuantity = useCallback(
@@ -238,18 +239,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Update localStorage immediately
-      const localItems = getLocalCart()
       const key = `${productId}-${variantId || 'none'}`
-      const updatedItems = localItems.map((item) =>
+      const updatedItems = localCartRef.current.map((item) =>
         `${item.productId}-${item.variantId || 'none'}` === key
           ? { ...item, quantity: Math.min(quantity, 10) }
           : item
       )
 
+      localCartRef.current = updatedItems
       saveLocalCart(updatedItems)
 
-      // Update state immediately
       setItems((prev) =>
         prev.map((item) =>
           item.product.id === productId && item.variantId === variantId
@@ -258,14 +257,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         )
       )
     },
-    [removeItem, getLocalCart, saveLocalCart]
+    [removeItem, saveLocalCart]
   )
 
   const clearCart = useCallback(() => {
-    // Clear localStorage immediately
+    localCartRef.current = []
     saveLocalCart([])
-
-    // Update state immediately
     setItems([])
   }, [saveLocalCart])
 

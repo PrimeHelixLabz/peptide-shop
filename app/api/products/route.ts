@@ -31,9 +31,10 @@ export const GET = optionalAuthMiddleware(async (req) => {
     const limitParam = searchParams.get("limit")
     const offsetParam = searchParams.get("offset")
 
-    // Parse pagination parameters
-    const limit = limitParam ? parseInt(limitParam) : undefined
-    const offset = offsetParam ? parseInt(offsetParam) : undefined
+    // Parse pagination parameters with safety caps
+    const MAX_LIMIT = 100
+    const limit = limitParam ? Math.min(Math.max(parseInt(limitParam) || 0, 1), MAX_LIMIT) : undefined
+    const offset = offsetParam ? Math.max(parseInt(offsetParam) || 0, 0) : undefined
 
     // Fetch products with pagination at database level
     let products = await getProducts({

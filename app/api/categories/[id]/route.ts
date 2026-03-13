@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { requireAdminMiddleware } from "@/lib/auth/middleware"
+import { requireAdmin } from "@/lib/auth/supabase-auth"
 
 /**
  * GET /api/categories/[id]
@@ -47,12 +47,9 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const authResult = await requireAdminMiddleware(request)
-    if (authResult instanceof NextResponse) {
-      return authResult
-    }
+    await requireAdmin()
 
-    const supabase = authResult.supabase
+    const supabase = await createClient()
     const body = await request.json()
     const { name, description, image, display_order, is_active } = body
 
@@ -80,6 +77,9 @@ export async function PUT(
 
     return NextResponse.json({ category })
   } catch (error) {
+    if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: error.message === "Unauthorized" ? 401 : 403 })
+    }
     console.error("Update category error:", error)
     return NextResponse.json(
       { error: "Internal server error" },
@@ -98,12 +98,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const authResult = await requireAdminMiddleware(request)
-    if (authResult instanceof NextResponse) {
-      return authResult
-    }
+    await requireAdmin()
 
-    const supabase = authResult.supabase
+    const supabase = await createClient()
 
     // Check if any products use this category
     const { data: products } = await supabase
@@ -134,6 +131,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: error.message === "Unauthorized" ? 401 : 403 })
+    }
     console.error("Delete category error:", error)
     return NextResponse.json(
       { error: "Internal server error" },

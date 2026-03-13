@@ -25,29 +25,32 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
   const [email, setEmail] = useState(searchParams.get("email") || "")
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false)
 
+  // Use the email from URL params for fetching (not the controlled input state)
+  // This prevents re-fetching on every keystroke in the email input
+  const emailParam = searchParams.get("email") || ""
+
   useEffect(() => {
     async function fetchOrder() {
       try {
-        // Build URL with email if provided
-        const url = email 
-          ? `/api/orders/${orderNumber}?email=${encodeURIComponent(email)}`
+        const url = emailParam
+          ? `/api/orders/${orderNumber}?email=${encodeURIComponent(emailParam)}`
           : `/api/orders/${orderNumber}`
-        
+
         const response = await fetch(url)
-        
+
         if (!response.ok) {
           const data = await response.json()
-          
+
           // If email is required, show email form
           if (response.status === 400 && data.error?.includes("Email address required")) {
             setNeedsEmailVerification(true)
             setLoading(false)
             return
           }
-          
+
           throw new Error(data.error || "Order not found")
         }
-        
+
         const data = await response.json()
         setOrder(data.order)
       } catch (err) {
@@ -58,7 +61,7 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
     }
 
     fetchOrder()
-  }, [orderNumber, email])
+  }, [orderNumber, emailParam])
 
   // Clear cart client-side once we see a paid order
   useEffect(() => {

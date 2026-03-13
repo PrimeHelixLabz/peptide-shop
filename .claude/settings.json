@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(grep -n \"payment\\\\|status\" /e/work/Brandon/peptide-e-commerce-landing-page/app/api/orders/[id]/route.ts)"
+      "Bash(grep -n \"payment\\\\|status\" /e/work/Brandon/peptide-e-commerce-landing-page/app/api/orders/[id]/route.ts)",
+      "Bash(grep -n \"CREATE TABLE\\\\|ALTER TABLE\" /e/work/Brandon/peptide-e-commerce-landing-page/supabase/migrations/*.sql)",
+      "Bash(grep -n \"ON DELETE\\\\|ON UPDATE\" /e/work/Brandon/peptide-e-commerce-landing-page/supabase/migrations/*.sql)",
+      "Bash(grep -n \"CREATE OR REPLACE FUNCTION\\\\|LANGUAGE plpgsql\\\\|SECURITY\" /e/work/Brandon/peptide-e-commerce-landing-page/supabase/migrations/*.sql)",
+      "Bash(npx next:*)"
     ]
   }
 }
