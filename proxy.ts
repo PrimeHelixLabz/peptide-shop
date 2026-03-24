@@ -41,6 +41,9 @@ export async function proxy(request: NextRequest) {
     pathname === "/signup" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password"
+  const isPasswordPage =
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password"
   const isAuthApiRoute = pathname.startsWith("/api/auth")
 
   // Global auth guard: require login to view any non-auth, non-API route
@@ -50,8 +53,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(signInUrl)
   }
 
-  // If already authenticated, redirect away from auth pages to home
-  if (user && isAuthPage) {
+  // If already authenticated, redirect away from sign-in/sign-up pages to home
+  // but allow access to forgot-password and reset-password
+  if (user && isAuthPage && !isPasswordPage) {
     return NextResponse.redirect(new URL("/", request.url))
   }
 

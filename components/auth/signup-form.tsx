@@ -6,7 +6,7 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2 } from "lucide-react"
+import { Loader2, Mail } from "lucide-react"
 
 export function SignUpForm() {
   const [name, setName] = useState("")
@@ -15,6 +15,7 @@ export function SignUpForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
   const { signUp } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -41,15 +42,42 @@ export function SignUpForm() {
       if (result.error) {
         setError(result.error)
       } else {
-        // Redirect to the redirect URL if provided, otherwise to home
-        router.push(redirect || "/")
-        router.refresh()
+        // Show email confirmation message instead of redirecting
+        setEmailSent(true)
       }
     } catch (err) {
       setError("An unexpected error occurred")
     } finally {
       setLoading(false)
     }
+  }
+
+  if (emailSent) {
+    return (
+      <div className="space-y-6 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+          <Mail className="h-8 w-8 text-primary" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold text-foreground">Check your email</h3>
+          <p className="text-sm text-muted-foreground">
+            We&apos;ve sent a confirmation link to{" "}
+            <span className="font-medium text-foreground">{email}</span>.
+            Please click the link in the email to verify your account before signing in.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-700">
+          Don&apos;t see the email? Check your spam or junk folder.
+        </div>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => router.push(redirect ? `/signin?redirect=${redirect}` : "/signin")}
+        >
+          Go to Sign In
+        </Button>
+      </div>
+    )
   }
 
   return (

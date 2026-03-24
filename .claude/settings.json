@@ -6,7 +6,11 @@
       "Bash(grep -n \"CREATE TABLE\\\\|ALTER TABLE\" /e/work/Brandon/peptide-e-commerce-landing-page/supabase/migrations/*.sql)",
       "Bash(grep -n \"ON DELETE\\\\|ON UPDATE\" /e/work/Brandon/peptide-e-commerce-landing-page/supabase/migrations/*.sql)",
       "Bash(grep -n \"CREATE OR REPLACE FUNCTION\\\\|LANGUAGE plpgsql\\\\|SECURITY\" /e/work/Brandon/peptide-e-commerce-landing-page/supabase/migrations/*.sql)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(ls \"e:/work/Brandon/peptide-e-commerce-landing-page/middleware\"*)",
+      "Bash(ls \"e:/work/Brandon/peptide-e-commerce-landing-page/src/middleware\"*)",
+      "Bash(ls -la \"e:/work/Brandon/peptide-e-commerce-landing-page/middleware.\"*)",
+      "Bash(ls -la \"e:/work/Brandon/peptide-e-commerce-landing-page/\"middleware*)"
     ]
   }
 }
