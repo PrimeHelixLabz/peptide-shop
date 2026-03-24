@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import type { Product } from "@/components/product-card"
+import { useAuth } from "@/lib/auth/auth-context"
 
 export interface CartItem {
   product: Product
@@ -37,6 +38,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
   const pathname = usePathname()
+  const { user, loading: authLoading } = useAuth()
   // Ref to hold the authoritative local cart state, preventing race conditions
   // when multiple cart operations fire in quick succession
   const localCartRef = useRef<LocalCartItem[]>([])
@@ -156,16 +158,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setLoading(false)
   }, [getLocalCart, enrichCartItems])
 
-  // Initialize cart on mount
+  // Initialize cart on mount — only load when user is authenticated
   useEffect(() => {
-    if (isAdminPage) {
+    if (authLoading) return
+
+    if (isAdminPage || !user) {
       setItems([])
       setLoading(false)
       return
     }
 
     loadLocalCart()
-  }, [isAdminPage, loadLocalCart])
+  }, [isAdminPage, loadLocalCart, user, authLoading])
 
   const addItem = useCallback(
     (product: Product, quantity = 1, variantId?: string) => {
