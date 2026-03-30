@@ -27,6 +27,9 @@ export function CartItemRow({ item }: { item: CartItem }) {
     ? `${product.name} (${variant.sku})`
     : product.name
 
+  // Max quantity based on variant stock
+  const maxQuantity = variant?.stock ?? 10
+
   return (
     <div className="flex gap-5 rounded-3xl bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 sm:gap-6">
       {/* Product Image */}
@@ -65,6 +68,9 @@ export function CartItemRow({ item }: { item: CartItem }) {
                 {product.specifications.purity} purity
               </span>
             )}
+            <span className={`text-xs font-medium ${maxQuantity <= 5 ? "text-amber-600" : "text-muted-foreground"}`}>
+              {maxQuantity} in stock
+            </span>
           </div>
           <button
             onClick={() => removeItem(product.id, variantId)}
@@ -98,7 +104,7 @@ export function CartItemRow({ item }: { item: CartItem }) {
               onClick={() => updateQuantity(product.id, quantity + 1, variantId)}
               className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-gray-200 hover:text-foreground disabled:opacity-40 min-h-[48px] min-w-[48px]"
               aria-label="Increase quantity"
-              disabled={quantity >= 10}
+              disabled={quantity >= maxQuantity}
             >
               <Plus className="h-3 w-3" />
             </button>

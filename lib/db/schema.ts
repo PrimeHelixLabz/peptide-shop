@@ -56,7 +56,7 @@ export interface Product {
   category?: string // Legacy: category name (for backward compatibility)
   categoryId?: string // New: reference to categories table
   inStock: boolean // Overall stock status (true if any variant is in stock)
-  stockQuantity: number // Total stock across all variants (for backward compatibility)
+  stockQuantity: number // Computed: total stock across all variants (not stored in products table)
   specifications?: Record<string, string | number>
   usage?: string
   shipping?: string

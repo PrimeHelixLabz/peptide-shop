@@ -173,6 +173,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = useCallback(
     (product: Product, quantity = 1, variantId?: string) => {
+      // Determine max quantity from the specific variant's stock
+      const variant = variantId && product.variants
+        ? product.variants.find(v => v.id === variantId)
+        : null
+      const maxQuantity = variant?.stock ?? 10
+
       // Use ref as source of truth to prevent race conditions
       const localItems = localCartRef.current
       const key = `${product.id}-${variantId || 'none'}`
@@ -184,13 +190,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (existingIndex >= 0) {
         updatedItems = localItems.map((item, index) =>
           index === existingIndex
-            ? { ...item, quantity: Math.min(item.quantity + quantity, 10) }
+            ? { ...item, quantity: Math.min(item.quantity + quantity, maxQuantity) }
             : item
         )
       } else {
         updatedItems = [
           ...localItems,
-          { productId: product.id, quantity, variantId },
+          { productId: product.id, quantity: Math.min(quantity, maxQuantity), variantId },
         ]
       }
 
@@ -203,14 +209,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           (item) => item.product.id === product.id && item.variantId === variantId
         )
         if (existing) {
-          const newQuantity = Math.min(existing.quantity + quantity, 10)
+          const newQuantity = Math.min(existing.quantity + quantity, maxQuantity)
           return prev.map((item) =>
             item.product.id === product.id && item.variantId === variantId
               ? { ...item, quantity: newQuantity }
               : item
           )
         }
-        return [...prev, { product, quantity, variantId }]
+        return [...prev, { product, quantity: Math.min(quantity, maxQuantity), variantId }]
       })
     },
     [saveLocalCart]
@@ -243,10 +249,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      // Look up variant stock from current items state
+      const cartItem = items.find(
+        i => i.product.id === productId && i.variantId === variantId
+      )
+      const variant = variantId && cartItem?.product.variants
+        ? cartItem.product.variants.find(v => v.id === variantId)
+        : null
+      const maxQuantity = variant?.stock ?? 10
+
+      const clampedQuantity = Math.min(quantity, maxQuantity)
+
       const key = `${productId}-${variantId || 'none'}`
       const updatedItems = localCartRef.current.map((item) =>
         `${item.productId}-${item.variantId || 'none'}` === key
-          ? { ...item, quantity: Math.min(quantity, 10) }
+          ? { ...item, quantity: clampedQuantity }
           : item
       )
 
@@ -256,12 +273,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setItems((prev) =>
         prev.map((item) =>
           item.product.id === productId && item.variantId === variantId
-            ? { ...item, quantity: Math.min(quantity, 10) }
+            ? { ...item, quantity: clampedQuantity }
             : item
         )
       )
     },
-    [removeItem, saveLocalCart]
+    [items, removeItem, saveLocalCart]
   )
 
   const clearCart = useCallback(() => {

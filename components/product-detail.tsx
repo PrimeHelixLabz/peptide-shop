@@ -71,9 +71,10 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
           : (product.image ? [product.image] : []))
   const currentImage = images[selectedImageIndex]
 
-  // Reset image index when variant changes
+  // Reset image index and quantity when variant changes
   useEffect(() => {
     setSelectedImageIndex(0)
+    setQuantity(1)
   }, [selectedVariant?.id])
 
   // Get display price - use variant price if selected, otherwise product price
@@ -81,6 +82,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   
   // Get stock status - use variant stock if selected, otherwise product stock
   const displayInStock = selectedVariant ? selectedVariant.inStock : product.inStock
+  const displayStock = selectedVariant ? (selectedVariant.stock ?? 0) : 0
 
   // Touch handlers for swipe navigation
   const minSwipeDistance = 50
@@ -134,7 +136,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   }
 
   function incrementQuantity() {
-    setQuantity((prev) => Math.min(prev + 1, 10))
+    setQuantity((prev) => Math.min(prev + 1, displayStock))
   }
 
   function decrementQuantity() {
@@ -433,6 +435,15 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
             </div>
           )}
 
+          {/* Stock Info */}
+          {displayInStock && (
+            <div className="flex items-center gap-2">
+              <span className={`text-sm font-medium ${displayStock <= 5 ? "text-amber-600" : "text-green-600"}`}>
+                {displayStock} in stock
+              </span>
+            </div>
+          )}
+
           {/* Quantity & Add to Cart */}
           <div className="flex flex-col gap-4 justify-around lg:justify-between sm:flex-row sm:items-center sm:gap-4">
             {/* Quantity Selector */}
@@ -454,7 +465,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               </span>
               <button
                 onClick={incrementQuantity}
-                disabled={quantity >= 10}
+                disabled={quantity >= displayStock}
                 className="flex h-12 w-12 items-center justify-center text-muted-foreground transition-colors hover:bg-gray-200 hover:text-foreground disabled:opacity-40 min-h-[48px] min-w-[48px]"
                 aria-label="Increase quantity"
               >

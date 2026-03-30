@@ -33,8 +33,8 @@ function rowToVariant(row: any): ProductVariant {
     sku: row.sku || row.name || row.id,
     price: parseFloat(row.price),
     stripePriceId: row.stripe_price_id || undefined,
-    stock: row.stock ?? row.stock_quantity ?? 0,
-    inStock: (row.stock ?? row.stock_quantity ?? 0) > 0 ? true : (row.in_stock ?? false),
+    stock: row.stock ?? 0,
+    inStock: (row.stock ?? 0) > 0 ? true : (row.in_stock ?? false),
     displayOrder: row.display_order || 0,
     isDefault: row.is_default ?? false,
     createdAt: row.created_at,
@@ -69,7 +69,7 @@ function rowToProduct(row: any): Product {
   // Calculate total stock quantity: sum of variant stocks or product stock
   const overallStockQuantity = hasVariants
     ? variants!.reduce((sum, v) => sum + v.stock, 0)
-    : row.stock_quantity
+    : 0
 
   // Use variant price/image if variants exist and first variant is selected
   const displayPrice =
@@ -139,7 +139,6 @@ function productToRow(product: Partial<Product>): any {
     category: product.category, // Keep for backward compatibility
     category_id: product.categoryId, // New category reference
     in_stock: product.inStock,
-    stock_quantity: product.stockQuantity,
     usage: product.usage,
     shipping: product.shipping,
     created_by: product.createdBy,
@@ -196,7 +195,7 @@ export async function adjustInventoryForOrderAsAdmin(orderId: string): Promise<v
       if (item.variantId) {
         const { data: variantRow, error: variantError } = await supabase
           .from("product_variants")
-          .select("id, stock, stock_quantity, in_stock")
+          .select("id, stock, in_stock")
           .eq("id", item.variantId)
           .single()
 
@@ -209,17 +208,13 @@ export async function adjustInventoryForOrderAsAdmin(orderId: string): Promise<v
           continue
         }
 
-        const currentStock =
-          (variantRow as any).stock ??
-          (variantRow as any).stock_quantity ??
-          0
+        const currentStock = (variantRow as any).stock ?? 0
         const newStock = Math.max(0, currentStock - item.quantity)
 
         const { error: updateVariantError } = await supabase
           .from("product_variants")
           .update({
             stock: newStock,
-            stock_quantity: newStock,
             in_stock: newStock > 0,
           })
           .eq("id", item.variantId)
@@ -235,40 +230,8 @@ export async function adjustInventoryForOrderAsAdmin(orderId: string): Promise<v
         continue
       }
 
-      // Otherwise, decrement the base product stock.
-      const { data: productRow, error: productError } = await supabase
-        .from("products")
-        .select("id, stock_quantity, in_stock")
-        .eq("id", item.productId)
-        .single()
-
-      if (productError || !productRow) {
-        console.error(
-          "adjustInventoryForOrderAsAdmin: failed to load product",
-          productError,
-          { productId: item.productId, orderId }
-        )
-        continue
-      }
-
-      const currentStock = (productRow as any).stock_quantity ?? 0
-      const newStock = Math.max(0, currentStock - item.quantity)
-
-      const { error: updateProductError } = await supabase
-        .from("products")
-        .update({
-          stock_quantity: newStock,
-          in_stock: newStock > 0,
-        })
-        .eq("id", item.productId)
-
-      if (updateProductError) {
-        console.error(
-          "adjustInventoryForOrderAsAdmin: failed to update product stock",
-          updateProductError,
-          { productId: item.productId, orderId }
-        )
-      }
+      // No variant specified – skip product-level stock update.
+      // Stock is now derived exclusively from product_variants.
     } catch (err) {
       console.error(
         "adjustInventoryForOrderAsAdmin: unexpected error adjusting item",
@@ -391,6 +354,9 @@ export async function getProducts(options?: {
         id,
         name,
         slug
+      ),
+      variants:product_variants (
+        *
       )
     `)
   
@@ -693,7 +659,6 @@ export async function createVariant(
       sku: variant.sku,
       price: variant.price,
       stock: variant.stock,
-      stock_quantity: variant.stock, // legacy
       in_stock: variant.stock > 0,
       is_default: variant.isDefault,
       display_order: variant.displayOrder,
@@ -717,7 +682,6 @@ export async function updateVariant(
   if (updates.stripePriceId !== undefined) updateData.stripe_price_id = updates.stripePriceId
   if (updates.stock !== undefined) {
     updateData.stock = updates.stock
-    updateData.stock_quantity = updates.stock // legacy
     updateData.in_stock = updates.stock > 0
   }
   if (updates.isDefault !== undefined) updateData.is_default = updates.isDefault

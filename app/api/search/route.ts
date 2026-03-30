@@ -12,8 +12,8 @@ function rowToVariant(row: any): ProductVariant {
     sku: row.sku || row.name || row.id,
     name: row.name || undefined,
     price: parseFloat(row.price),
-    stock: row.stock ?? row.stock_quantity ?? 0,
-    inStock: (row.stock ?? row.stock_quantity ?? 0) > 0 ? true : (row.in_stock ?? false),
+    stock: row.stock ?? 0,
+    inStock: (row.stock ?? 0) > 0 ? true : (row.in_stock ?? false),
     displayOrder: row.display_order || 0,
     color: row.color ?? null,
     size: row.size ?? null,
@@ -57,7 +57,7 @@ async function transformRpcResult(row: any, supabase: any) {
     : (row.in_stock ?? true)
   const overallStockQuantity = hasVariants
     ? variants.reduce((sum, v) => sum + v.stock, 0)
-    : (row.stock_quantity || 0)
+    : 0
 
   return {
     id: row.id,

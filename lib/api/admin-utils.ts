@@ -1,4 +1,4 @@
-import type { ProductDetail } from "@/lib/products"
+import type { Product } from "@/lib/db/schema"
 
 export interface AdminProduct {
   id: string
@@ -13,12 +13,17 @@ export interface AdminProduct {
 }
 
 /** Map product catalog data into admin-table shape */
-export function toAdminProduct(p: ProductDetail): AdminProduct {
+export function toAdminProduct(p: Product): AdminProduct {
   const purity = p.specifications?.purity
     ? typeof p.specifications.purity === "string"
       ? p.specifications.purity
       : `${p.specifications.purity}%`
     : "N/A"
+
+  // Derive stock from variants
+  const stock = p.variants && p.variants.length > 0
+    ? p.variants.reduce((sum, v) => sum + v.stock, 0)
+    : 0
 
   return {
     id: p.id,
@@ -27,7 +32,7 @@ export function toAdminProduct(p: ProductDetail): AdminProduct {
     price: p.price,
     category: p.category || "Uncategorized",
     purity,
-    stock: p.stockQuantity || 0,
+    stock,
     status: p.inStock ? "Active" : "Inactive",
     isArchived: p.isArchived || false,
   }

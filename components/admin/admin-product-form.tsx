@@ -174,7 +174,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                   id: v.id,
                   sku: v.sku || "",
                   price: v.price?.toString() || "",
-                  stock: (v.stock ?? v.stockQuantity)?.toString() || "0",
+                  stock: v.stock?.toString() || "0",
                   isDefault: !!v.isDefault,
                   imageFiles: [],
                   imageFilePreviews: [],
@@ -882,7 +882,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         images: [], // legacy
         categoryId: form.categoryId || undefined,
         inStock: form.status === "Active" && hasInStockVariant,
-        stockQuantity: totalStock,
+        // stockQuantity is derived from variant stocks, not stored on products table
         specifications: Object.keys(specifications).length > 0 ? specifications : undefined,
         usage: form.usage || undefined,
         shipping: form.shipping || undefined,

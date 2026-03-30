@@ -29,6 +29,7 @@ export interface Product {
     name: string
     price: number
     inStock: boolean
+    stock: number
     sku?: string
     image?: string // legacy
     images?: string[] // legacy

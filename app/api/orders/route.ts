@@ -102,7 +102,7 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
         displayImage = variant.images?.[0] || variant.image || displayImage
         displayName = `${product.name} (${variant.sku})`
         inStock = variant.inStock
-        stockQuantity = variant.stockQuantity
+        stockQuantity = variant.stock
       }
 
       if (!inStock || stockQuantity < cartItem.quantity) {
