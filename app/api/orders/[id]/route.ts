@@ -40,7 +40,31 @@ export async function GET(
         if (!order) {
           return NextResponse.json({ error: "Order not found" }, { status: 404 })
         }
-        return NextResponse.json({ order })
+
+        // Resolve customer name for admin view
+        let customerName: string | undefined
+        if (order.userId) {
+          const { createAdminClient } = await import("@/lib/supabase/admin")
+          const adminSupabase = createAdminClient()
+          const { data: profile } = await adminSupabase
+            .from("profiles")
+            .select("name")
+            .eq("id", order.userId)
+            .single()
+          if (profile?.name) {
+            customerName = profile.name
+          }
+        }
+        if (!customerName) {
+          const addr = order.shippingAddress as any
+          if (addr?.firstName && addr?.lastName) {
+            customerName = `${addr.firstName} ${addr.lastName}`
+          } else if (addr?.firstName) {
+            customerName = addr.firstName
+          }
+        }
+
+        return NextResponse.json({ order, customerName })
       }
 
       // Authenticated users can see their own orders (RLS handles this)

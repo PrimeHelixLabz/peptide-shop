@@ -10,7 +10,8 @@
       "Bash(ls \"e:/work/Brandon/peptide-e-commerce-landing-page/middleware\"*)",
       "Bash(ls \"e:/work/Brandon/peptide-e-commerce-landing-page/src/middleware\"*)",
       "Bash(ls -la \"e:/work/Brandon/peptide-e-commerce-landing-page/middleware.\"*)",
-      "Bash(ls -la \"e:/work/Brandon/peptide-e-commerce-landing-page/\"middleware*)"
+      "Bash(ls -la \"e:/work/Brandon/peptide-e-commerce-landing-page/\"middleware*)",
+      "Bash(find e:workBrandonpeptide-e-commerce-landing-page -name schema* -type f)"
     ]
   }
 }

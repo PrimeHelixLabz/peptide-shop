@@ -52,6 +52,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [customerName, setCustomerName] = useState<string>("")
   const [shippingStatus, setShippingStatus] = useState<AdminOrder["shippingStatus"]>("Processing")
   const [fulfilled, setFulfilled] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -66,6 +67,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
         }
         const data = await response.json()
         setOrder(data.order)
+        if (data.customerName) setCustomerName(data.customerName)
         setShippingStatus(mapShippingStatus(data.order.status))
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load order")
@@ -167,10 +169,11 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
     ? `${shippingAddr.street}, ${shippingAddr.city}, ${shippingAddr.state} ${shippingAddr.zipCode}, ${shippingAddr.country}`
     : "No address provided"
 
-  // Get customer name
-  const customerName = shippingAddr?.firstName && shippingAddr?.lastName
-    ? `${shippingAddr.firstName} ${shippingAddr.lastName}`
-    : order.email || "Guest Customer"
+  // Get customer name (prefer API-resolved name, fall back to shipping address)
+  const displayCustomerName = customerName
+    || (shippingAddr?.firstName && shippingAddr?.lastName
+      ? `${shippingAddr.firstName} ${shippingAddr.lastName}`
+      : order.email || "Guest Customer")
 
   const subtotal = order.subtotal
   const serviceFee = order.serviceFee
@@ -292,7 +295,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   Customer
                 </span>
                 <span className="text-sm font-semibold text-foreground">
-                  {customerName}
+                  {displayCustomerName}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {order.email || shippingAddr?.email || "No email"}

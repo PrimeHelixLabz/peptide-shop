@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const GET = requireAdminMiddleware(async (req) => {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     // Get recent orders (including email column for guest orders)
     const { data: ordersData, error: ordersError } = await supabase
@@ -46,17 +46,26 @@ export const GET = requireAdminMiddleware(async (req) => {
       // Get customer name and email
       let customerName = "Guest Customer"
       let customerEmail = order.email || "No email"
-      
+
       if (!isGuestOrder && profile.name) {
         customerName = profile.name
         customerEmail = profile.email || customerEmail
-      } else if (isGuestOrder && order.shipping_address) {
-        // Try to get name from shipping address for guest orders
+      }
+
+      // For guest orders, or authenticated users without a profile name,
+      // fall back to shipping address name
+      if (customerName === "Guest Customer" && order.shipping_address) {
         const shippingAddr = order.shipping_address
         if (shippingAddr.firstName && shippingAddr.lastName) {
           customerName = `${shippingAddr.firstName} ${shippingAddr.lastName}`
+        } else if (shippingAddr.firstName) {
+          customerName = shippingAddr.firstName
         }
-        customerEmail = order.email || shippingAddr.email || customerEmail
+        if (!isGuestOrder) {
+          customerEmail = profile.email || customerEmail
+        } else {
+          customerEmail = order.email || shippingAddr.email || customerEmail
+        }
       }
       
       const itemsCount = Array.isArray(order.items) ? order.items.length : 0
