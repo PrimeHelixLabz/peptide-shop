@@ -13,7 +13,13 @@
       "Bash(ls -la \"e:/work/Brandon/peptide-e-commerce-landing-page/\"middleware*)",
       "Bash(find e:workBrandonpeptide-e-commerce-landing-page -name schema* -type f)",
       "Bash(npm search:*)",
-      "Bash(find e:workBrandonpeptide-e-commerce-landing-pageappapiadmin -type f -name *.ts -o -name *.tsx)"
+      "Bash(find e:workBrandonpeptide-e-commerce-landing-pageappapiadmin -type f -name *.ts -o -name *.tsx)",
+      "Bash(find /e/work/Brandon/peptide-e-commerce-landing-page/lib/admin -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(find e:workBrandonpeptide-e-commerce-landing-page/lib -type f -name *.ts -o -name *.tsx)",
+      "Bash(ls /e/work/Brandon/peptide-e-commerce-landing-page/*.ts)"
+    ],
+    "additionalDirectories": [
+      "e:\\work\\Brandon\\peptide-e-commerce-landing-page\\app\\api\\admin\\customers"
     ]
   }
 }
