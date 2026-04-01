@@ -1,20 +1,28 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Loader2, CheckCircle2, Clock, XCircle } from "lucide-react"
 
-/**
- * Link Money Callback Page
- *
- * After the user completes (or abandons) the Link Money bank-link/payment
- * flow, Link Money redirects here with query params:
- *   ?status=...&customerId=...&paymentId=...&paymentStatusCode=...
- *
- * This page persists the result in Supabase and shows a clear outcome UI.
- */
 export default function LinkMoneyCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <LinkMoneyCallbackContent />
+    </Suspense>
+  )
+}
+
+function LinkMoneyCallbackContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [saving, setSaving] = useState(true)

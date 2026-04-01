@@ -25,7 +25,7 @@ export function getLinkMoneyConfig() {
   const baseUrl =
     env === "production"
       ? "https://api.link.money"
-      : "https://api.sandbox.link.money"
+      : "https://api.link-sandbox.money"
 
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
 

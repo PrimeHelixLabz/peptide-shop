@@ -101,7 +101,7 @@ export function CheckoutForm() {
   // Link Money checkout data (built from watched form values for live updates)
   const watchedValues = watch()
   const linkMoneyCheckoutData: LinkMoneyCheckoutData = buildCheckoutData(watchedValues)
-  const linkMoneyReady =
+  const formReady =
     !!watchedValues.shippingFirstName &&
     !!watchedValues.shippingLastName &&
     !!watchedValues.shippingEmail &&
@@ -460,7 +460,7 @@ export function CheckoutForm() {
           {/* Submit Button — Stripe (card) */}
           <Button
             type="submit"
-            disabled={loading}
+            disabled={loading || !formReady}
             className="w-full h-14 text-base"
             size="lg"
           >
@@ -478,22 +478,26 @@ export function CheckoutForm() {
           </Button>
 
           {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+          {process.env.NEXT_PUBLIC_ENABLE_LINK_MONEY === "true" && (
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">
+                  or
+                </span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-muted-foreground">
-                or
-              </span>
-            </div>
-          </div>
+          )}
 
-          {/* Link Money — Pay by Bank */}
-          <LinkMoneyButton
-            checkoutData={linkMoneyCheckoutData}
-            disabled={loading || !linkMoneyReady}
-          />
+          {/* Link Money — Pay by Bank (dev/test only) */}
+          {process.env.NEXT_PUBLIC_ENABLE_LINK_MONEY === "true" && (
+            <LinkMoneyButton
+              checkoutData={linkMoneyCheckoutData}
+              disabled={loading || !formReady}
+            />
+          )}
         </form>
       </div>
 

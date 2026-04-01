@@ -133,25 +133,32 @@ export const POST = requireAuthMiddleware(
         headers: {
           Authorization: `Basic ${config.basicAuth}`,
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({
-          customerDetails: {
-            firstName: shippingAddress.firstName,
-            lastName: shippingAddress.lastName,
-            email: shippingAddress.email,
+          firstName: shippingAddress.firstName,
+          lastName: shippingAddress.lastName,
+          email: shippingAddress.email,
+          phoneNumber: shippingAddress.phone,
+          product: "PAY",
+          redirectUrl: config.redirectUrl,
+          orderDetails: {
+            totalAmount: {
+              value: parseFloat(total.toFixed(2)),
+              currency: "USD",
+            },
           },
           paymentDetails: {
-            amount: total.toFixed(2),
-            currency: "USD",
-            description: `Order ${orderNumber}`,
+            amount: {
+              value: parseFloat(total.toFixed(2)),
+              currency: "USD",
+            },
+            requestKey: crypto.randomUUID(),
+            clientReferenceId: orderNumber,
           },
-          orderDetails: {
-            orderId: orderNumber,
-          },
-          redirectUrl: config.redirectUrl,
-          metadata: {
-            userId,
-            orderNumber,
+          customerProfile: {
+            id: userId,
+            guestCheckout: false,
           },
         }),
       })
