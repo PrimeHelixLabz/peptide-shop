@@ -66,15 +66,15 @@ export function LinkMoneyButton({
       const { sessionUrl, environment } = await res.json()
 
       // Step 2: Launch Link Money SDK
-      const { LinkMoney } = await import("@link.money/linkmoney-web")
+      const Link = (await import("@link.money/linkmoney-web")).default
 
-      const lm = new LinkMoney({
+      const lm = Link.LinkInstance({
         sessionUrl,
         environment: environment || "sandbox",
         sessionVersion: 2,
       })
 
-      lm.open()
+      lm.callSessionUrl()
     } catch (err) {
       console.error("Pay by Bank error:", err)
       setError(

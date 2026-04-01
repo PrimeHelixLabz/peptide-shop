@@ -19,7 +19,17 @@
       "Bash(ls /e/work/Brandon/peptide-e-commerce-landing-page/*.ts)",
       "WebSearch",
       "WebFetch(domain:developer.link.money)",
-      "WebFetch(domain:link-money-docs.fingoal.dev)"
+      "WebFetch(domain:link-money-docs.fingoal.dev)",
+      "Bash(node -e \"const m = require\\('@link.money/linkmoney-web'\\); console.log\\('keys:', Object.keys\\(m\\)\\); console.log\\('default:', typeof m.default\\); console.log\\('LinkMoney:', typeof m.LinkMoney\\); console.log\\('type of m:', typeof m\\)\")",
+      "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; const inst = new M\\({ sessionUrl: 'test', environment: 'sandbox', sessionVersion: 2 }\\); console.log\\('instance keys:', Object.keys\\(inst\\)\\); console.log\\('prototype:', Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(inst\\)\\)\\)\")",
+      "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; console.log\\(M.toString\\(\\).substring\\(0, 500\\)\\)\")",
+      "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; console.log\\(Object.getOwnPropertyNames\\(M.prototype\\)\\)\")",
+      "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; const src = M.toString\\(\\); console.log\\(src.substring\\(0, 2000\\)\\)\")",
+      "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; const src = M.toString\\(\\); const methods = src.match\\(/\\\\b\\\\w+\\\\s*\\\\\\(/g\\); console.log\\([...new Set\\(methods\\)].join\\('\\\\n'\\)\\)\")",
+      "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; const src = M.toString\\(\\); const idx = src.indexOf\\('callSessionUrl'\\); console.log\\(src.substring\\(idx-200, idx+500\\)\\)\")",
+      "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; const src = M.toString\\(\\); const idx = src.indexOf\\('callSessionUrl'\\); const chunk = src.substring\\(idx, idx+800\\); console.log\\(chunk\\)\")",
+      "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; const src = M.toString\\(\\); const idx = src.indexOf\\('callSessionUrl\\(e\\){'\\); if\\(idx===-1\\){const idx2=src.indexOf\\('callSessionUrl'\\); console.log\\(src.substring\\(idx2, idx2+20\\)\\)} else { console.log\\(src.substring\\(idx, idx+500\\)\\) }\")",
+      "Bash(node -e ':*)"
     ],
     "additionalDirectories": [
       "e:\\work\\Brandon\\peptide-e-commerce-landing-page\\app\\api\\admin\\customers"

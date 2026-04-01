@@ -128,6 +128,8 @@ export const POST = requireAuthMiddleware(
       // ── Call Link Money /v2/sessions ──
       const config = getLinkMoneyConfig()
 
+      console.log(config.baseUrl)
+
       const lmResponse = await fetch(`${config.baseUrl}/v2/sessions`, {
         method: "POST",
         headers: {
