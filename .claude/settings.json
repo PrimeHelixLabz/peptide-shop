@@ -12,7 +12,8 @@
       "Bash(ls -la \"e:/work/Brandon/peptide-e-commerce-landing-page/middleware.\"*)",
       "Bash(ls -la \"e:/work/Brandon/peptide-e-commerce-landing-page/\"middleware*)",
       "Bash(find e:workBrandonpeptide-e-commerce-landing-page -name schema* -type f)",
-      "Bash(npm search:*)"
+      "Bash(npm search:*)",
+      "Bash(find e:workBrandonpeptide-e-commerce-landing-pageappapiadmin -type f -name *.ts -o -name *.tsx)"
     ]
   }
 }

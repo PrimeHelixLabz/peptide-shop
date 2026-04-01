@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CalendarIcon } from "lucide-react"
+import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -52,7 +52,38 @@ export function DateRangePicker({
     setSelectedPreset(presetValue)
     onPresetChange?.(presetValue)
   }
-  
+
+  function shiftPeriod(direction: -1 | 1) {
+    if (!value.from || !value.to) return
+    const durationMs = value.to.getTime() - value.from.getTime()
+    // +1 day so periods don't overlap
+    const shiftMs = durationMs + 24 * 60 * 60 * 1000
+
+    const newFrom = new Date(value.from.getTime() + direction * shiftMs)
+    newFrom.setHours(0, 0, 0, 0)
+    const newTo = new Date(value.to.getTime() + direction * shiftMs)
+    newTo.setHours(23, 59, 59, 999)
+
+    // Don't allow navigating into the future
+    const now = new Date()
+    if (newFrom > now) return
+
+    // Clamp end date to today
+    if (newTo > now) {
+      newTo.setTime(now.getTime())
+      newTo.setHours(23, 59, 59, 999)
+    }
+
+    onChange({ from: newFrom, to: newTo })
+    setSelectedPreset("custom")
+    onPresetChange?.("custom")
+  }
+
+  // Whether we can go forward (the current end date is before today)
+  const canGoNext = value.to
+    ? value.to.toISOString().split("T")[0] < new Date().toISOString().split("T")[0]
+    : false
+
   // Sync selected preset when value changes externally
   useEffect(() => {
     if (value.from && value.to) {
@@ -119,45 +150,71 @@ export function DateRangePicker({
   const toDateString = value.to ? format(value.to, "yyyy-MM-dd") : ""
 
   return (
-    <div className="inline-flex items-center gap-3 rounded-xl border-0 bg-background shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] bg-white px-4 py-2.5">
-      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-      
-      {/* Preset buttons */}
-      <div className="flex items-center gap-1 border-r border-border pr-3 mr-3">
-        {(["7d", "30d", "90d", "all"] as PresetRange[]).map((presetValue) => (
-          <button
-            key={presetValue}
-            onClick={() => handlePresetSelect(presetValue)}
-            className={cn(
-              "px-3 py-1 text-xs font-medium rounded-lg transition-colors",
-              selectedPreset === presetValue
-                ? "bg-gradient-to-r from-brand-primary to-brand-secondary text-brand-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            )}
-          >
-            {presetValue === "7d" ? "7d" : presetValue === "30d" ? "30d" : presetValue === "90d" ? "90d" : "All"}
-          </button>
-        ))}
+    <div className="inline-flex items-center gap-1">
+      {/* Previous period button */}
+      <button
+        onClick={() => shiftPeriod(-1)}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Previous period"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+
+      <div className="inline-flex items-center gap-3 rounded-xl border-0 bg-background shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] bg-white px-4 py-2.5">
+        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+
+        {/* Preset buttons */}
+        <div className="flex items-center gap-1 border-r border-border pr-3 mr-3">
+          {(["7d", "30d", "90d", "all"] as PresetRange[]).map((presetValue) => (
+            <button
+              key={presetValue}
+              onClick={() => handlePresetSelect(presetValue)}
+              className={cn(
+                "px-3 py-1 text-xs font-medium rounded-lg transition-colors",
+                selectedPreset === presetValue
+                  ? "bg-gradient-to-r from-brand-primary to-brand-secondary text-brand-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+            >
+              {presetValue === "7d" ? "7d" : presetValue === "30d" ? "30d" : presetValue === "90d" ? "90d" : "All"}
+            </button>
+          ))}
+        </div>
+
+        {/* Date inputs */}
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={fromDateString}
+            onChange={handleFromDateChange}
+            className="text-sm text-foreground bg-transparent border-0 outline-none focus:ring-0"
+            aria-label="Start date"
+          />
+          <span className="text-muted-foreground">to</span>
+          <input
+            type="date"
+            value={toDateString}
+            onChange={handleToDateChange}
+            className="text-sm text-foreground bg-transparent border-0 outline-none focus:ring-0"
+            aria-label="End date"
+          />
+        </div>
       </div>
 
-      {/* Date inputs */}
-      <div className="flex items-center gap-2">
-        <input
-          type="date"
-          value={fromDateString}
-          onChange={handleFromDateChange}
-          className="text-sm text-foreground bg-transparent border-0 outline-none focus:ring-0"
-          aria-label="Start date"
-        />
-        <span className="text-muted-foreground">to</span>
-        <input
-          type="date"
-          value={toDateString}
-          onChange={handleToDateChange}
-          className="text-sm text-foreground bg-transparent border-0 outline-none focus:ring-0"
-          aria-label="End date"
-        />
-      </div>
+      {/* Next period button */}
+      <button
+        onClick={() => shiftPeriod(1)}
+        disabled={!canGoNext}
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] transition-colors",
+          canGoNext
+            ? "text-muted-foreground hover:text-foreground"
+            : "text-muted-foreground/30 cursor-not-allowed"
+        )}
+        aria-label="Next period"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
     </div>
   )
 }

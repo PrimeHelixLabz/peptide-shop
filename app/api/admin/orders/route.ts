@@ -9,7 +9,7 @@ export const GET = requireAdminMiddleware(async (req) => {
     // Get all orders (including email column for guest orders)
     const { data: ordersData, error: ordersError } = await supabase
       .from("orders")
-      .select("id, order_number, status, payment_status, total, items, created_at, user_id, email, shipping_address")
+      .select("id, order_number, status, payment_status, payment_method, total, items, created_at, user_id, email, shipping_address")
       .order("created_at", { ascending: false })
 
     if (ordersError) {
@@ -99,6 +99,7 @@ export const GET = requireAdminMiddleware(async (req) => {
         }),
         paymentStatus: paymentStatusMap[order.payment_status || "pending"] || "Pending",
         shippingStatus: shippingStatusMap[order.status || "pending"] || "Processing",
+        paymentMethod: order.payment_method || "stripe",
         orderId: order.id, // Keep original ID for detail page
       }
     })

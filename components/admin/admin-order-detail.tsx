@@ -8,6 +8,7 @@ import type { AdminOrder } from "./admin-orders-table"
 import type { Order } from "@/lib/db/schema"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { format } from "date-fns"
+import { formatPaymentMethod } from "@/lib/format-payment-method"
 
 /* ------------------------------------------------------------------ */
 /*  Badge styles (same as orders table)                                */
@@ -324,6 +325,9 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                     {mapPaymentStatus(order.paymentStatus)}
                   </span>
                 </div>
+                <span className="text-xs text-muted-foreground">
+                  {formatPaymentMethod(order.paymentMethod)}
+                </span>
               </div>
 
               {/* Shipping status (editable) */}

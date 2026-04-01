@@ -1,5 +1,6 @@
 import { Resend } from "resend"
 import type { Order } from "@/lib/db/schema"
+import { formatPaymentMethod } from "@/lib/format-payment-method"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -106,7 +107,7 @@ export async function sendOrderNotificationEmail(order: Order): Promise<void> {
 
             <!-- Payment Method -->
             <div style="margin-top: 16px;">
-              <p style="margin: 4px 0; color: #6b7280; font-size: 13px;">Payment Method: ${order.paymentMethod}</p>
+              <p style="margin: 4px 0; color: #6b7280; font-size: 13px;">Payment Method: ${formatPaymentMethod(order.paymentMethod)}</p>
               ${order.notes ? `<p style="margin: 4px 0; color: #6b7280; font-size: 13px;">Notes: ${order.notes}</p>` : ""}
               <p style="margin: 4px 0; color: #6b7280; font-size: 13px;">Date: ${new Date(order.createdAt).toLocaleString("en-US", { timeZone: "America/New_York" })}</p>
             </div>

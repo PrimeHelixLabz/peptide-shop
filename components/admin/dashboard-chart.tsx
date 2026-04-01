@@ -6,44 +6,40 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Area, AreaChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 interface ChartDataPoint {
   date: string
   revenue: number
   orders: number
+  demand?: number
   previousRevenue?: number
   previousOrders?: number
 }
 
+export type SeriesVisibility = {
+  revenue: boolean
+  orders: boolean
+  demand: boolean
+}
+
 interface DashboardChartProps {
   data: ChartDataPoint[]
-  type: "revenue" | "orders"
+  visible: SeriesVisibility
   groupBy: "daily" | "weekly" | "monthly"
-  showComparison?: boolean
 }
+
+const SERIES_COLORS = {
+  revenue: "hsl(262, 83%, 58%)",  // Purple
+  orders: "hsl(173, 58%, 39%)",   // Teal
+  demand: "hsl(38, 92%, 50%)",    // Amber
+} as const
 
 export function DashboardChart({
   data,
-  type,
+  visible,
   groupBy,
-  showComparison = true,
 }: DashboardChartProps) {
-  const chartConfig = {
-    revenue: {
-      label: "Revenue",
-      color: "hsl(262, 83%, 58%)", // Purple like Stripe
-    },
-    orders: {
-      label: "Orders",
-      color: "hsl(262, 83%, 58%)",
-    },
-    previous: {
-      label: "Previous period",
-      color: "hsl(0, 0%, 70%)", // Gray for comparison
-    },
-  }
-
   const chartData = useMemo(() => {
     if (groupBy === "daily") {
       return data.map((point) => ({
@@ -51,164 +47,150 @@ export function DashboardChart({
           month: "short",
           day: "numeric",
         }),
-        value: point[type],
-        previous: showComparison ? point[`previous${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof ChartDataPoint] : undefined,
-      }))
-    } else if (groupBy === "weekly") {
-      // Group by week
-      const weekly: Record<string, { value: number; previous: number }> = {}
-      data.forEach((point) => {
-        const date = new Date(point.date)
-        const weekStart = new Date(date)
-        weekStart.setDate(date.getDate() - date.getDay())
-        const weekKey = weekStart.toISOString().split("T")[0]
-        
-        if (!weekly[weekKey]) {
-          weekly[weekKey] = { value: 0, previous: 0 }
-        }
-        weekly[weekKey].value += point[type]
-        if (showComparison) {
-          const prevKey = `previous${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof ChartDataPoint
-          weekly[weekKey].previous += (point[prevKey] as number) || 0
-        }
-      })
-
-      return Object.entries(weekly).map(([date, values]) => ({
-        date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        value: values.value,
-        previous: showComparison ? values.previous : undefined,
-      }))
-    } else {
-      // Group by month
-      const monthly: Record<string, { value: number; previous: number }> = {}
-      data.forEach((point) => {
-        const date = new Date(point.date)
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-        
-        if (!monthly[monthKey]) {
-          monthly[monthKey] = { value: 0, previous: 0 }
-        }
-        monthly[monthKey].value += point[type]
-        if (showComparison) {
-          const prevKey = `previous${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof ChartDataPoint
-          monthly[monthKey].previous += (point[prevKey] as number) || 0
-        }
-      })
-
-      return Object.entries(monthly).map(([date, values]) => ({
-        date: new Date(date + "-01").toLocaleDateString("en-US", { month: "short", year: "numeric" }),
-        value: values.value,
-        previous: showComparison ? values.previous : undefined,
+        revenue: point.revenue,
+        orders: point.orders,
+        demand: point.demand ?? 0,
       }))
     }
-  }, [data, type, groupBy, showComparison])
+
+    const buckets: Record<string, { revenue: number; orders: number; demand: number }> = {}
+
+    data.forEach((point) => {
+      const d = new Date(point.date)
+      let key: string
+
+      if (groupBy === "weekly") {
+        const weekStart = new Date(d)
+        weekStart.setDate(d.getDate() - d.getDay())
+        key = weekStart.toISOString().split("T")[0]
+      } else {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+      }
+
+      if (!buckets[key]) {
+        buckets[key] = { revenue: 0, orders: 0, demand: 0 }
+      }
+      buckets[key].revenue += point.revenue
+      buckets[key].orders += point.orders
+      buckets[key].demand += point.demand ?? 0
+    })
+
+    return Object.entries(buckets).map(([key, values]) => ({
+      date:
+        groupBy === "weekly"
+          ? new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          : new Date(key + "-01").toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+      ...values,
+    }))
+  }, [data, groupBy])
 
   const config = {
-    value: {
-      label: chartConfig[type].label,
-      color: chartConfig[type].color,
-    },
-    ...(showComparison && {
-      previous: {
-        label: chartConfig.previous.label,
-        color: chartConfig.previous.color,
-      },
+    ...(visible.revenue && {
+      revenue: { label: "Revenue", color: SERIES_COLORS.revenue },
+    }),
+    ...(visible.orders && {
+      orders: { label: "Orders", color: SERIES_COLORS.orders },
+    }),
+    ...(visible.demand && {
+      demand: { label: "Customer Demand", color: SERIES_COLORS.demand },
     }),
   }
 
+  // Revenue uses a separate right Y-axis (dollars) while orders/demand share the left axis (counts).
+  // If only revenue is visible we put it on the left axis instead.
+  const showRightAxis = visible.revenue && (visible.orders || visible.demand)
+
   return (
     <ChartContainer config={config} className="h-[350px] w-full">
-      {showComparison && chartData.some((d) => d.previous !== undefined) ? (
-        <LineChart data={chartData}>
-          <defs>
-            <linearGradient id={`fill-${type}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={chartConfig[type].color} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={chartConfig[type].color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
-          <XAxis
-            dataKey="date"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            className="text-xs text-muted-foreground"
-          />
+      <AreaChart data={chartData}>
+        <defs>
+          <linearGradient id="fill-revenue" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={SERIES_COLORS.revenue} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={SERIES_COLORS.revenue} stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="fill-orders" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={SERIES_COLORS.orders} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={SERIES_COLORS.orders} stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="fill-demand" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={SERIES_COLORS.demand} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={SERIES_COLORS.demand} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
+        <XAxis
+          dataKey="date"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          className="text-xs text-muted-foreground"
+        />
+
+        {/* Left Y-axis: counts (orders/demand) or revenue when it's the only series */}
+        <YAxis
+          yAxisId="left"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          className="text-xs text-muted-foreground"
+          allowDecimals={false}
+          tickFormatter={(value) => {
+            if (!showRightAxis && visible.revenue) {
+              return `$${value.toLocaleString()}`
+            }
+            return value.toLocaleString()
+          }}
+        />
+
+        {/* Right Y-axis: revenue (only when other series are also visible) */}
+        {showRightAxis && (
           <YAxis
+            yAxisId="right"
+            orientation="right"
             tickLine={false}
             axisLine={false}
             tickMargin={8}
             className="text-xs text-muted-foreground"
-            tickFormatter={(value) => {
-              if (type === "revenue") {
-                return `$${value.toLocaleString()}`
-              }
-              return value.toString()
-            }}
+            tickFormatter={(value) => `$${value.toLocaleString()}`}
           />
-          <ChartTooltip
-            content={<ChartTooltipContent />}
-            labelFormatter={(value) => `Date: ${value}`}
-          />
-          {showComparison && (
-            <Line
-              type="monotone"
-              dataKey="previous"
-              stroke={chartConfig.previous.color}
-              strokeWidth={1.5}
-              strokeDasharray="5 5"
-              dot={false}
-            />
-          )}
-          <Line
-            type="monotone"
-            dataKey="value"
-            stroke={chartConfig[type].color}
-            strokeWidth={2.5}
-            dot={false}
-          />
-        </LineChart>
-      ) : (
-        <AreaChart data={chartData}>
-          <defs>
-            <linearGradient id={`fill-${type}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={chartConfig[type].color} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={chartConfig[type].color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
-          <XAxis
-            dataKey="date"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            className="text-xs text-muted-foreground"
-          />
-          <YAxis
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            className="text-xs text-muted-foreground"
-            tickFormatter={(value) => {
-              if (type === "revenue") {
-                return `$${value.toLocaleString()}`
-              }
-              return value.toString()
-            }}
-          />
-          <ChartTooltip
-            content={<ChartTooltipContent />}
-            labelFormatter={(value) => `Date: ${value}`}
-          />
+        )}
+
+        <ChartTooltip
+          content={<ChartTooltipContent />}
+          labelFormatter={(value) => `Date: ${value}`}
+        />
+
+        {visible.revenue && (
           <Area
             type="monotone"
-            dataKey="value"
-            stroke={chartConfig[type].color}
-            fill={`url(#fill-${type})`}
+            dataKey="revenue"
+            yAxisId={showRightAxis ? "right" : "left"}
+            stroke={SERIES_COLORS.revenue}
+            fill="url(#fill-revenue)"
             strokeWidth={2.5}
           />
-        </AreaChart>
-      )}
+        )}
+        {visible.orders && (
+          <Area
+            type="monotone"
+            dataKey="orders"
+            yAxisId="left"
+            stroke={SERIES_COLORS.orders}
+            fill="url(#fill-orders)"
+            strokeWidth={2.5}
+          />
+        )}
+        {visible.demand && (
+          <Area
+            type="monotone"
+            dataKey="demand"
+            yAxisId="left"
+            stroke={SERIES_COLORS.demand}
+            fill="url(#fill-demand)"
+            strokeWidth={2.5}
+          />
+        )}
+      </AreaChart>
     </ChartContainer>
   )
 }

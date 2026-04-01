@@ -9,11 +9,13 @@ import { Label } from "@/components/ui/label"
 import { format } from "date-fns"
 import { useAuth } from "@/lib/auth/auth-context"
 import type { Order } from "@/lib/db/schema"
+import { formatPaymentMethod } from "@/lib/format-payment-method"
 
 interface RecentOrder {
   orderNumber: string
   createdAt: string
   total: number
+  paymentMethod: string
 }
 
 export function OrdersList() {
@@ -53,6 +55,7 @@ export function OrdersList() {
             orderNumber: order.orderNumber,
             createdAt: order.createdAt,
             total: order.total,
+            paymentMethod: order.paymentMethod || "stripe",
           }))
         setRecentOrders(recent)
       })
@@ -154,7 +157,7 @@ export function OrdersList() {
                   <div>
                     <p className="font-medium text-foreground">Order #{order.orderNumber}</p>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(order.createdAt), "MMM d, yyyy")} • ${order.total.toFixed(2)}
+                      {format(new Date(order.createdAt), "MMM d, yyyy")} &bull; ${order.total.toFixed(2)} &bull; {formatPaymentMethod(order.paymentMethod)}
                     </p>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />

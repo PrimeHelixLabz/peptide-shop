@@ -7,6 +7,7 @@ import { Pagination } from "./pagination"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
 import { usePersistentTableState } from "@/hooks/usePersistentTableState"
+import { formatPaymentMethodShort } from "@/lib/format-payment-method"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -21,6 +22,7 @@ export interface AdminOrder {
   date: string
   paymentStatus: "Paid" | "Pending" | "Refunded"
   shippingStatus: "Processing" | "Shipped" | "Delivered"
+  paymentMethod?: string // "stripe" | "link_money"
   orderId?: string // Original order ID for detail page
 }
 
@@ -230,6 +232,9 @@ export function AdminOrdersTable() {
                 <th className="hidden px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">
                   Payment
                 </th>
+                <th className="hidden px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">
+                  Method
+                </th>
                 <th className="hidden px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">
                   Shipping
                 </th>
@@ -274,6 +279,11 @@ export function AdminOrdersTable() {
                     <StatusBadge variant={paymentStatusMap[order.paymentStatus]}>
                       {order.paymentStatus}
                     </StatusBadge>
+                  </td>
+
+                  {/* Payment Method */}
+                  <td className="hidden px-6 py-4 text-right text-sm text-muted-foreground md:table-cell">
+                    {formatPaymentMethodShort(order.paymentMethod || "stripe")}
                   </td>
 
                   {/* Shipping Status */}

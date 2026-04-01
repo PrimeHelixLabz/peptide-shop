@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import type { Order } from "@/lib/db/schema"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { useCart } from "@/lib/cart-context"
+import { formatPaymentMethod } from "@/lib/format-payment-method"
 
 interface OrderConfirmationProps {
   orderNumber: string
@@ -261,7 +262,7 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Payment method: {order.paymentMethod}
+              Payment method: {formatPaymentMethod(order.paymentMethod)}
             </p>
           </div>
         </div>
