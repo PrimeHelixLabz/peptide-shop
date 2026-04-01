@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, Lock, Truck, MapPin } from "lucide-react"
+import { Loader2, Lock, Truck, MapPin, ArrowLeft } from "lucide-react"
 import { OrderSummary, type ShippingMethod } from "@/components/order-summary"
+import { LinkMoneyButton, type LinkMoneyCheckoutData } from "@/components/link-money-button"
 
 const checkoutSchema = z.object({
   // Shipping Address
@@ -64,6 +65,53 @@ export function CheckoutForm() {
 
   const billingSameAsShipping = watch("billingSameAsShipping")
 
+  // Build checkout data object from current form values (shared by both flows)
+  function buildCheckoutData(data: CheckoutFormData) {
+    return {
+      cartItems: items.map((item) => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        variantId: item.variantId,
+      })),
+      shippingAddress: {
+        street: data.shippingStreet,
+        city: data.shippingCity,
+        state: data.shippingState,
+        zipCode: data.shippingZipCode,
+        country: data.shippingCountry,
+        email: data.shippingEmail,
+        phone: data.shippingPhone,
+        firstName: data.shippingFirstName,
+        lastName: data.shippingLastName,
+      },
+      billingAddress: data.billingSameAsShipping
+        ? undefined
+        : {
+            street: data.billingStreet!,
+            city: data.billingCity!,
+            state: data.billingState!,
+            zipCode: data.billingZipCode!,
+            country: data.billingCountry!,
+          },
+      notes: data.notes,
+      shippingMethod,
+    }
+  }
+
+  // Link Money checkout data (built from watched form values for live updates)
+  const watchedValues = watch()
+  const linkMoneyCheckoutData: LinkMoneyCheckoutData = buildCheckoutData(watchedValues)
+  const linkMoneyReady =
+    !!watchedValues.shippingFirstName &&
+    !!watchedValues.shippingLastName &&
+    !!watchedValues.shippingEmail &&
+    !!watchedValues.shippingStreet &&
+    !!watchedValues.shippingCity &&
+    !!watchedValues.shippingState &&
+    !!watchedValues.shippingZipCode &&
+    !!watchedValues.shippingPhone &&
+    items.length > 0
+
   const onSubmit = async (data: CheckoutFormData) => {
     // Prevent double-submit (ref check is synchronous, prevents rapid clicks)
     if (submittingRef.current) return
@@ -86,36 +134,7 @@ export function CheckoutForm() {
     setError("")
 
     try {
-      // Prepare order + checkout data
-      const checkoutData = {
-        cartItems: items.map((item) => ({
-          productId: item.product.id,
-          quantity: item.quantity,
-          variantId: item.variantId,
-        })),
-        shippingAddress: {
-          street: data.shippingStreet,
-          city: data.shippingCity,
-          state: data.shippingState,
-          zipCode: data.shippingZipCode,
-          country: data.shippingCountry,
-          email: data.shippingEmail,
-          phone: data.shippingPhone,
-          firstName: data.shippingFirstName,
-          lastName: data.shippingLastName,
-        },
-        billingAddress: billingSameAsShipping
-          ? undefined
-          : {
-              street: data.billingStreet!,
-              city: data.billingCity!,
-              state: data.billingState!,
-              zipCode: data.billingZipCode!,
-              country: data.billingCountry!,
-            },
-        notes: data.notes,
-        shippingMethod,
-      }
+      const checkoutData = buildCheckoutData(data)
 
       // Create Stripe Checkout session (and order on the server)
       const response = await fetch("/api/checkout/stripe", {
@@ -204,6 +223,15 @@ export function CheckoutForm() {
     <div className="grid gap-8 lg:grid-cols-[1fr_400px] lg:gap-12">
       {/* Checkout Form */}
       <div className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => router.push("/shop")}
+          className="mb-4 -ml-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="mr-1.5 h-4 w-4" />
+          Continue Shopping
+        </Button>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           {/* Delivery Method */}
           <div className="space-y-4">
@@ -407,7 +435,7 @@ export function CheckoutForm() {
           <div className="space-y-2">
             <h2 className="text-xl font-semibold">Payment</h2>
             <p className="text-sm text-muted-foreground">
-              You&apos;ll be securely redirected to our payment partner Stripe to complete your purchase.
+              Pay with card via Stripe, or use &quot;Pay by Bank&quot; for a direct bank transfer.
             </p>
           </div>
 
@@ -429,7 +457,7 @@ export function CheckoutForm() {
             </div>
           )}
 
-          {/* Submit Button */}
+          {/* Submit Button — Stripe (card) */}
           <Button
             type="submit"
             disabled={loading}
@@ -448,6 +476,24 @@ export function CheckoutForm() {
               </>
             )}
           </Button>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-muted-foreground">
+                or
+              </span>
+            </div>
+          </div>
+
+          {/* Link Money — Pay by Bank */}
+          <LinkMoneyButton
+            checkoutData={linkMoneyCheckoutData}
+            disabled={loading || !linkMoneyReady}
+          />
         </form>
       </div>
 

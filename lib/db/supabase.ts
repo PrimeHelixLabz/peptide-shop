@@ -1498,3 +1498,91 @@ export async function clearCartAsAdmin(userId: string): Promise<void> {
     console.error("clearCartAsAdmin error", error)
   }
 }
+
+// ── Link Money helpers ──────────────────────────────────────
+
+/**
+ * Create a pending checkout for Link Money (reuses the same table as Stripe).
+ */
+export async function createLinkMoneyPendingCheckoutAsAdmin(data: {
+  id: string
+  userId: string
+  checkoutData: any
+}): Promise<void> {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("pending_checkouts").insert({
+    id: data.id,
+    user_id: data.userId,
+    provider: "link_money",
+    checkout_data: data.checkoutData,
+  })
+  if (error) {
+    console.error("createLinkMoneyPendingCheckoutAsAdmin error", error)
+    throw error
+  }
+}
+
+/**
+ * Create an order with Link Money provider fields populated.
+ */
+export async function createLinkMoneyOrderAsAdmin(
+  order: Omit<Order, "createdAt" | "updatedAt"> & {
+    providerPaymentId?: string
+    providerCustomerId?: string
+    providerMetadata?: Record<string, unknown>
+  }
+): Promise<Order> {
+  const supabase = createAdminClient()
+
+  const email = order.email || (order.shippingAddress as any)?.email || null
+
+  const { data, error } = await supabase
+    .from("orders")
+    .insert({
+      id: order.id,
+      user_id: order.userId,
+      email,
+      order_number: order.orderNumber,
+      status: order.status,
+      items: order.items,
+      subtotal: order.subtotal,
+      shipping: order.shipping,
+      service_fee: order.serviceFee,
+      total: order.total,
+      shipping_address: order.shippingAddress,
+      billing_address: order.billingAddress,
+      payment_method: order.paymentMethod,
+      payment_status: order.paymentStatus,
+      tracking_number: order.trackingNumber,
+      notes: order.notes,
+      provider: "link_money",
+      provider_payment_id: order.providerPaymentId ?? null,
+      provider_customer_id: order.providerCustomerId ?? null,
+      provider_metadata: order.providerMetadata ?? null,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    email: data.email,
+    orderNumber: data.order_number,
+    status: data.status,
+    items: data.items,
+    subtotal: parseFloat(data.subtotal),
+    shipping: parseFloat(data.shipping),
+    serviceFee: parseFloat(data.service_fee),
+    total: parseFloat(data.total),
+    shippingAddress: data.shipping_address,
+    billingAddress: data.billing_address,
+    paymentMethod: data.payment_method,
+    paymentStatus: data.payment_status,
+    trackingNumber: data.tracking_number,
+    notes: data.notes,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }
+}

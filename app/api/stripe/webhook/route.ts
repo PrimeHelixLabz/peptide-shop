@@ -43,6 +43,12 @@ export const POST = async (req: NextRequest) => {
             break
           }
 
+          // Guard: only process checkouts that belong to Stripe
+          if (pendingCheckout.provider && pendingCheckout.provider !== "stripe") {
+            console.warn("Webhook: skipping non-Stripe pending checkout", pendingCheckoutId, pendingCheckout.provider)
+            break
+          }
+
           const checkoutData = pendingCheckout.checkout_data
 
           // Idempotency check: if order with this orderNumber already exists, skip creation
