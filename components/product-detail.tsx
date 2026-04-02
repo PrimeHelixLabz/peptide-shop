@@ -69,7 +69,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
       : (product.images && product.images.length > 0
           ? product.images
           : (product.image ? [product.image] : []))
-  const currentImage = images[selectedImageIndex]
+  const currentImage = images[selectedImageIndex] || "/placeholder.svg"
 
   // Reset image index and quantity when variant changes
   useEffect(() => {
@@ -199,7 +199,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               priority
               className="object-contain transition-opacity duration-300"
               sizes="(max-width: 1024px) 100vw, 50vw"
-              unoptimized={currentImage.includes("supabase")}
+              unoptimized={currentImage?.includes("supabase") ?? false}
             />
             {!displayInStock && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-3xl">
@@ -285,7 +285,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
                       fill
                       className="object-contain"
                       sizes="80px"
-                      unoptimized={img.includes("supabase")}
+                      unoptimized={img?.includes("supabase") ?? false}
                     />
                   </button>
                 </div>
@@ -578,7 +578,7 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
                       width={1200}
                       height={1600}
                       className="h-auto w-full object-contain bg-white"
-                      unoptimized={product.coaUrl!.includes("supabase")}
+                      unoptimized={product.coaUrl?.includes("supabase") ?? false}
                     />
                   </div>
                 </div>
