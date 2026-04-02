@@ -36,6 +36,7 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
+
   const isAuthPage =
     pathname === "/signin" ||
     pathname === "/signup" ||
@@ -44,14 +45,19 @@ export async function proxy(request: NextRequest) {
   const isPasswordPage =
     pathname === "/forgot-password" ||
     pathname === "/reset-password"
-  const isAuthApiRoute = pathname.startsWith("/api/auth")
 
-  // Public SEO routes that must be accessible without authentication
-  const isPublicSeoRoute =
-    pathname === "/sitemap.xml" || pathname === "/robots.txt"
+  // Routes that require authentication — everything else is public
+  const isProtectedRoute =
+    pathname === "/cart" ||
+    pathname === "/checkout" ||
+    pathname === "/account" ||
+    pathname === "/wishlist" ||
+    pathname.startsWith("/orders") ||
+    pathname.startsWith("/payments") ||
+    pathname.startsWith("/admin")
 
-  // Global auth guard: require login to view any non-auth, non-API route
-  if (!user && !isAuthPage && !isAuthApiRoute && !isPublicSeoRoute && !pathname.startsWith("/api")) {
+  // Redirect unauthenticated users away from protected routes
+  if (!user && isProtectedRoute) {
     const signInUrl = new URL("/signin", request.url)
     signInUrl.searchParams.set("redirect", pathname + request.nextUrl.search)
     return NextResponse.redirect(signInUrl)
@@ -63,18 +69,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url))
   }
 
-  // Check admin routes after session is updated
-  if (request.nextUrl.pathname.startsWith("/admin")) {
-    if (!user) {
-      const signInUrl = new URL("/signin", request.url)
-      signInUrl.searchParams.set("redirect", request.nextUrl.pathname)
-      return NextResponse.redirect(signInUrl)
-    }
-
+  // Admin routes require admin role
+  if (pathname.startsWith("/admin")) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", user.id)
+      .eq("id", user!.id)
       .single()
 
     if (profile?.role !== "admin") {

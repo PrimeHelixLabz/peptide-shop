@@ -3,9 +3,11 @@
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ShoppingCart, Check, Heart } from "lucide-react"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
+import { useAuth } from "@/lib/auth/auth-context"
 import { Badge } from "@/components/common/badge"
 import { PriceDisplay } from "@/components/common/price-display"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
@@ -38,13 +40,16 @@ export interface Product {
 
 export function ProductCard({ product }: { product: Product }) {
   const [added, setAdded] = useState(false)
+  const router = useRouter()
   const { addItem } = useCart()
   const { toggleItem, isInWishlist } = useWishlist()
+  const { user } = useAuth()
   const isWishlisted = isInWishlist(product.id)
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+    if (!user) { router.push(`/signin?redirect=/shop/${product.slug}`); return }
     addItem(product, 1)
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
@@ -53,6 +58,7 @@ export function ProductCard({ product }: { product: Product }) {
   function handleToggleWishlist(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+    if (!user) { router.push(`/signin?redirect=/shop/${product.slug}`); return }
     toggleItem(product)
   }
 

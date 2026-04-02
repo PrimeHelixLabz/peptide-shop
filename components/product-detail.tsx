@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Minus, Plus, ShoppingCart, Check, FlaskConical, Shield, Truck, ChevronLeft, ChevronRight, Heart } from "lucide-react"
 import type { ProductDetail } from "@/lib/products"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
+import { useAuth } from "@/lib/auth/auth-context"
 
 type TabId = "description" | "coa"
 
@@ -24,8 +26,10 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const touchStartX = useRef<number | null>(null)
   const touchEndX = useRef<number | null>(null)
+  const router = useRouter()
   const { addItem } = useCart()
   const { toggleItem, isInWishlist } = useWishlist()
+  const { user } = useAuth()
   const isWishlisted = isInWishlist(product.id)
 
   // Variant selection - default to first available variant or null
@@ -122,6 +126,10 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
   const sequence = getSpec("sequence")
 
   function handleAddToCart() {
+    if (!user) {
+      router.push(`/signin?redirect=/shop/${product.slug}`)
+      return
+    }
     // Create a product object with variant info for cart
     const productToAdd = {
       ...product,
@@ -309,7 +317,10 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               </h1>
             </div>
             <button
-              onClick={() => toggleItem(product)}
+              onClick={() => {
+                if (!user) { router.push(`/signin?redirect=/shop/${product.slug}`); return }
+                toggleItem(product)
+              }}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 text-muted-foreground transition-all duration-300 hover:bg-gray-200 hover:scale-110 active:scale-95 min-h-[48px] min-w-[48px]"
               aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             >
