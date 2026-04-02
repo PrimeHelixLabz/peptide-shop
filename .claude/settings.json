@@ -31,7 +31,9 @@
       "Bash(node -e \"const M = require\\('@link.money/linkmoney-web'\\).default; const src = M.toString\\(\\); const idx = src.indexOf\\('callSessionUrl\\(e\\){'\\); if\\(idx===-1\\){const idx2=src.indexOf\\('callSessionUrl'\\); console.log\\(src.substring\\(idx2, idx2+20\\)\\)} else { console.log\\(src.substring\\(idx, idx+500\\)\\) }\")",
       "Bash(node -e ':*)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:docs.radial.com)"
+      "WebFetch(domain:docs.radial.com)",
+      "Bash(curl -s http://localhost:3000/sitemap.xml)",
+      "Bash(ls \"e:/work/Brandon/peptide-e-commerce-landing-page/\"*.ts)"
     ],
     "additionalDirectories": [
       "e:\\work\\Brandon\\peptide-e-commerce-landing-page\\app\\api\\admin\\customers"

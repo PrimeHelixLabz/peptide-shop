@@ -1,6 +1,8 @@
 import { MetadataRoute } from 'next'
 import { getAllProducts } from '@/lib/api/server-products'
 
+export const dynamic = 'force-dynamic'
+
 const BASE_URL = 'https://primehelixlabz.com'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

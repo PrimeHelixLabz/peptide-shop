@@ -46,8 +46,12 @@ export async function proxy(request: NextRequest) {
     pathname === "/reset-password"
   const isAuthApiRoute = pathname.startsWith("/api/auth")
 
+  // Public SEO routes that must be accessible without authentication
+  const isPublicSeoRoute =
+    pathname === "/sitemap.xml" || pathname === "/robots.txt"
+
   // Global auth guard: require login to view any non-auth, non-API route
-  if (!user && !isAuthPage && !isAuthApiRoute && !pathname.startsWith("/api")) {
+  if (!user && !isAuthPage && !isAuthApiRoute && !isPublicSeoRoute && !pathname.startsWith("/api")) {
     const signInUrl = new URL("/signin", request.url)
     signInUrl.searchParams.set("redirect", pathname + request.nextUrl.search)
     return NextResponse.redirect(signInUrl)
