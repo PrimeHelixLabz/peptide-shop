@@ -242,6 +242,73 @@ export async function adjustInventoryForOrderAsAdmin(orderId: string): Promise<v
   }
 }
 
+/**
+ * Restores inventory that was previously decremented for an order.
+ * Used when a Link Money payment is reversed (e.g. ACH return) after
+ * inventory was already adjusted.
+ */
+export async function restoreInventoryForOrderAsAdmin(orderId: string): Promise<void> {
+  const supabase = createAdminClient()
+
+  const { data: orderRow, error: orderError } = await supabase
+    .from("orders")
+    .select("id, items")
+    .eq("id", orderId)
+    .single()
+
+  if (orderError || !orderRow) {
+    console.error("restoreInventoryForOrderAsAdmin: failed to load order", orderError, {
+      orderId,
+    })
+    return
+  }
+
+  const items: OrderItem[] = orderRow.items || []
+
+  for (const item of items) {
+    try {
+      if (item.variantId) {
+        const { data: variantRow, error: variantError } = await supabase
+          .from("product_variants")
+          .select("id, stock")
+          .eq("id", item.variantId)
+          .single()
+
+        if (variantError || !variantRow) {
+          console.error(
+            "restoreInventoryForOrderAsAdmin: failed to load variant",
+            variantError,
+            { variantId: item.variantId, orderId }
+          )
+          continue
+        }
+
+        const currentStock = (variantRow as any).stock ?? 0
+        const newStock = currentStock + item.quantity
+
+        const { error: updateError } = await supabase
+          .from("product_variants")
+          .update({ stock: newStock, in_stock: true })
+          .eq("id", item.variantId)
+
+        if (updateError) {
+          console.error(
+            "restoreInventoryForOrderAsAdmin: failed to update variant stock",
+            updateError,
+            { variantId: item.variantId, orderId }
+          )
+        }
+      }
+    } catch (err) {
+      console.error(
+        "restoreInventoryForOrderAsAdmin: unexpected error restoring item",
+        err,
+        { orderId, item }
+      )
+    }
+  }
+}
+
 // Users
 export async function getUserById(id: string): Promise<User | null> {
   const supabase = await createClient()
@@ -1585,4 +1652,33 @@ export async function createLinkMoneyOrderAsAdmin(
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   }
+}
+
+/**
+ * Deletes a Link Money order that was never paid.
+ * Used when the customer cancels or the payment fails — removes the
+ * "pending" order so it doesn't clutter the admin dashboard or affect
+ * inventory counts.  Only deletes if the order is still in pending/cancelled status.
+ */
+export async function deletePendingLinkMoneyOrderAsAdmin(
+  orderId: string
+): Promise<boolean> {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from("orders")
+    .delete()
+    .eq("id", orderId)
+    .eq("provider", "link_money")
+    .in("status", ["pending", "cancelled"])
+
+  if (error) {
+    console.error(
+      "deletePendingLinkMoneyOrderAsAdmin: failed to delete order",
+      error,
+      { orderId }
+    )
+    return false
+  }
+  return true
 }

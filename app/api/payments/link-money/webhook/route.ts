@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  adjustInventoryForOrderAsAdmin,
+  restoreInventoryForOrderAsAdmin,
+  deletePendingLinkMoneyOrderAsAdmin,
+  getOrderByIdAsAdmin,
+} from "@/lib/db/supabase"
+import { sendOrderNotificationEmail } from "@/lib/email"
 import type { LinkMoneyWebhookPayload } from "@/lib/link-money/types"
 
 /**
@@ -119,12 +126,20 @@ export async function POST(req: NextRequest) {
         // Order stays pending, no status change needed
         break
 
-      // Payment approved — move order to processing
+      // Payment approved — move order to processing and decrement stock
       case "payment.authorized":
       case "payment.scheduled":
       case "payment.initiated":
         if (order.payment_status !== "paid") {
           updates.payment_status = "paid"
+          // Decrement inventory on first transition to paid
+          await adjustInventoryForOrderAsAdmin(order.id)
+          // Send order notification email (non-blocking, matches Stripe behavior)
+          getOrderByIdAsAdmin(order.id).then((fullOrder) => {
+            if (fullOrder) sendOrderNotificationEmail(fullOrder)
+          }).catch((err) =>
+            console.error("Failed to send order notification:", err)
+          )
         }
         if (order.status === "pending") {
           updates.status = "processing"
@@ -136,6 +151,14 @@ export async function POST(req: NextRequest) {
       case "payment.disbursed":
         if (order.payment_status !== "paid") {
           updates.payment_status = "paid"
+          // Decrement inventory if not already done by an earlier authorized event
+          await adjustInventoryForOrderAsAdmin(order.id)
+          // Send email if authorized event was missed
+          getOrderByIdAsAdmin(order.id).then((fullOrder) => {
+            if (fullOrder) sendOrderNotificationEmail(fullOrder)
+          }).catch((err) =>
+            console.error("Failed to send order notification:", err)
+          )
         }
         if (order.status === "pending") {
           updates.status = "processing"
@@ -145,18 +168,39 @@ export async function POST(req: NextRequest) {
       // Payment failed or canceled
       case "payment.failed":
       case "payment.canceled":
-        if (order.payment_status !== "failed") {
-          updates.payment_status = "failed"
-        }
-        if (order.status !== "cancelled") {
-          updates.status = "cancelled"
-        }
         if (achReturnCode) {
           console.warn(
             `Link Money payment failed for order ${order.order_number} — ACH return code: ${achReturnCode}`
           )
         }
-        break
+
+        if (order.payment_status === "paid") {
+          // Payment was previously authorized and inventory was decremented.
+          // This is an ACH return / late failure — restore stock and mark cancelled.
+          await restoreInventoryForOrderAsAdmin(order.id)
+          const { error: cancelError } = await supabase
+            .from("orders")
+            .update({
+              status: "cancelled",
+              payment_status: "failed",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.id)
+          if (cancelError) {
+            console.error("Failed to cancel order after payment reversal:", cancelError)
+          }
+          console.log(
+            `Link Money webhook: reversed paid order ${order.order_number} — inventory restored`
+          )
+        } else {
+          // Order was still pending (never paid) — safe to delete entirely
+          await deletePendingLinkMoneyOrderAsAdmin(order.id)
+          console.log(
+            `Link Money webhook: deleted unpaid order ${order.order_number}`
+          )
+        }
+        return NextResponse.json({ received: true })
+
     }
 
     // Store the Link Money payment resource ID
