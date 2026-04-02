@@ -64,11 +64,12 @@ function LinkMoneyCallbackContent() {
   }, [status, customerId, paymentId, paymentStatusCode])
 
   // Determine UI state
-  const isSuccess = status === "success" || status === "completed"
+  // Link Money redirect uses numeric codes:
+  //   status: 200 = success, 204 = user exited, 500 = error
+  //   paymentStatusCode: 0 = authorized, 1 = failed, 2 = pending
+  const isSuccess = status === "200" && paymentStatusCode === "0"
   const isPending =
-    status === "pending" ||
-    status === "processing" ||
-    paymentStatusCode === "PENDING"
+    status === "200" && paymentStatusCode === "2"
   const isFailed = !isSuccess && !isPending
 
   if (saving) {

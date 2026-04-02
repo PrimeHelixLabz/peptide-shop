@@ -3,7 +3,7 @@ import { z } from "zod"
 import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
-  mapLinkMoneyPaymentStatus,
+  mapLinkMoneyRedirectPaymentStatus,
   mapLinkMoneyOrderStatus,
 } from "@/lib/link-money/types"
 
@@ -40,7 +40,7 @@ export const POST = requireAuthMiddleware(
           .single()
 
         if (order) {
-          const newPaymentStatus = mapLinkMoneyPaymentStatus(paymentStatusCode)
+          const newPaymentStatus = mapLinkMoneyRedirectPaymentStatus(paymentStatusCode)
           const newOrderStatus = mapLinkMoneyOrderStatus(status)
 
           const updates: Record<string, string> = {

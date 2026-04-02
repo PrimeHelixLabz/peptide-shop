@@ -39,14 +39,26 @@ export interface LinkMoneyCallbackParams {
 }
 
 // ── Webhook payload (Link Money → our webhook endpoint) ──
+// Fields may appear at top level or nested under `metadata` depending on API version.
 
 export interface LinkMoneyWebhookPayload {
+  id: string
+  creationTime: string
   eventType: string
+  // Top-level fields (API reference format)
   resourceId?: string
-  customerId?: string
-  paymentId?: string
-  paymentStatusCode?: string
-  [key: string]: unknown
+  resourceType?: "payment" | "customer" | "report" | string
+  clientReferenceId?: string
+  paymentType?: string
+  achReturnCode?: string
+  // Nested format (observed in sample payloads)
+  metadata?: {
+    resourceId?: string
+    resourceType?: string
+    clientReferenceId?: string
+    transactionType?: string
+    achReturnCode?: string
+  }
 }
 
 // ── Internal status mapping ──
@@ -54,40 +66,37 @@ export interface LinkMoneyWebhookPayload {
 export type PaymentProvider = "stripe" | "link_money"
 
 /**
- * Maps Link Money paymentStatusCode values to our internal payment statuses.
+ * Maps Link Money redirect paymentStatusCode (numeric) to our internal payment statuses.
+ * Redirect query params use: 0 = authorized, 1 = failed, 2 = pending.
  */
-export function mapLinkMoneyPaymentStatus(
+export function mapLinkMoneyRedirectPaymentStatus(
   statusCode: string | undefined
-): "pending" | "paid" | "failed" | "refunded" {
-  switch (statusCode?.toUpperCase()) {
-    case "COMPLETED":
-    case "SETTLED":
+): "pending" | "paid" | "failed" {
+  switch (statusCode) {
+    case "0":
       return "paid"
-    case "FAILED":
-    case "CANCELLED":
-    case "REJECTED":
-    case "RETURNED":
+    case "1":
       return "failed"
-    case "REFUNDED":
-      return "refunded"
+    case "2":
+      return "pending"
     default:
       return "pending"
   }
 }
 
 /**
- * Maps Link Money callback status to our internal order status.
+ * Maps Link Money redirect status code to our internal order status.
+ * Redirect query params use: 200 = success, 204 = user exited, 500 = error.
  */
 export function mapLinkMoneyOrderStatus(
   callbackStatus: string
 ): "pending" | "processing" | "cancelled" {
-  switch (callbackStatus?.toLowerCase()) {
-    case "success":
-    case "completed":
+  switch (callbackStatus) {
+    case "200":
       return "processing"
-    case "failed":
-    case "cancelled":
+    case "500":
       return "cancelled"
+    case "204":
     default:
       return "pending"
   }

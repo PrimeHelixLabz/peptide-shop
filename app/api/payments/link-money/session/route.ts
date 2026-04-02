@@ -158,6 +158,7 @@ export const POST = requireAuthMiddleware(
             requestKey: crypto.randomUUID(),
             clientReferenceId: orderNumber,
           },
+          experienceId: "LINK_MANAGED_PAYMENT",
           customerProfile: {
             id: userId,
             guestCheckout: false,
