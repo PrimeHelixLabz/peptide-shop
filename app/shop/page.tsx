@@ -16,6 +16,9 @@ export const metadata: Metadata = {
       "Browse our full catalog of research-grade peptides. HPLC verified, pharmaceutical-grade purity.",
     type: "website",
   },
+  alternates: {
+    canonical: "/shop",
+  },
 }
 
 export default async function ShopPage() {

@@ -7,6 +7,7 @@ import { Section, Container, PageHeader } from "@/components/layout"
 export const metadata: Metadata = {
   title: "Checkout | PrimeHelix Labz",
   description: "Complete your order securely.",
+  robots: { index: false, follow: false },
 }
 
 export default function CheckoutPage() {

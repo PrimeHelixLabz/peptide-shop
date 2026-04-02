@@ -7,6 +7,7 @@ import { Footer } from "@/components/footer"
 export const metadata: Metadata = {
   title: "Sign Up | PrimeHelix Labz",
   description: "Create a new account to start shopping for research-grade peptides.",
+  robots: { index: false, follow: false },
 }
 
 export default function SignUpPage() {

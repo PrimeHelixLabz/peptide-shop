@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Contact Us | PrimeHelix Labz",
   description:
     "Get in touch with PrimeHelix Labz. Reach our support team for order inquiries, product questions, wholesale requests, and technical assistance.",
+  alternates: {
+    canonical: "/contact",
+  },
 }
 
 export default function ContactPage() {

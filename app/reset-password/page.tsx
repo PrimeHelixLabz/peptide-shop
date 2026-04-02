@@ -8,6 +8,7 @@ import { Section, Container, PageHeader } from "@/components/layout"
 export const metadata: Metadata = {
   title: "Reset Password | PrimeHelix Labz",
   description: "Reset your password",
+  robots: { index: false, follow: false },
 }
 
 export default function ResetPasswordPage() {

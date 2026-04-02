@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: "Privacy Policy | PrimeHelix Labz",
   description:
     "Learn how PrimeHelix Labz collects, uses, and protects your personal information. Our commitment to your privacy and data security.",
+  alternates: {
+    canonical: "/privacy-policy",
+  },
 }
 
 export default function PrivacyPolicyPage() {

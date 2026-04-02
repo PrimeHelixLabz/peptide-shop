@@ -19,6 +19,7 @@ const dmSerif = DM_Serif_Display({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://primehelixlabz.com'),
   title: 'PrimeHelix Labz | Premium Research-Grade Peptides',
   description:
     'Pharmaceutical-grade peptides for advanced research. Lab-tested purity, secure checkout, and fast shipping. Trusted by researchers worldwide.',
@@ -32,6 +33,11 @@ export const metadata: Metadata = {
     title: 'PrimeHelix Labz | Premium Research-Grade Peptides',
     description: 'Pharmaceutical-grade peptides for advanced research. Lab-tested purity, secure checkout, and fast shipping.',
     type: 'website',
+    siteName: 'PrimeHelix Labz',
+    locale: 'en_US',
+  },
+  alternates: {
+    canonical: '/',
   },
 }
 

@@ -7,6 +7,7 @@ import { Footer } from "@/components/footer"
 export const metadata: Metadata = {
   title: "Sign In | PrimeHelix Labz",
   description: "Sign in to your account to access your orders, wishlist, and more.",
+  robots: { index: false, follow: false },
 }
 
 export default function SignInPage() {

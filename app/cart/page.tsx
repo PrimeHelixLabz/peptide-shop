@@ -7,6 +7,7 @@ import { Section, Container, PageHeader } from "@/components/layout"
 export const metadata: Metadata = {
   title: "Cart | PrimeHelix Labz",
   description: "Review your cart and proceed to checkout.",
+  robots: { index: false, follow: false },
 }
 
 export default function CartPage() {

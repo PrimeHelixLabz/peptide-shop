@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "About Us | PrimeHelix Labz",
   description:
     "Learn about PrimeHelix Labz — our mission, quality testing process, and shipping practices. Premium research-grade peptides trusted by scientists worldwide.",
+  alternates: {
+    canonical: "/about",
+  },
 }
 
 export default function AboutPage() {

@@ -7,6 +7,7 @@ import { Section, Container, PageHeader } from "@/components/layout"
 export const metadata: Metadata = {
   title: "Wishlist | PrimeHelix Labz",
   description: "View your saved favorite products.",
+  robots: { index: false, follow: false },
 }
 
 export default function WishlistPage() {

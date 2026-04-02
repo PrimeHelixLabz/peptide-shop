@@ -8,6 +8,7 @@ export const revalidate = 0
 export const metadata: Metadata = {
   title: "Admin | PrimeHelix Labz",
   description: "PrimeHelix Labz administration dashboard.",
+  robots: { index: false, follow: false },
 }
 
 export default function AdminLayout({

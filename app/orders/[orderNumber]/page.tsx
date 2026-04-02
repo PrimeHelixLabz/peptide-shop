@@ -8,6 +8,7 @@ import { Section, Container } from "@/components/layout"
 export const metadata: Metadata = {
   title: "Order Confirmation | PrimeHelix Labz",
   description: "Your order has been confirmed.",
+  robots: { index: false, follow: false },
 }
 
 export default async function OrderConfirmationPage({

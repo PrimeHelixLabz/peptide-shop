@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: "Terms of Service | PrimeHelix Labz",
   description:
     "Read the Terms of Service for PrimeHelix Labz. Understand the terms and conditions governing your use of our website and purchase of our products.",
+  alternates: {
+    canonical: "/terms-of-service",
+  },
 }
 
 export default function TermsOfServicePage() {

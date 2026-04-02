@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: "FAQ | PrimeHelix Labz",
   description:
     "Find answers to common questions about PrimeHelix Labz, including product usage, purity testing, shipping, storage, and return policies.",
+  alternates: {
+    canonical: "/faq",
+  },
 }
 
 export default function FaqPage() {

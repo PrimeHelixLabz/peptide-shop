@@ -7,6 +7,7 @@ import { Section, Container, PageHeader } from "@/components/layout"
 export const metadata: Metadata = {
   title: "My Orders | PrimeHelix Labz",
   description: "View your order history.",
+  robots: { index: false, follow: false },
 }
 
 export default function OrdersPage() {

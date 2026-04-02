@@ -6,6 +6,7 @@ import { ForgotPasswordForm } from "@/components/auth/forgot-password-form"
 export const metadata: Metadata = {
   title: "Forgot Password | PrimeHelix Labz",
   description: "Reset your password",
+  robots: { index: false, follow: false },
 }
 
 export default function ForgotPasswordPage() {

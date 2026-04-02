@@ -7,6 +7,7 @@ import { Section, Container, PageHeader } from "@/components/layout"
 export const metadata: Metadata = {
   title: "My Account | PrimeHelix Labz",
   description: "Manage your account settings, profile information, and address.",
+  robots: { index: false, follow: false },
 }
 
 export default function AccountPage() {

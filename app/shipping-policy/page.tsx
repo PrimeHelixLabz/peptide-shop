@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: "Shipping Policy | PrimeHelix Labz",
   description:
     "Learn about PrimeHelix Labz shipping policies, delivery times, shipping methods, and international shipping information.",
+  alternates: {
+    canonical: "/shipping-policy",
+  },
 }
 
 export default function ShippingPolicyPage() {
