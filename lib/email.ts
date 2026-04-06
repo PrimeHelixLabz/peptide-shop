@@ -7,6 +7,74 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM_EMAIL = "no-reply@primehelixlabz.com"
 const SUPPORT_EMAIL = "support@primehelixlabz.com"
 
+const CONTACT_SUBJECT_LABELS = {
+  order: "Order Inquiry",
+  product: "Product Question",
+  shipping: "Shipping Issue",
+  "order-issue": "Order Issue (non-return)",
+  wholesale: "Wholesale & Bulk Orders",
+  other: "Other",
+} as const
+
+export type ContactSubject = keyof typeof CONTACT_SUBJECT_LABELS
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+export type ContactFormPayload = {
+  name: string
+  email: string
+  subject: ContactSubject
+  message: string
+}
+
+export async function sendContactFormEmail(payload: ContactFormPayload): Promise<void> {
+  const topic = CONTACT_SUBJECT_LABELS[payload.subject]
+  const safeName = escapeHtml(payload.name.trim())
+  const safeEmail = escapeHtml(payload.email.trim())
+  const safeTopic = escapeHtml(topic)
+  const safeMessage = escapeHtml(payload.message.trim()).replace(/\r\n|\r|\n/g, "<br/>")
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px;">
+          <h1 style="margin: 0 0 20px; color: #111827; font-size: 18px;">Website contact form</h1>
+          <p style="margin: 8px 0; color: #4b5563;"><strong>Name:</strong> ${safeName}</p>
+          <p style="margin: 8px 0; color: #4b5563;"><strong>Email:</strong> ${safeEmail}</p>
+          <p style="margin: 8px 0; color: #4b5563;"><strong>Topic:</strong> ${safeTopic}</p>
+          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 8px; color: #374151; font-size: 13px; text-transform: uppercase;">Message</p>
+            <p style="margin: 0; color: #4b5563; line-height: 1.6;">${safeMessage}</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>`
+
+  const { error } = await resend.emails.send({
+    from: `Prime Helix Labz <${FROM_EMAIL}>`,
+    to: [SUPPORT_EMAIL],
+    replyTo: payload.email.trim(),
+    subject: `[Contact] ${topic} — ${payload.name.trim()}`,
+    html,
+  })
+
+  if (error) {
+    console.error("Failed to send contact form email:", error)
+    throw new Error(error.message)
+  }
+}
+
 function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`
 }

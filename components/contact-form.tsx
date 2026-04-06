@@ -5,16 +5,44 @@ import { Send, CheckCircle } from "lucide-react"
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle")
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = useCallback(
-    (e: FormEvent<HTMLFormElement>) => {
-      e.preventDefault()
-      setStatus("submitting")
-      // Simulate submission
-      setTimeout(() => setStatus("success"), 1200)
-    },
-    []
-  )
+  const handleSubmit = useCallback(async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError(null)
+    setStatus("submitting")
+    const form = e.currentTarget
+    const fd = new FormData(form)
+    const name = String(fd.get("name") ?? "").trim()
+    const email = String(fd.get("email") ?? "").trim()
+    const subject = String(fd.get("subject") ?? "")
+    const message = String(fd.get("message") ?? "").trim()
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, subject, message }),
+      })
+      const data: { error?: string } = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setStatus("idle")
+        setError(
+          typeof data.error === "string"
+            ? data.error
+            : "We could not send your message. Please try again."
+        )
+        return
+      }
+      form.reset()
+      setStatus("success")
+    } catch {
+      setStatus("idle")
+      setError(
+        "Network error. Please check your connection and try again."
+      )
+    }
+  }, [])
 
   if (status === "success") {
     return (
@@ -32,7 +60,10 @@ export function ContactForm() {
         </div>
         <button
           type="button"
-          onClick={() => setStatus("idle")}
+          onClick={() => {
+            setStatus("idle")
+            setError(null)
+          }}
           className="mt-2 rounded-2xl bg-white px-6 py-3 text-sm font-medium text-foreground transition-all duration-300 hover:bg-gray-50 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.05)] min-h-[48px]"
         >
           Send Another Message
@@ -123,6 +154,15 @@ export function ContactForm() {
           className="resize-none rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm leading-relaxed text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] placeholder:text-muted-foreground/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
+
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {error}
+        </p>
+      ) : null}
 
       {/* Submit */}
       <button

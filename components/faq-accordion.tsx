@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { Plus, Minus } from "lucide-react"
 
 interface FaqItem {
@@ -122,12 +123,12 @@ export function FaqAccordion() {
           <p className="text-sm text-muted-foreground">
             {"Still have questions? We\u2019re here to help."}
           </p>
-          <a
-            href="mailto:support@primehelixlabz.com"
+          <Link
+            href="/contact"
             className="inline-flex items-center justify-center rounded-2xl bg-primary px-8 py-4 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
           >
             Contact Support
-          </a>
+          </Link>
         </div>
       </div>
     </section>
