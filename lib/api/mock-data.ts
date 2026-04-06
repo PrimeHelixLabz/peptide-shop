@@ -130,7 +130,7 @@ export const mockProducts: Partial<ProductDetail>[] = [
     longDescription:
       "LL-37 is the only human cathelicidin-derived antimicrobial peptide, a 37-amino acid sequence cleaved from the C-terminal end of hCAP18 by proteinase 3. Research has shown that LL-37 exhibits broad-spectrum antimicrobial activity and plays a key role in innate immune defense, wound healing, and inflammation modulation. Studies have investigated its interactions with bacterial membranes, its chemotactic properties, and its role in adaptive immunity signaling. Each vial contains 5mg at 98.9% verified purity.",
     usage:
-      "For research use only. Reconstitute with sterile water or appropriate buffer. Store reconstituted solution at 2-8°C and use within 14 days. Lyophilized form stable at -20°C. LL-37 is sensitive to repeated freeze-thaw cycles — aliquot as needed.",
+      "For research use only. Reconstitute with sterile water or appropriate buffer. Store reconstituted solution at 2-8°C and use within 14 days. Lyophilized form stable at -20°C. LL-37 is sensitive to repeated freeze-thaw cycles - aliquot as needed.",
     shipping:
       "Ships within 24 hours via insulated protective packaging. Free priority domestic shipping (2-3 business days). International tracked express available (5-7 business days). Certificate of analysis, MSDS, and tamper-evident sealing included.",
     image: "/images/product-ll37.jpg",

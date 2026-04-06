@@ -447,7 +447,7 @@ export default function AdminDashboard() {
         </section>
       )}
 
-      {/* Stock Overview & Demand vs Stock — side by side on large screens */}
+      {/* Stock Overview & Demand vs Stock - side by side on large screens */}
       {inventoryData && (
         <section aria-label="Stock and demand charts" className="grid grid-cols-1 gap-8 xl:grid-cols-2">
           <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">
@@ -474,7 +474,7 @@ export default function AdminDashboard() {
         </section>
       )}
 
-      {/* Shortage Risk Table — commented out for now, uncomment to re-enable
+      {/* Shortage Risk Table - commented out for now, uncomment to re-enable
       {inventoryData && (
         <section aria-label="Shortage risk table">
           <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">

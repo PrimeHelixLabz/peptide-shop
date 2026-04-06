@@ -221,7 +221,7 @@ export const POST = requireAuthMiddleware(
       console.log(
         "Link Money session created for order",
         orderNumber,
-        "— orderId:",
+        "- orderId:",
         orderId
       )
 

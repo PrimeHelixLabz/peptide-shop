@@ -158,7 +158,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setLoading(false)
   }, [getLocalCart, enrichCartItems])
 
-  // Initialize cart on mount — only load when user is authenticated
+  // Initialize cart on mount - only load when user is authenticated
   useEffect(() => {
     if (authLoading) return
 

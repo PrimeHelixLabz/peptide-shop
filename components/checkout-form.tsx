@@ -457,7 +457,7 @@ export function CheckoutForm() {
             </div>
           )}
 
-          {/* Submit Button — Stripe (card) */}
+          {/* Submit Button - Stripe (card) */}
           <Button
             type="submit"
             disabled={loading || !formReady}
@@ -491,7 +491,7 @@ export function CheckoutForm() {
             </div>
           )}
 
-          {/* Link Money — Pay by Bank (dev/test only) */}
+          {/* Link Money - Pay by Bank (dev/test only) */}
           {process.env.NEXT_PUBLIC_ENABLE_LINK_MONEY === "true" && (
             <LinkMoneyButton
               checkoutData={linkMoneyCheckoutData}

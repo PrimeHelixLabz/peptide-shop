@@ -29,7 +29,7 @@ export const POST = requireAuthMiddleware(
 
       const supabase = createAdminClient()
 
-      // Find the associated order — by provider_payment_id if available,
+      // Find the associated order - by provider_payment_id if available,
       // otherwise fall back to the user's most recent pending Link Money order
       let order: { id: string; payment_status: string; status: string } | null = null
 
@@ -66,7 +66,7 @@ export const POST = requireAuthMiddleware(
         // pending order so it doesn't clutter the admin dashboard.
         //
         // status=204 (user exited) is intentionally NOT treated as a
-        // failure here — Link Money may still process the payment after
+        // failure here - Link Money may still process the payment after
         // the user closes the widget.  The webhook will finalize or the
         // order stays pending for cleanup later.
         const isFailed =
@@ -77,7 +77,7 @@ export const POST = requireAuthMiddleware(
             `Link Money callback: deleted cancelled/failed order ${order.id}`
           )
         } else {
-          // The redirect is only a UI signal — the webhook is the
+          // The redirect is only a UI signal - the webhook is the
           // authoritative source for payment confirmation and handles
           // inventory adjustment.  Here we only persist the customer ID
           // and clear the cart for a smoother UX.

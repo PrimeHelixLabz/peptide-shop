@@ -14,7 +14,7 @@ import type { LinkMoneyWebhookPayload } from "@/lib/link-money/types"
  *
  * Payload fields: id, creationTime, eventType, resourceId, resourceType,
  *   clientReferenceId, paymentType, achReturnCode?
- *   (may also appear nested under `metadata` — handler checks both)
+ *   (may also appear nested under `metadata` - handler checks both)
  *
  * Payment lifecycle:
  *   payment.created    → request received
@@ -120,13 +120,13 @@ export async function POST(req: NextRequest) {
     const updates: Record<string, string> = {}
 
     switch (eventType) {
-      // Early stages — payment is in progress
+      // Early stages - payment is in progress
       case "payment.created":
       case "payment.pending":
         // Order stays pending, no status change needed
         break
 
-      // Payment approved — move order to processing and decrement stock
+      // Payment approved - move order to processing and decrement stock
       case "payment.authorized":
       case "payment.scheduled":
       case "payment.initiated":
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
         }
         break
 
-      // Payment fully settled — funds debited from customer
+      // Payment fully settled - funds debited from customer
       case "payment.succeeded":
       case "payment.disbursed":
         if (order.payment_status !== "paid") {
@@ -170,13 +170,13 @@ export async function POST(req: NextRequest) {
       case "payment.canceled":
         if (achReturnCode) {
           console.warn(
-            `Link Money payment failed for order ${order.order_number} — ACH return code: ${achReturnCode}`
+            `Link Money payment failed for order ${order.order_number} - ACH return code: ${achReturnCode}`
           )
         }
 
         if (order.payment_status === "paid") {
           // Payment was previously authorized and inventory was decremented.
-          // This is an ACH return / late failure — restore stock and mark cancelled.
+          // This is an ACH return / late failure - restore stock and mark cancelled.
           await restoreInventoryForOrderAsAdmin(order.id)
           const { error: cancelError } = await supabase
             .from("orders")
@@ -190,10 +190,10 @@ export async function POST(req: NextRequest) {
             console.error("Failed to cancel order after payment reversal:", cancelError)
           }
           console.log(
-            `Link Money webhook: reversed paid order ${order.order_number} — inventory restored`
+            `Link Money webhook: reversed paid order ${order.order_number} - inventory restored`
           )
         } else {
-          // Order was still pending (never paid) — safe to delete entirely
+          // Order was still pending (never paid) - safe to delete entirely
           await deletePendingLinkMoneyOrderAsAdmin(order.id)
           console.log(
             `Link Money webhook: deleted unpaid order ${order.order_number}`
@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
         console.error("Failed to update order from webhook:", updateError)
       } else {
         console.log(
-          `Link Money webhook: order ${order.order_number} (${eventType}) updated —`,
+          `Link Money webhook: order ${order.order_number} (${eventType}) updated -`,
           updates
         )
       }

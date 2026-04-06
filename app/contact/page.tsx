@@ -25,7 +25,7 @@ export default function ContactPage() {
             <PageHeader
               label="Support"
               title="Contact Us"
-              description="Whether you have a question about an existing order, need help selecting the right product, or want to discuss bulk pricing — we're here to help."
+              description="Whether you have a question about an existing order, need help selecting the right product, or want to discuss bulk pricing - we're here to help."
               align="center"
             />
           </Container>

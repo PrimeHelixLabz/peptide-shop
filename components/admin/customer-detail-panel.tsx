@@ -118,7 +118,7 @@ function formatCurrency(value: number): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "—"
+  if (!iso) return "-"
   return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -392,7 +392,7 @@ export function CustomerDetailPanel({ customerId, onClose }: CustomerDetailPanel
                         <span className="text-lg font-semibold text-foreground">
                           {purchaseSummary.daysSinceLastPurchase !== null
                             ? purchaseSummary.daysSinceLastPurchase
-                            : "—"}
+                            : "-"}
                         </span>
                       </div>
                     </div>

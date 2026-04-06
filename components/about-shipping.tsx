@@ -1,4 +1,5 @@
-import { Truck, Clock, Thermometer, Globe } from "lucide-react"
+import { Truck, Clock, Globe } from "lucide-react"
+import { Section, Container, SectionHeader } from "@/components/layout"
 
 const details = [
   {
@@ -23,27 +24,28 @@ const details = [
 
 export function AboutShipping() {
   return (
-    <section className="border-t border-border bg-card py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mb-16 flex flex-col gap-3 text-center">
-          <span className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
-            Logistics
-          </span>
-          <h2 className="font-serif text-4xl text-card-foreground md:text-5xl text-balance">
-            {"Shipping & Fulfillment"}
-          </h2>
-        </div>
+    <Section background="muted" padding="md">
+      <Container>
+        <SectionHeader
+          label="Logistics"
+          title="Shipping & Fulfillment"
+          align="center"
+          className="mb-12 md:mb-16"
+        />
 
-        <div className="grid gap-12 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
           {details.map((detail) => (
-            <div key={detail.title} className="flex flex-col gap-4">
-              <div className="flex h-12 w-12 items-center justify-center border border-border bg-background">
+            <div
+              key={detail.title}
+              className="flex flex-col gap-4 rounded-3xl bg-white p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] lg:p-10"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
                 <detail.icon
-                  className="h-5 w-5 text-foreground"
+                  className="h-5 w-5 text-primary"
                   strokeWidth={1.5}
                 />
               </div>
-              <h3 className="text-base font-medium text-card-foreground">
+              <h3 className="text-lg font-semibold text-foreground">
                 {detail.title}
               </h3>
               <p className="text-sm leading-relaxed text-muted-foreground">
@@ -52,7 +54,7 @@ export function AboutShipping() {
             </div>
           ))}
         </div>
-      </div>
-    </section>
+      </Container>
+    </Section>
   )
 }

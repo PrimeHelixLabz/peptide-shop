@@ -1656,7 +1656,7 @@ export async function createLinkMoneyOrderAsAdmin(
 
 /**
  * Deletes a Link Money order that was never paid.
- * Used when the customer cancels or the payment fails — removes the
+ * Used when the customer cancels or the payment fails - removes the
  * "pending" order so it doesn't clutter the admin dashboard or affect
  * inventory counts.  Only deletes if the order is still in pending/cancelled status.
  */

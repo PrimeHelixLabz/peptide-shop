@@ -46,7 +46,7 @@ export async function proxy(request: NextRequest) {
     pathname === "/forgot-password" ||
     pathname === "/reset-password"
 
-  // Routes that require authentication — everything else is public
+  // Routes that require authentication - everything else is public
   const isProtectedRoute =
     pathname === "/cart" ||
     pathname === "/checkout" ||

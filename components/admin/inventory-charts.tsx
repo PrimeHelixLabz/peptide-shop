@@ -28,7 +28,7 @@ const MAX_PRODUCTS_DISPLAYED = 15
 const MAX_LABEL_LENGTH = 18
 
 const COLORS = {
-  demand: "hsl(262, 83%, 58%)", // Purple — matches existing primary
+  demand: "hsl(262, 83%, 58%)", // Purple - matches existing primary
   stock: "hsl(173, 58%, 39%)",  // Teal
 } as const
 

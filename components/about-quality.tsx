@@ -1,4 +1,5 @@
 import { FlaskConical, FileCheck, ShieldCheck, Microscope } from "lucide-react"
+import { Section, Container, SectionHeader } from "@/components/layout"
 
 const steps = [
   {
@@ -29,37 +30,37 @@ const steps = [
 
 export function AboutQuality() {
   return (
-    <section className="border-t border-border bg-background py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mb-16 flex flex-col gap-3 text-center">
-          <span className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
-            Our Process
-          </span>
-          <h2 className="font-serif text-4xl text-foreground md:text-5xl text-balance">
-            {"Quality & Testing"}
-          </h2>
-        </div>
+    <Section background="muted" padding="md">
+      <Container>
+        <SectionHeader
+          label="Our Process"
+          title="Quality & Testing"
+          align="center"
+          className="mb-12 md:mb-16"
+        />
 
-        <div className="grid gap-px overflow-hidden border border-border bg-border md:grid-cols-2">
-          {steps.map((step) => (
-            <div
-              key={step.label}
-              className="flex flex-col gap-4 bg-background p-8 lg:p-10"
-            >
-              <step.icon
-                className="h-6 w-6 text-foreground"
-                strokeWidth={1.5}
-              />
-              <h3 className="text-base font-medium text-foreground">
-                {step.label}
-              </h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {step.description}
-              </p>
-            </div>
-          ))}
+        <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+          <div className="grid gap-px bg-gray-200 md:grid-cols-2">
+            {steps.map((step) => (
+              <div
+                key={step.label}
+                className="flex flex-col gap-4 bg-white p-8 lg:p-10"
+              >
+                <step.icon
+                  className="h-6 w-6 text-primary"
+                  strokeWidth={1.5}
+                />
+                <h3 className="text-lg font-semibold text-foreground">
+                  {step.label}
+                </h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </Container>
+    </Section>
   )
 }

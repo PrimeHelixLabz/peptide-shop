@@ -15,7 +15,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_provider_payment_id
   ON orders (provider_payment_id)
   WHERE provider_payment_id IS NOT NULL;
 
--- 2. Webhook / event log table — provider-agnostic.
+-- 2. Webhook / event log table - provider-agnostic.
 CREATE TABLE IF NOT EXISTS payment_webhook_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider TEXT NOT NULL,             -- 'stripe' | 'link_money'

@@ -78,7 +78,7 @@ export const GET = requireAdminMiddleware(async (req, context) => {
         type: "order",
         date: order.created_at,
         label: `Order ${order.order_number || order.id.slice(0, 8)} placed`,
-        detail: `$${parseFloat(order.total || "0").toFixed(2)} — ${order.payment_status}`,
+        detail: `$${parseFloat(order.total || "0").toFixed(2)} - ${order.payment_status}`,
       })
     }
 

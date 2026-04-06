@@ -330,7 +330,7 @@ export default function AdminCategoriesPage() {
                       {category.slug}
                     </td>
                     <td className="hidden px-6 py-4 text-sm text-muted-foreground lg:table-cell">
-                      {category.description || "—"}
+                      {category.description || "-"}
                     </td>
                     <td className="px-6 py-4 text-center text-sm text-muted-foreground">
                       {category.display_order}

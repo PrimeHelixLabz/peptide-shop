@@ -38,7 +38,7 @@ export const POST = async (req: NextRequest) => {
           // Retrieve the stored checkout data
           const pendingCheckout = await getPendingCheckoutAsAdmin(pendingCheckoutId)
           if (!pendingCheckout) {
-            // Pending checkout already processed or cleaned up — idempotent, skip.
+            // Pending checkout already processed or cleaned up - idempotent, skip.
             console.warn("Webhook: pending checkout not found (already processed?)", pendingCheckoutId)
             break
           }
@@ -60,7 +60,7 @@ export const POST = async (req: NextRequest) => {
             break
           }
 
-          // NOW create the order — only after payment has succeeded
+          // NOW create the order - only after payment has succeeded
           const orderId = crypto.randomUUID()
           console.log("Webhook: creating order after successful payment", checkoutData.orderNumber)
 
@@ -117,7 +117,7 @@ export const POST = async (req: NextRequest) => {
         const session = event.data.object as any
         const pendingCheckoutId = session.metadata?.pendingCheckoutId as string | undefined
         if (pendingCheckoutId) {
-          // Payment failed or session expired — just clean up, no order was created
+          // Payment failed or session expired - just clean up, no order was created
           console.log("Webhook: cleaning up pending checkout (payment failed/expired)", pendingCheckoutId)
           await deletePendingCheckoutAsAdmin(pendingCheckoutId)
         }

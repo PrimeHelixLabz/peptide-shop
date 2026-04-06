@@ -1,5 +1,5 @@
 /**
- * Inventory Analytics — Data Transformation Helpers
+ * Inventory Analytics - Data Transformation Helpers
  *
  * Reusable functions that transform raw order/product data into
  * chart-ready series for the admin dashboard.
