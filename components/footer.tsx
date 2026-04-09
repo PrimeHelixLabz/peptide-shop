@@ -41,6 +41,11 @@ export function Footer() {
               Premium research-grade peptides for advanced scientific inquiry.
               Precision, purity, and reliability in every vial.
             </p>
+            <address className="max-w-xs text-sm not-italic leading-relaxed text-muted-foreground">
+              20403 N Lake Pleasant RD, Suite 117
+              <br />
+              Peoria, AZ 85382
+            </address>
           </div>
 
           {/* Navigation Column */}
