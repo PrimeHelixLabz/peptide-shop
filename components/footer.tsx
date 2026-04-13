@@ -45,6 +45,13 @@ export function Footer() {
               20403 N Lake Pleasant RD, Suite 117
               <br />
               Peoria, AZ 85382
+              <br />
+              <a
+                href="tel:+16026334729"
+                className="transition-colors hover:text-foreground"
+              >
+                +1 (602) 633-4729
+              </a>
             </address>
           </div>
 

@@ -1,4 +1,4 @@
-import { Mail, Clock, MapPin } from "lucide-react"
+import { Mail, Clock, MapPin, Phone } from "lucide-react"
 
 const contactDetails = [
   {
@@ -7,6 +7,14 @@ const contactDetails = [
     value: "20403 N Lake Pleasant RD, Suite 117, Peoria, AZ 85382",
     description:
       "Our headquarters location for correspondence and inquiries.",
+  },
+  {
+    icon: Phone,
+    label: "Phone",
+    value: "+1 (602) 633-4729",
+    href: "tel:+16026334729",
+    description:
+      "Call us during business hours for immediate assistance.",
   },
   {
     icon: Mail,
