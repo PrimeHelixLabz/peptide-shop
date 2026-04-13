@@ -232,7 +232,7 @@ export function CheckoutForm() {
           <ArrowLeft className="mr-1.5 h-4 w-4" />
           Continue Shopping
         </Button>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
           {/* Delivery Method */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Delivery Method</h2>
@@ -435,7 +435,7 @@ export function CheckoutForm() {
           <div className="space-y-2">
             <h2 className="text-xl font-semibold">Payment</h2>
             <p className="text-sm text-muted-foreground">
-              Pay with card via Stripe, or use &quot;Pay by Bank&quot; for a direct bank transfer.
+              Pay securely via direct bank transfer.
             </p>
           </div>
 
@@ -457,47 +457,14 @@ export function CheckoutForm() {
             </div>
           )}
 
-          {/* Submit Button - Stripe (card) */}
-          <Button
-            type="submit"
+          {/* Stripe card checkout is currently disabled — Link Money
+              (Pay by Bank) is the only active payment method. */}
+
+          {/* Link Money - Pay by Bank */}
+          <LinkMoneyButton
+            checkoutData={linkMoneyCheckoutData}
             disabled={loading || !formReady}
-            className="w-full h-14 text-base"
-            size="lg"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Lock className="mr-2 h-4 w-4" />
-                Place Order
-              </>
-            )}
-          </Button>
-
-          {/* Divider */}
-          {process.env.NEXT_PUBLIC_ENABLE_LINK_MONEY === "true" && (
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-muted-foreground">
-                  or
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Link Money - Pay by Bank (dev/test only) */}
-          {process.env.NEXT_PUBLIC_ENABLE_LINK_MONEY === "true" && (
-            <LinkMoneyButton
-              checkoutData={linkMoneyCheckoutData}
-              disabled={loading || !formReady}
-            />
-          )}
+          />
         </form>
       </div>
 

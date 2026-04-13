@@ -10,6 +10,10 @@ import {
 import type { OrderItem } from "@/lib/db/schema"
 import { SHIPPING_RATE, SERVICE_FEE_RATE } from "@/lib/order-constants"
 import type { LinkMoneySessionResponse } from "@/lib/link-money/types"
+import {
+  createPayment,
+  setSessionKey,
+} from "@/lib/link-money/payment-service"
 
 const sessionRequestSchema = z.object({
   cartItems: z.array(
@@ -125,6 +129,17 @@ export const POST = requireAuthMiddleware(
         .substring(2, 9)
         .toUpperCase()}`
 
+      // ── Create payment row BEFORE hitting Link Money. ──
+      // orderNumber doubles as client_reference_id so the webhook can
+      // find this row regardless of whether /v2/sessions returned.
+      const orderId = crypto.randomUUID()
+      await createPayment({
+        orderId,
+        clientReferenceId: orderNumber,
+        amount: parseFloat(total.toFixed(2)),
+        currency: "USD",
+      })
+
       // ── Call Link Money /v2/sessions ──
       const config = getLinkMoneyConfig()
 
@@ -193,8 +208,12 @@ export const POST = requireAuthMiddleware(
         )
       }
 
+      // Persist the returned session_key on the payment row.
+      if (result.sessionKey) {
+        await setSessionKey(orderNumber, result.sessionKey)
+      }
+
       // ── Create order in pending state so callback/webhook can find it ──
-      const orderId = crypto.randomUUID()
       await createLinkMoneyOrderAsAdmin({
         id: orderId,
         userId,
