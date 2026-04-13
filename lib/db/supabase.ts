@@ -1333,7 +1333,10 @@ export async function updateOrder(
  */
 export async function updateOrderAsAdmin(
   id: string,
-  updates: Partial<Order>
+  updates: Partial<Order> & {
+    providerPaymentId?: string | null
+    providerMetadata?: Record<string, unknown> | null
+  }
 ): Promise<Order | null> {
   const supabase = createAdminClient()
   const updateData: any = {}
@@ -1341,6 +1344,8 @@ export async function updateOrderAsAdmin(
   if (updates.status !== undefined) updateData.status = updates.status
   if (updates.paymentStatus !== undefined) updateData.payment_status = updates.paymentStatus
   if (updates.trackingNumber !== undefined) updateData.tracking_number = updates.trackingNumber
+  if (updates.providerPaymentId !== undefined) updateData.provider_payment_id = updates.providerPaymentId
+  if (updates.providerMetadata !== undefined) updateData.provider_metadata = updates.providerMetadata
 
   const { data, error } = await supabase
     .from("orders")

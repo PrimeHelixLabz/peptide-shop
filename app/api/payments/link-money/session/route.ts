@@ -6,6 +6,7 @@ import {
   getProductById,
   getVariantById,
   createLinkMoneyOrderAsAdmin,
+  updateOrderAsAdmin,
 } from "@/lib/db/supabase"
 import type { OrderItem } from "@/lib/db/schema"
 import { SHIPPING_RATE, SERVICE_FEE_RATE } from "@/lib/order-constants"
@@ -129,10 +130,29 @@ export const POST = requireAuthMiddleware(
         .substring(2, 9)
         .toUpperCase()}`
 
+      // ── Create order row first so the payments FK (order_id) resolves. ──
+      const orderId = crypto.randomUUID()
+      await createLinkMoneyOrderAsAdmin({
+        id: orderId,
+        userId,
+        email: shippingAddress.email,
+        orderNumber,
+        status: "pending",
+        paymentStatus: "pending",
+        items: orderItems,
+        subtotal,
+        shipping,
+        serviceFee,
+        total,
+        shippingAddress,
+        billingAddress: billingAddress || shippingAddress,
+        paymentMethod: "link_money",
+        notes,
+      })
+
       // ── Create payment row BEFORE hitting Link Money. ──
       // orderNumber doubles as client_reference_id so the webhook can
       // find this row regardless of whether /v2/sessions returned.
-      const orderId = crypto.randomUUID()
       await createPayment({
         orderId,
         clientReferenceId: orderNumber,
@@ -213,23 +233,8 @@ export const POST = requireAuthMiddleware(
         await setSessionKey(orderNumber, result.sessionKey)
       }
 
-      // ── Create order in pending state so callback/webhook can find it ──
-      await createLinkMoneyOrderAsAdmin({
-        id: orderId,
-        userId,
-        email: shippingAddress.email,
-        orderNumber,
-        status: "pending",
-        paymentStatus: "pending",
-        items: orderItems,
-        subtotal,
-        shipping,
-        serviceFee,
-        total,
-        shippingAddress,
-        billingAddress: billingAddress || shippingAddress,
-        paymentMethod: "link_money",
-        notes,
+      // ── Backfill provider metadata on the order now that we have it ──
+      await updateOrderAsAdmin(orderId, {
         providerPaymentId: lmData.paymentId ?? lmData.payment_id ?? null,
         providerMetadata: {
           sessionKey: result.sessionKey,
