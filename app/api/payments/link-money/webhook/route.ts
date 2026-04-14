@@ -94,8 +94,10 @@ export async function POST(req: NextRequest) {
       statusCode,
       error,
       signatureHeaderName,
-      // preview only, never full secret/signature in logs
-      signaturePreview: signature ? redactMiddle(signature, 10, 6) : null,
+      // Full signature (not a secret — it's derived from the body + shared
+      // secret, and we need the full value to debug which signing scheme
+      // Link Money uses). The secret itself is never logged.
+      signaturePreview: signature,
       signatureMode: verification.mode,
       signatureCandidates: verification.candidatesPreview,
     }
@@ -310,13 +312,10 @@ function headersToObject(req: NextRequest): Record<string, string> {
 
   req.headers.forEach((value, key) => {
     const lower = key.toLowerCase()
-    if (
-      lower === "x-link-money-signature" ||
-      lower === "x-webhook-signature" ||
-      lower === "x-signature" ||
-      lower === "signature" ||
-      lower === "authorization"
-    ) {
+    // Only redact true bearer-style credentials. The x-signature* headers
+    // are derivations of the body and the shared secret — they are safe to
+    // log in full and we need them unredacted to debug verification.
+    if (lower === "authorization") {
       out[key] = redactMiddle(value, 10, 6)
       return
     }
