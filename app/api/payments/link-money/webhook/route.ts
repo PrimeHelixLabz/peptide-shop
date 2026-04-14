@@ -15,96 +15,74 @@ import {
   type WebhookLogEntry,
 } from "@/lib/link-money/webhook-log"
 
-/**
- * POST /api/payments/link-money/webhook
- *
- * Debug-first behavior:
- * - Always captures headers + raw body + parsed body (best effort)
- * - Tries to verify signature using likely HMAC forms
- * - Can optionally allow invalid signatures in debug mode so we can inspect real deliveries
- *
- * Required env:
- *   LINK_MONEY_WEBHOOK_SECRET=...
- *
- * Optional env:
- *   LINK_MONEY_WEBHOOK_ALLOW_INVALID_SIGNATURES=true
- */
+const MAX_TIMESTAMP_SKEW_MS = 5 * 60 * 1000
+const processedUniqueIds = new Set<string>()
+const PROCESSED_IDS_MAX = 5000
+
+function rememberUniqueId(uniqueId: string): void {
+  if (processedUniqueIds.size >= PROCESSED_IDS_MAX) {
+    const oldest = processedUniqueIds.values().next().value
+    if (oldest) processedUniqueIds.delete(oldest)
+  }
+  processedUniqueIds.add(uniqueId)
+}
+
+function verifySignature(params: {
+  secret: string
+  uniqueId: string
+  timestamp: string
+  rawBody: string
+  signature: string
+}): boolean {
+  const { secret, uniqueId, timestamp, rawBody, signature } = params
+  const payload = `${uniqueId}.${timestamp}.${rawBody}`
+  const expected = crypto
+    .createHmac("sha512", secret)
+    .update(payload, "utf8")
+    .digest("base64")
+
+  const expectedBuf = Buffer.from(expected, "utf8")
+  const actualBuf = Buffer.from(signature, "utf8")
+  if (expectedBuf.length !== actualBuf.length) return false
+  return crypto.timingSafeEqual(expectedBuf, actualBuf)
+}
+
+function isFreshTimestamp(timestampSeconds: string): boolean {
+  const ts = Number(timestampSeconds)
+  if (!Number.isFinite(ts)) return false
+  const ageMs = Math.abs(Date.now() - ts * 1000)
+  return ageMs <= MAX_TIMESTAMP_SKEW_MS
+}
+
 export async function POST(req: NextRequest) {
   const headers = headersToObject(req)
   const rawBody = await req.text()
 
-  let body: LinkMoneyWebhookBody | null = null
-  let parseError: string | null = null
-
-  try {
-    body = rawBody ? (JSON.parse(rawBody) as LinkMoneyWebhookBody) : null
-  } catch (err) {
-    parseError = err instanceof Error ? err.message : "invalid JSON"
-  }
-
-  const eventType = body?.eventType ?? null
-  const clientReferenceId =
-    body?.metadata?.clientReferenceId ?? body?.clientReferenceId ?? null
-
-  // Link Money docs/examples emphasize metadata.resourceId
-  const resourceId =
-    body?.metadata?.resourceId ??
-    body?.resourceId ??
-    body?.metadata?.transactionId ??
-    body?.transactionId ??
-    null
-
+  const signature = req.headers.get("x-signature")
+  const timestamp = req.headers.get("x-signature-timestamp")
+  const uniqueId = req.headers.get("x-signature-uniqueid")
   const webhookSecret = process.env.LINK_MONEY_WEBHOOK_SECRET
-  const allowInvalidSignatures =
-    process.env.LINK_MONEY_WEBHOOK_ALLOW_INVALID_SIGNATURES === "true"
 
-  // Keep all plausible headers until you see the real one in logs.
-  const { signatureHeaderName, signature } = getIncomingSignature(req)
-  const signatureTimestamp = req.headers.get("x-signature-timestamp")
-  const signatureUniqueId = req.headers.get("x-signature-uniqueid")
-
-  const verification = verifyWebhookSignature({
+  const baseEntry = (overrides: Partial<WebhookLogEntry>): WebhookLogEntry => ({
+    eventType: null,
+    clientReferenceId: null,
+    transactionId: null,
+    signatureValid: false,
+    headers,
+    body: null,
     rawBody,
-    signature,
-    secret: webhookSecret,
-    timestamp: signatureTimestamp,
-    uniqueId: signatureUniqueId,
+    statusCode: 200,
+    error: null,
+    ...overrides,
   })
 
-  const signatureValid = verification.valid
-
-  const finish = async (
+  const finish = (
     statusCode: number,
     error: string | null,
-    responseBody: Record<string, unknown>
+    responseBody: Record<string, unknown>,
+    entryOverrides: Partial<WebhookLogEntry> = {}
   ) => {
-    const entry: WebhookLogEntry & {
-      signatureHeaderName?: string | null
-      signaturePreview?: string | null
-      signatureMode?: string | null
-      signatureCandidates?: Record<string, string>
-    } = {
-      eventType,
-      clientReferenceId,
-      transactionId: resourceId,
-      signatureValid,
-      headers,
-      body: body ?? null,
-      rawBody,
-      statusCode,
-      error,
-      signatureHeaderName,
-      // Full signature (not a secret — it's derived from the body + shared
-      // secret, and we need the full value to debug which signing scheme
-      // Link Money uses). The secret itself is never logged.
-      signaturePreview: signature,
-      signatureMode: verification.mode,
-      signatureCandidates: verification.candidatesPreview,
-    }
-
-    // Fire-and-forget: don't block the webhook ack on logging/notify.
-    // `after` runs after the response is flushed but before the serverless
-    // function terminates, so best-effort work still completes.
+    const entry = baseEntry({ ...entryOverrides, statusCode, error })
     after(async () => {
       await Promise.allSettled([
         logWebhook(entry),
@@ -121,207 +99,122 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  if (parseError || !body) {
-    return finish(400, parseError ?? "empty body", {
-      error: "Invalid JSON",
-      signatureValid,
-      signatureHeaderName,
+  if (!signature || !timestamp || !uniqueId) {
+    return finish(400, "missing signature headers", {
+      error: "Missing signature headers",
     })
   }
+
+  if (!isFreshTimestamp(timestamp)) {
+    return finish(401, "stale or invalid timestamp", {
+      error: "Stale signature",
+    })
+  }
+
+  const signatureValid = verifySignature({
+    secret: webhookSecret,
+    uniqueId,
+    timestamp,
+    rawBody,
+    signature,
+  })
+
+  if (!signatureValid) {
+    return finish(401, "invalid signature", { error: "Invalid signature" })
+  }
+
+  if (processedUniqueIds.has(uniqueId)) {
+    return finish(
+      200,
+      null,
+      { received: true, duplicate: true },
+      { signatureValid: true }
+    )
+  }
+  rememberUniqueId(uniqueId)
+
+  let body: LinkMoneyWebhookBody
+  try {
+    body = JSON.parse(rawBody) as LinkMoneyWebhookBody
+  } catch (err) {
+    return finish(
+      400,
+      err instanceof Error ? err.message : "invalid JSON",
+      { error: "Invalid JSON" },
+      { signatureValid: true }
+    )
+  }
+
+  const eventType = body.eventType ?? null
+  const clientReferenceId =
+    body.metadata?.clientReferenceId ?? body.clientReferenceId ?? null
+  const resourceId =
+    body.metadata?.resourceId ??
+    body.resourceId ??
+    body.metadata?.transactionId ??
+    body.transactionId ??
+    null
+
+  console.log("Link Money webhook received", { eventType, resourceId, uniqueId })
 
   if (!eventType) {
-    return finish(400, "missing eventType", {
-      error: "Missing eventType",
-      signatureValid,
-      signatureHeaderName,
-    })
-  }
-
-  if (!signatureValid && !allowInvalidSignatures) {
-    return finish(401, "invalid signature", {
-      error: "Invalid signature",
-      signatureValid,
-      signatureHeaderName,
-      hint: "Enable LINK_MONEY_WEBHOOK_ALLOW_INVALID_SIGNATURES=true temporarily to inspect live deliveries.",
-    })
-  }
-
-  let result
-  try {
-    result = await applyWebhook(body)
-  } catch (err) {
-    console.error("Link Money webhook: applyWebhook failed", err)
     return finish(
-      500,
-      err instanceof Error ? err.message : "applyWebhook failed",
+      400,
+      "missing eventType",
+      { error: "Missing eventType" },
       {
-        error: "Internal error",
-        signatureValid,
-        signatureHeaderName,
+        signatureValid: true,
+        body,
+        clientReferenceId,
+        transactionId: resourceId,
       }
     )
   }
 
-  if (!result.payment) {
-    console.warn("Link Money webhook: skipped", {
-      eventType,
-      reason: result.reason,
-    })
-    return finish(200, `skipped: ${result.reason}`, {
-      received: true,
-      skipped: result.reason,
-      signatureValid,
-      signatureHeaderName,
-    })
-  }
-
-  if (result.applied && result.payment.orderId) {
-    const orderId = result.payment.orderId
-    const paymentStatus = result.payment.status
-    after(async () => {
-      try {
-        await syncOrderFromPayment(orderId, paymentStatus)
-      } catch (err) {
-        console.error("Link Money webhook: order sync failed", err)
+  after(async () => {
+    try {
+      const result = await applyWebhook(body)
+      if (!result.payment) {
+        console.warn("Link Money webhook: skipped", {
+          eventType,
+          reason: result.reason,
+        })
+        return
       }
-    })
-  }
-
-  return finish(200, null, {
-    received: true,
-    status: result.payment.status,
-    signatureValid,
-    signatureHeaderName,
+      if (result.applied && result.payment.orderId) {
+        await syncOrderFromPayment(
+          result.payment.orderId,
+          result.payment.status
+        )
+      }
+    } catch (err) {
+      console.error("Link Money webhook: background processing failed", err)
+    }
   })
-}
 
-function getIncomingSignature(req: NextRequest): {
-  signatureHeaderName: string | null
-  signature: string | null
-} {
-  const candidates = [
-    "x-link-money-signature",
-    "x-webhook-signature",
-    "x-signature",
-    "signature",
-    "authorization",
-  ]
-
-  for (const name of candidates) {
-    const value = req.headers.get(name)
-    if (value) {
-      return { signatureHeaderName: name, signature: value.trim() }
+  return finish(
+    200,
+    null,
+    { received: true },
+    {
+      signatureValid: true,
+      eventType,
+      clientReferenceId,
+      transactionId: resourceId,
+      body,
     }
-  }
-
-  return { signatureHeaderName: null, signature: null }
-}
-
-function verifyWebhookSignature({
-  rawBody,
-  signature,
-  secret,
-  timestamp,
-  uniqueId,
-}: {
-  rawBody: string
-  signature: string | null
-  secret: string | undefined
-  timestamp?: string | null
-  uniqueId?: string | null
-}): {
-  valid: boolean
-  mode: string | null
-  candidatesPreview: Record<string, string>
-} {
-  if (!secret || !signature) {
-    return {
-      valid: false,
-      mode: null,
-      candidatesPreview: {},
-    }
-  }
-
-  const normalized = signature.trim()
-  const ts = timestamp ?? ""
-  const uid = uniqueId ?? ""
-
-  // Link Money sends x-signature along with x-signature-timestamp and
-  // x-signature-uniqueid. The exact signing-string form isn't public, so we
-  // try every common shape and let the first match win.
-  const signingStrings: Array<{ label: string; value: string }> = [
-    { label: "body", value: rawBody },
-    { label: "ts.body", value: `${ts}.${rawBody}` },
-    { label: "ts|body", value: `${ts}${rawBody}` },
-    { label: "uid.ts.body", value: `${uid}.${ts}.${rawBody}` },
-    { label: "ts.uid.body", value: `${ts}.${uid}.${rawBody}` },
-    { label: "uid|ts|body", value: `${uid}${ts}${rawBody}` },
-  ]
-
-  const candidates: Array<{ mode: string; value: string }> = []
-  for (const { label, value } of signingStrings) {
-    const hex = crypto
-      .createHmac("sha256", secret)
-      .update(value, "utf8")
-      .digest("hex")
-    const base64 = crypto
-      .createHmac("sha256", secret)
-      .update(value, "utf8")
-      .digest("base64")
-    candidates.push(
-      { mode: `${label}:hmac-sha256-hex`, value: hex },
-      { mode: `${label}:hmac-sha256-base64`, value: base64 },
-      { mode: `${label}:hmac-sha256-prefixed-hex`, value: `sha256=${hex}` },
-      { mode: `${label}:hmac-sha256-prefixed-base64`, value: `sha256=${base64}` }
-    )
-  }
-
-  for (const candidate of candidates) {
-    if (safeEqual(normalized, candidate.value)) {
-      return {
-        valid: true,
-        mode: candidate.mode,
-        candidatesPreview: {
-          [candidate.mode]: redactMiddle(candidate.value, 10, 6),
-        },
-      }
-    }
-  }
-
-  const preview: Record<string, string> = {}
-  for (const c of candidates) {
-    preview[c.mode] = redactMiddle(c.value, 10, 6)
-  }
-  return { valid: false, mode: null, candidatesPreview: preview }
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a)
-  const bBuf = Buffer.from(b)
-  if (aBuf.length !== bBuf.length) return false
-  return crypto.timingSafeEqual(aBuf, bBuf)
-}
-
-function redactMiddle(value: string, left = 8, right = 4): string {
-  if (value.length <= left + right) return "[redacted]"
-  return `${value.slice(0, left)}…${value.slice(-right)}`
+  )
 }
 
 function headersToObject(req: NextRequest): Record<string, string> {
   const out: Record<string, string> = {}
-
   req.headers.forEach((value, key) => {
-    const lower = key.toLowerCase()
-    // Only redact true bearer-style credentials. The x-signature* headers
-    // are derivations of the body and the shared secret — they are safe to
-    // log in full and we need them unredacted to debug verification.
-    if (lower === "authorization") {
-      out[key] = redactMiddle(value, 10, 6)
+    if (key.toLowerCase() === "authorization") {
+      out[key] = "[redacted]"
       return
     }
     out[key] = value
   })
-
   return out
 }
 
