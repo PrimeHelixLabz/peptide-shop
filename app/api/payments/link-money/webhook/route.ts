@@ -60,11 +60,15 @@ export async function POST(req: NextRequest) {
 
   // Keep all plausible headers until you see the real one in logs.
   const { signatureHeaderName, signature } = getIncomingSignature(req)
+  const signatureTimestamp = req.headers.get("x-signature-timestamp")
+  const signatureUniqueId = req.headers.get("x-signature-uniqueid")
 
   const verification = verifyWebhookSignature({
     rawBody,
     signature,
     secret: webhookSecret,
+    timestamp: signatureTimestamp,
+    uniqueId: signatureUniqueId,
   })
 
   const signatureValid = verification.valid
@@ -215,10 +219,14 @@ function verifyWebhookSignature({
   rawBody,
   signature,
   secret,
+  timestamp,
+  uniqueId,
 }: {
   rawBody: string
   signature: string | null
   secret: string | undefined
+  timestamp?: string | null
+  uniqueId?: string | null
 }): {
   valid: boolean
   mode: string | null
@@ -232,24 +240,39 @@ function verifyWebhookSignature({
     }
   }
 
-  // Common webhook signing variants:
-  // 1) hex(HMAC_SHA256(rawBody, secret))
-  // 2) base64(HMAC_SHA256(rawBody, secret))
-  // 3) "sha256=" + base64(...)
-  // 4) "sha256=" + hex(...)
-  const hex = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("hex")
-  const base64 = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("base64")
-  const prefixedBase64 = `sha256=${base64}`
-  const prefixedHex = `sha256=${hex}`
-
   const normalized = signature.trim()
+  const ts = timestamp ?? ""
+  const uid = uniqueId ?? ""
 
-  const candidates: Array<{ mode: string; value: string }> = [
-    { mode: "hmac-sha256-hex", value: hex },
-    { mode: "hmac-sha256-base64", value: base64 },
-    { mode: "hmac-sha256-prefixed-base64", value: prefixedBase64 },
-    { mode: "hmac-sha256-prefixed-hex", value: prefixedHex },
+  // Link Money sends x-signature along with x-signature-timestamp and
+  // x-signature-uniqueid. The exact signing-string form isn't public, so we
+  // try every common shape and let the first match win.
+  const signingStrings: Array<{ label: string; value: string }> = [
+    { label: "body", value: rawBody },
+    { label: "ts.body", value: `${ts}.${rawBody}` },
+    { label: "ts|body", value: `${ts}${rawBody}` },
+    { label: "uid.ts.body", value: `${uid}.${ts}.${rawBody}` },
+    { label: "ts.uid.body", value: `${ts}.${uid}.${rawBody}` },
+    { label: "uid|ts|body", value: `${uid}${ts}${rawBody}` },
   ]
+
+  const candidates: Array<{ mode: string; value: string }> = []
+  for (const { label, value } of signingStrings) {
+    const hex = crypto
+      .createHmac("sha256", secret)
+      .update(value, "utf8")
+      .digest("hex")
+    const base64 = crypto
+      .createHmac("sha256", secret)
+      .update(value, "utf8")
+      .digest("base64")
+    candidates.push(
+      { mode: `${label}:hmac-sha256-hex`, value: hex },
+      { mode: `${label}:hmac-sha256-base64`, value: base64 },
+      { mode: `${label}:hmac-sha256-prefixed-hex`, value: `sha256=${hex}` },
+      { mode: `${label}:hmac-sha256-prefixed-base64`, value: `sha256=${base64}` }
+    )
+  }
 
   for (const candidate of candidates) {
     if (safeEqual(normalized, candidate.value)) {
@@ -263,16 +286,11 @@ function verifyWebhookSignature({
     }
   }
 
-  return {
-    valid: false,
-    mode: null,
-    candidatesPreview: {
-      "hmac-sha256-hex": redactMiddle(hex, 10, 6),
-      "hmac-sha256-base64": redactMiddle(base64, 10, 6),
-      "hmac-sha256-prefixed-base64": redactMiddle(prefixedBase64, 10, 6),
-      "hmac-sha256-prefixed-hex": redactMiddle(prefixedHex, 10, 6),
-    },
+  const preview: Record<string, string> = {}
+  for (const c of candidates) {
+    preview[c.mode] = redactMiddle(c.value, 10, 6)
   }
+  return { valid: false, mode: null, candidatesPreview: preview }
 }
 
 function safeEqual(a: string, b: string): boolean {
