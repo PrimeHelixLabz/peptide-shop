@@ -5,7 +5,7 @@ import { BenefitsSection } from "@/components/benefits-section"
 import { TrustSection } from "@/components/trust-section"
 import { Footer } from "@/components/footer"
 import { AgeVerification } from "@/components/age-verification"
-import { VacationNotice } from "@/components/vacation-notice"
+// import { VacationNotice } from "@/components/vacation-notice"
 
 export default function Home() {
   return (
@@ -13,7 +13,7 @@ export default function Home() {
       <AgeVerification />
       <Header />
       <main className="flex-1 flex flex-col gap-20 py-12 md:py-20">
-        <VacationNotice />
+        {/* <VacationNotice /> */}
         <HeroSection />
         <ProductsSection />
         <BenefitsSection />
