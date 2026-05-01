@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { optionalAuthMiddleware } from "@/lib/auth/middleware"
-import { getOrderById, getOrderByNumber, getOrderByIdAsAdmin, getOrderByNumberAsAdmin, updateOrder } from "@/lib/db/supabase"
+import { getOrderById, getOrderByNumber, getOrderByIdAsAdmin, getOrderByNumberAsAdmin, updateOrder, deleteOrderAsAdmin } from "@/lib/db/supabase"
 import { z } from "zod"
 
 const updateOrderSchema = z.object({
   status: z.enum(["pending", "processing", "shipped", "delivered", "cancelled"]).optional(),
   paymentStatus: z.enum(["pending", "paid", "failed", "refunded"]).optional(),
+  paymentMethod: z.enum(["stripe", "link_money", "cash"]).optional(),
   trackingNumber: z.string().optional(),
 })
 
@@ -157,6 +158,40 @@ export async function PUT(
     }
 
     console.error("Update order error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { requireAdmin } = await import("@/lib/auth/supabase-auth")
+    await requireAdmin()
+
+    const { id } = await params
+
+    const order = isOrderNumber(id)
+      ? await getOrderByNumberAsAdmin(id)
+      : await getOrderByIdAsAdmin(id)
+
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+
+    const deleted = await deleteOrderAsAdmin(order.id)
+    if (!deleted) {
+      return NextResponse.json({ error: "Failed to delete order" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: error.message === "Unauthorized" ? 401 : 403 })
+    }
+
+    console.error("Delete order error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -8,6 +8,8 @@ export function formatPaymentMethod(method: string): string {
       return "Credit/Debit Card"
     case "link_money":
       return "Pay by Bank"
+    case "cash":
+      return "Cash"
     default:
       return method
   }
@@ -22,6 +24,8 @@ export function formatPaymentMethodShort(method: string): string {
       return "Card"
     case "link_money":
       return "Bank"
+    case "cash":
+      return "Cash"
     default:
       return method
   }

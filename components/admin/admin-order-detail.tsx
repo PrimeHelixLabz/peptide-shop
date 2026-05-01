@@ -3,12 +3,24 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, ChevronDown, Package, CheckCircle2, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, ChevronDown, Package, CheckCircle2, Loader2, Banknote, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import type { AdminOrder } from "./admin-orders-table"
 import type { Order } from "@/lib/db/schema"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { format } from "date-fns"
 import { formatPaymentMethod } from "@/lib/format-payment-method"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 /* ------------------------------------------------------------------ */
 /*  Badge styles (same as orders table)                                */
@@ -50,6 +62,7 @@ const mapShippingStatus = (status: string): AdminOrder["shippingStatus"] => {
 /* ------------------------------------------------------------------ */
 
 export function AdminOrderDetail({ orderId }: { orderId: string }) {
+  const router = useRouter()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -57,6 +70,10 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
   const [shippingStatus, setShippingStatus] = useState<AdminOrder["shippingStatus"]>("Processing")
   const [fulfilled, setFulfilled] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [cashDialogOpen, setCashDialogOpen] = useState(false)
+  const [markingCash, setMarkingCash] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     async function fetchOrder() {
@@ -79,6 +96,55 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
 
     fetchOrder()
   }, [orderId])
+
+  const handleMarkPaidByCash = async () => {
+    setMarkingCash(true)
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentStatus: "paid",
+          paymentMethod: "cash",
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to mark order as paid by cash")
+      }
+
+      const data = await response.json()
+      setOrder(data.order)
+      setCashDialogOpen(false)
+      toast.success("Order marked as paid by cash")
+    } catch (err) {
+      console.error("Error marking order as paid by cash:", err)
+      toast.error("Failed to mark order as paid by cash")
+    } finally {
+      setMarkingCash(false)
+    }
+  }
+
+  const handleDeleteOrder = async () => {
+    setDeleting(true)
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete order")
+      }
+
+      toast.success("Order deleted")
+      setDeleteDialogOpen(false)
+      router.push("/admin/orders")
+    } catch (err) {
+      console.error("Error deleting order:", err)
+      toast.error("Failed to delete order")
+      setDeleting(false)
+    }
+  }
 
   const handleStatusUpdate = async () => {
     setSaving(true)
@@ -381,6 +447,29 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   "Update Status"
                 )}
               </button>
+
+              {order.paymentStatus !== "paid" && (
+                <button
+                  type="button"
+                  onClick={() => setCashDialogOpen(true)}
+                  disabled={markingCash}
+                  className="h-12 w-full rounded-2xl border border-emerald-600/40 bg-emerald-50 dark:bg-emerald-900/20 text-sm font-semibold text-emerald-700 dark:text-emerald-400 transition-all duration-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Banknote className="h-4 w-4" />
+                  Mark as Paid by Cash
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={deleting}
+                className="h-12 w-full rounded-2xl border border-destructive/40 bg-destructive/5 text-sm font-semibold text-destructive transition-all duration-200 hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Order
+              </button>
+
               <Link
                 href="/admin/orders"
                 className="flex h-12 w-full items-center justify-center rounded-2xl border border-gray-300 dark:border-gray-700 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground hover:text-foreground hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -391,6 +480,95 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Mark as Paid by Cash confirmation */}
+      <AlertDialog open={cashDialogOpen} onOpenChange={setCashDialogOpen}>
+        <AlertDialogContent className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-0">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-foreground">
+              Mark order as paid by cash?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              This will set order <strong>{order.orderNumber}</strong> to{" "}
+              <strong>Paid</strong> and change the payment method to{" "}
+              <strong>Cash</strong>. Use this only after confirming you have
+              physically received the cash payment from the customer. This
+              overrides any prior bank transfer record on the order.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <AlertDialogCancel
+              disabled={markingCash}
+              className="rounded-2xl border border-gray-300 dark:border-gray-700 px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground hover:text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleMarkPaidByCash()
+              }}
+              disabled={markingCash}
+              className="rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 px-5 py-2.5 text-sm font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {markingCash ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Confirm Cash Payment"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete order confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] border-0">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold text-foreground">
+              Delete this order permanently?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground">
+              You are about to delete order{" "}
+              <strong>{order.orderNumber}</strong> for{" "}
+              <strong>{displayCustomerName}</strong>{" "}
+              (<strong>${order.total.toFixed(2)}</strong>). This action is
+              irreversible — the order and all its line items will be removed
+              from the database, and it will disappear from reports, the
+              customer&rsquo;s history, and any related dashboards. Only
+              proceed if you are certain this order should not exist.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <AlertDialogCancel
+              disabled={deleting}
+              className="rounded-2xl border border-gray-300 dark:border-gray-700 px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:border-foreground hover:text-foreground hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteOrder()
+              }}
+              disabled={deleting}
+              className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90 px-5 py-2.5 text-sm font-semibold shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Order"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

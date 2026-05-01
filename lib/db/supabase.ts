@@ -1288,6 +1288,7 @@ export async function updateOrder(
 
   if (updates.status !== undefined) updateData.status = updates.status
   if (updates.paymentStatus !== undefined) updateData.payment_status = updates.paymentStatus
+  if (updates.paymentMethod !== undefined) updateData.payment_method = updates.paymentMethod
   if (updates.trackingNumber !== undefined) updateData.tracking_number = updates.trackingNumber
 
   console.log("Updating order", id)
@@ -1683,6 +1684,23 @@ export async function deletePendingLinkMoneyOrderAsAdmin(
       error,
       { orderId }
     )
+    return false
+  }
+  return true
+}
+
+/**
+ * Admin-only hard delete of an order. Bypasses RLS via the service role.
+ * Intended for the admin dashboard's "remove order" action — destructive
+ * and irreversible, so callers MUST gate this behind an explicit confirmation.
+ */
+export async function deleteOrderAsAdmin(orderId: string): Promise<boolean> {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase.from("orders").delete().eq("id", orderId)
+
+  if (error) {
+    console.error("deleteOrderAsAdmin: failed to delete order", error, { orderId })
     return false
   }
   return true
