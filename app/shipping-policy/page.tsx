@@ -58,22 +58,22 @@ export default function ShippingPolicyPage() {
                 <section>
                   <h2 className="text-xl font-semibold text-foreground mb-4">Shipping Methods</h2>
                   <p className="text-muted-foreground mb-4">
-                    We offer several shipping options to meet your needs:
+                    All domestic orders ship via FedEx 2Day:
                   </p>
                   <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-                    <li><strong>Standard Shipping:</strong> 5-7 business days</li>
-                    <li><strong>Express Shipping:</strong> 2-3 business days</li>
-                    <li><strong>Overnight Shipping:</strong> Next business day (if ordered before 2 PM EST)</li>
+                    <li><strong>FedEx 2Day:</strong> 2 business days &middot; $15.00 flat rate</li>
+                    <li><strong>Free FedEx 2Day:</strong> Orders with a subtotal of $250 or more</li>
+                    <li><strong>Local Pickup:</strong> Free, by arrangement</li>
                   </ul>
                   <p className="text-muted-foreground mt-4">
-                    Shipping costs are calculated at checkout based on your location and selected shipping method. Free shipping may be available for orders over a certain amount.
+                    Free-shipping eligibility is calculated on your subtotal before fees and is applied automatically at checkout.
                   </p>
                 </section>
 
                 <section>
                   <h2 className="text-xl font-semibold text-foreground mb-4">Domestic Shipping</h2>
                   <p className="text-muted-foreground">
-                    We ship to all 50 states within the United States. Orders are shipped via USPS, UPS, or FedEx depending on your location and selected shipping method. You will receive a tracking number via email once your order ships.
+                    We ship to all 50 states within the United States via FedEx 2Day. You will receive a tracking number via email once your order ships.
                   </p>
                 </section>
 

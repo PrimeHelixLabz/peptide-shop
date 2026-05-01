@@ -4,7 +4,7 @@ import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/mid
 import { getProductById, getVariantById, createPendingCheckoutAsAdmin } from "@/lib/db/supabase"
 import type { OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
-import { SHIPPING_RATE, SERVICE_FEE_RATE } from "@/lib/order-constants"
+import { SERVICE_FEE_RATE, SHIPPING_CARRIER_LABEL, getShippingCost } from "@/lib/order-constants"
 
 const createStripeCheckoutSchema = z.object({
   cartItems: z.array(
@@ -127,8 +127,10 @@ export const POST = requireAuthMiddleware(
         })
       }
 
-      // Compute shipping and service fee to match frontend OrderSummary
-      const shipping = shippingMethod === "local-pickup" ? 0 : SHIPPING_RATE
+      // Compute shipping and service fee to match frontend OrderSummary.
+      // Shipping is free once subtotal crosses FREE_SHIPPING_THRESHOLD; helper
+      // is the source of truth so server total can't be tricked by client.
+      const shipping = getShippingCost(subtotal, shippingMethod)
       const serviceFee = subtotal * SERVICE_FEE_RATE
       const total = subtotal + shipping + serviceFee
 
@@ -167,12 +169,12 @@ export const POST = requireAuthMiddleware(
             currency: "usd",
             unit_amount: Math.round(shipping * 100),
             product_data: {
-              name: "Shipping (USPS Priority)",
+              name: `Shipping (${SHIPPING_CARRIER_LABEL})`,
             },
           },
         })
       }
-      // No shipping line item for local pickup (shipping = $0)
+      // No shipping line item for local pickup or free-shipping orders (shipping = $0)
 
       // Add service fee as a separate line item.
       if (serviceFee > 0) {

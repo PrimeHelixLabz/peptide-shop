@@ -249,7 +249,7 @@ export function CheckoutForm() {
                 <Truck className={`h-5 w-5 ${shippingMethod === "ship" ? "text-primary" : "text-muted-foreground"}`} />
                 <div>
                   <p className="text-sm font-medium">Ship to Address</p>
-                  <p className="text-xs text-muted-foreground">USPS Priority &middot; $15.00</p>
+                  <p className="text-xs text-muted-foreground">FedEx 2Day &middot; $15.00 (free over $250)</p>
                 </div>
               </button>
               <button

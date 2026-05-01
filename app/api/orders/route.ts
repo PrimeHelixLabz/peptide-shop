@@ -5,7 +5,7 @@ import { getCartItems, clearCart } from "@/lib/db/supabase"
 import { getProductById, getVariantById } from "@/lib/db/supabase"
 import { z } from "zod"
 import type { Order, OrderItem, Address } from "@/lib/db/schema"
-import { SHIPPING_RATE, SERVICE_FEE_RATE } from "@/lib/order-constants"
+import { SERVICE_FEE_RATE } from "@/lib/order-constants"
 
 const createOrderSchema = z.object({
   cartItems: z.array(z.object({

@@ -2,7 +2,12 @@
 
 import { useCart } from "@/lib/cart-context"
 import { FlaskConical, Shield, Truck } from "lucide-react"
-import { SHIPPING_RATE, SERVICE_FEE_RATE } from "@/lib/order-constants"
+import {
+  SERVICE_FEE_RATE,
+  SHIPPING_CARRIER_LABEL,
+  FREE_SHIPPING_THRESHOLD,
+  getShippingCost,
+} from "@/lib/order-constants"
 
 export type ShippingMethod = "ship" | "local-pickup"
 
@@ -14,16 +19,49 @@ interface OrderSummaryProps {
 export function OrderSummary({ showCheckoutButton = true, shippingMethod = "ship" }: OrderSummaryProps) {
   const { subtotal, totalItems } = useCart()
 
-  const shipping = shippingMethod === "local-pickup" ? 0 : SHIPPING_RATE
-  const shippingLabel = shippingMethod === "local-pickup" ? "Local Pickup" : "USPS Priority"
+  const shipping = getShippingCost(subtotal, shippingMethod)
+  const shippingLabel = shippingMethod === "local-pickup" ? "Local Pickup" : SHIPPING_CARRIER_LABEL
   const serviceFee = subtotal * SERVICE_FEE_RATE
   const total = subtotal + shipping + serviceFee
+
+  const amountToFreeShipping =
+    shippingMethod === "ship" && subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD
+      ? FREE_SHIPPING_THRESHOLD - subtotal
+      : 0
+  const earnedFreeShipping =
+    shippingMethod === "ship" && subtotal >= FREE_SHIPPING_THRESHOLD
 
   return (
     <div className="flex flex-col gap-6 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
       <h2 className="text-2xl font-semibold text-foreground md:text-3xl">
         Order Summary
       </h2>
+
+      {/* Free shipping progress hint */}
+      {amountToFreeShipping > 0 && (
+        <div className="rounded-2xl bg-primary/5 px-4 py-3 text-sm text-foreground">
+          <p>
+            Add{" "}
+            <span className="font-semibold">
+              ${amountToFreeShipping.toFixed(2)}
+            </span>{" "}
+            more for free shipping.
+          </p>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-primary/10">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300"
+              style={{
+                width: `${Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {earnedFreeShipping && (
+        <div className="rounded-2xl bg-primary/5 px-4 py-3 text-sm font-medium text-foreground">
+          You&rsquo;ve unlocked free shipping.
+        </div>
+      )}
 
       {/* Line items */}
       <div className="flex flex-col gap-4">

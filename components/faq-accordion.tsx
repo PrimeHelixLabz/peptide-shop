@@ -23,7 +23,7 @@ const faqItems: FaqItem[] = [
   {
     question: "What are your shipping times and methods?",
     answer:
-      "Orders placed before 2:00 PM EST on business days ship the same day. Standard domestic delivery takes 2\u20135 business days, while express options are available at checkout for 1\u20132 day delivery.",
+      "Orders placed before 2:00 PM EST on business days ship the same day via FedEx 2Day, with delivery in 2 business days. Shipping is a flat $15, and free for any order with a subtotal of $250 or more.",
   },
   {
     question: "How can I track my order?",
