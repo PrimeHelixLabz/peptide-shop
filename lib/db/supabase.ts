@@ -309,6 +309,141 @@ export async function restoreInventoryForOrderAsAdmin(orderId: string): Promise<
   }
 }
 
+/**
+ * Pre-flight stock availability check for a list of items the admin is about
+ * to commit (manual order creation, marking a pending order as paid by cash).
+ * Returns the subset of items that don't have enough stock so callers can
+ * surface a clear "blocked" message instead of allowing negative stock.
+ *
+ * Items without a variantId are skipped because product-level stock is
+ * derived from variants in this schema.
+ */
+export interface StockShortfall {
+  variantId: string
+  productName: string
+  variantName?: string
+  requested: number
+  available: number
+}
+
+export async function checkStockAvailability(
+  items: Array<{ variantId?: string; quantity: number; productName: string; variantName?: string }>
+): Promise<StockShortfall[]> {
+  const supabase = createAdminClient()
+
+  // Aggregate requested quantity per variant in case the same variant appears
+  // multiple times in the cart.
+  const requestedByVariant = new Map<string, { qty: number; productName: string; variantName?: string }>()
+  for (const item of items) {
+    if (!item.variantId) continue
+    const prior = requestedByVariant.get(item.variantId)
+    requestedByVariant.set(item.variantId, {
+      qty: (prior?.qty ?? 0) + item.quantity,
+      productName: item.productName,
+      variantName: item.variantName ?? prior?.variantName,
+    })
+  }
+
+  if (requestedByVariant.size === 0) return []
+
+  const variantIds = Array.from(requestedByVariant.keys())
+  const { data, error } = await supabase
+    .from("product_variants")
+    .select("id, stock")
+    .in("id", variantIds)
+
+  if (error) {
+    console.error("checkStockAvailability: failed to load variants", error)
+    // Treat lookup failures as a shortfall on every requested variant rather
+    // than silently allowing the action.
+    return Array.from(requestedByVariant.entries()).map(([variantId, info]) => ({
+      variantId,
+      productName: info.productName,
+      variantName: info.variantName,
+      requested: info.qty,
+      available: 0,
+    }))
+  }
+
+  const stockByVariant = new Map<string, number>(
+    (data || []).map((row: any) => [row.id, row.stock ?? 0])
+  )
+
+  const shortfalls: StockShortfall[] = []
+  for (const [variantId, info] of requestedByVariant.entries()) {
+    const available = stockByVariant.get(variantId) ?? 0
+    if (available < info.qty) {
+      shortfalls.push({
+        variantId,
+        productName: info.productName,
+        variantName: info.variantName,
+        requested: info.qty,
+        available,
+      })
+    }
+  }
+  return shortfalls
+}
+
+/**
+ * Admin-only order creation that bypasses RLS. Used by the manual cash-order
+ * flow in the admin dashboard. Distinct from `createLinkMoneyOrderAsAdmin`
+ * because it does not write any provider-specific columns.
+ */
+export async function createOrderAsAdmin(
+  order: Omit<Order, "createdAt" | "updatedAt">
+): Promise<Order> {
+  const supabase = createAdminClient()
+
+  const email = order.email || (order.shippingAddress as any)?.email || null
+
+  const { data, error } = await supabase
+    .from("orders")
+    .insert({
+      id: order.id,
+      user_id: order.userId,
+      email,
+      order_number: order.orderNumber,
+      status: order.status,
+      items: order.items,
+      subtotal: order.subtotal,
+      shipping: order.shipping,
+      service_fee: order.serviceFee,
+      total: order.total,
+      shipping_address: order.shippingAddress,
+      billing_address: order.billingAddress,
+      payment_method: order.paymentMethod,
+      payment_status: order.paymentStatus,
+      tracking_number: order.trackingNumber,
+      notes: order.notes,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    email: data.email,
+    orderNumber: data.order_number,
+    status: data.status,
+    items: data.items,
+    subtotal: parseFloat(data.subtotal),
+    shipping: parseFloat(data.shipping),
+    serviceFee: parseFloat(data.service_fee),
+    total: parseFloat(data.total),
+    shippingAddress: data.shipping_address,
+    billingAddress: data.billing_address,
+    paymentMethod: data.payment_method,
+    paymentStatus: data.payment_status,
+    trackingNumber: data.tracking_number,
+    notes: data.notes,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }
+}
+
 // Users
 export async function getUserById(id: string): Promise<User | null> {
   const supabase = await createClient()

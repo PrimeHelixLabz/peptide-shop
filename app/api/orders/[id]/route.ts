@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { optionalAuthMiddleware } from "@/lib/auth/middleware"
-import { getOrderById, getOrderByNumber, getOrderByIdAsAdmin, getOrderByNumberAsAdmin, updateOrder, deleteOrderAsAdmin } from "@/lib/db/supabase"
+import {
+  getOrderById,
+  getOrderByNumber,
+  getOrderByIdAsAdmin,
+  getOrderByNumberAsAdmin,
+  updateOrder,
+  deleteOrderAsAdmin,
+  adjustInventoryForOrderAsAdmin,
+  restoreInventoryForOrderAsAdmin,
+  checkStockAvailability,
+} from "@/lib/db/supabase"
 import { z } from "zod"
 
 const updateOrderSchema = z.object({
@@ -134,14 +144,39 @@ export async function PUT(
     const order = isOrderNumber(id)
       ? await getOrderByNumber(id)
       : await getOrderById(id)
-    
+
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+
+    // Determine whether this update is a non-paid → paid transition. Only in
+    // that case do we need to decrement variant stock, since paid orders
+    // already deducted at payment time.
+    const willTransitionToPaid =
+      data.paymentStatus === "paid" && order.paymentStatus !== "paid"
+
+    if (willTransitionToPaid) {
+      const shortfalls = await checkStockAvailability(order.items)
+      if (shortfalls.length > 0) {
+        return NextResponse.json(
+          {
+            error: "Insufficient stock",
+            message:
+              "One or more items in this order no longer have enough stock. Restock the affected variants before marking this order as paid.",
+            shortfalls,
+          },
+          { status: 409 }
+        )
+      }
     }
 
     const updatedOrder = await updateOrder(order.id, data)
     if (!updatedOrder) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+
+    if (willTransitionToPaid) {
+      await adjustInventoryForOrderAsAdmin(updatedOrder.id)
     }
 
     return NextResponse.json({ order: updatedOrder })
@@ -180,12 +215,25 @@ export async function DELETE(
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
+    // Restore stock that was previously decremented for this order. Only paid
+    // orders had their inventory adjusted; pending Link Money / unpaid orders
+    // never touched stock and must not be restored (would inflate inventory).
+    const inventoryWasAdjusted = order.paymentStatus === "paid"
+    if (inventoryWasAdjusted) {
+      await restoreInventoryForOrderAsAdmin(order.id)
+    }
+
     const deleted = await deleteOrderAsAdmin(order.id)
     if (!deleted) {
+      // If delete fails after we restored, undo the restore so we don't leave
+      // stock inflated relative to what's actually been shipped.
+      if (inventoryWasAdjusted) {
+        await adjustInventoryForOrderAsAdmin(order.id)
+      }
       return NextResponse.json({ error: "Failed to delete order" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, inventoryRestored: inventoryWasAdjusted })
   } catch (error) {
     if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {
       return NextResponse.json({ error: error.message }, { status: error.message === "Unauthorized" ? 401 : 403 })

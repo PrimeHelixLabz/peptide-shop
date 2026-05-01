@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
 import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  getProductById,
+  getVariantById,
+  createOrderAsAdmin,
+  adjustInventoryForOrderAsAdmin,
+  checkStockAvailability,
+} from "@/lib/db/supabase"
+import { getShippingCost } from "@/lib/order-constants"
+import type { Order, OrderItem } from "@/lib/db/schema"
+import { sendOrderNotificationEmail } from "@/lib/email"
 
 export const GET = requireAdminMiddleware(async (req) => {
   try {
@@ -41,7 +52,7 @@ export const GET = requireAdminMiddleware(async (req) => {
       // For authenticated orders, use profile data
       const isGuestOrder = order.user_id === null
       const profile = profilesMap.get(order.user_id) || {}
-      
+
       // Get customer name and email
       let customerName = "Guest Customer"
       let customerEmail = order.email || "No email"
@@ -66,7 +77,7 @@ export const GET = requireAdminMiddleware(async (req) => {
           customerEmail = order.email || shippingAddr.email || customerEmail
         }
       }
-      
+
       const itemsCount = Array.isArray(order.items) ? order.items.length : 0
 
       // Map payment status
@@ -107,6 +118,144 @@ export const GET = requireAdminMiddleware(async (req) => {
     return NextResponse.json({ orders })
   } catch (error) {
     console.error("Get orders error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+})
+
+const adminCreateOrderSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        variantId: z.string().uuid(),
+        quantity: z.number().int().min(1),
+      })
+    )
+    .min(1, "At least one item is required"),
+  shippingAddress: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().min(1),
+    street: z.string().min(1),
+    city: z.string().min(1),
+    state: z.string().min(1),
+    zipCode: z.string().min(1),
+    country: z.string().min(1),
+  }),
+  shippingMethod: z.enum(["ship", "local-pickup"]).default("ship"),
+  notes: z.string().optional(),
+})
+
+export const POST = requireAdminMiddleware(async (req) => {
+  try {
+    const body = await req.json()
+    const data = adminCreateOrderSchema.parse(body)
+
+    // Resolve products and variants, build items list with server-side prices.
+    const orderItems: OrderItem[] = []
+    let subtotal = 0
+
+    for (const line of data.items) {
+      const product = await getProductById(line.productId)
+      if (!product) {
+        return NextResponse.json(
+          { error: `Product ${line.productId} not found` },
+          { status: 400 }
+        )
+      }
+
+      const variant = await getVariantById(line.variantId)
+      if (!variant || variant.productId !== product.id) {
+        return NextResponse.json(
+          { error: `Variant does not belong to product ${product.name}` },
+          { status: 400 }
+        )
+      }
+
+      orderItems.push({
+        productId: product.id,
+        productName: `${product.name} (${variant.sku})`,
+        productImage: product.images?.[0] || product.image,
+        price: variant.price,
+        quantity: line.quantity,
+        variantId: variant.id,
+        variantName: variant.sku,
+        specifications: product.specifications,
+      })
+
+      subtotal += variant.price * line.quantity
+    }
+
+    // Pre-flight stock check — block before any DB mutation.
+    const shortfalls = await checkStockAvailability(
+      orderItems.map((i) => ({
+        variantId: i.variantId,
+        quantity: i.quantity,
+        productName: i.productName,
+        variantName: i.variantName,
+      }))
+    )
+    if (shortfalls.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Insufficient stock",
+          message:
+            "One or more items don't have enough stock. Adjust quantities or restock before creating this order.",
+          shortfalls,
+        },
+        { status: 409 }
+      )
+    }
+
+    // Pricing — admin cash orders skip the service fee since there's no
+    // payment processor to compensate.
+    const shipping = getShippingCost(subtotal, data.shippingMethod)
+    const serviceFee = 0
+    const total = subtotal + shipping + serviceFee
+
+    const orderNumber = `ORD-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)
+      .toUpperCase()}`
+
+    const orderInput: Omit<Order, "createdAt" | "updatedAt"> = {
+      id: crypto.randomUUID(),
+      userId: null,
+      email: data.shippingAddress.email,
+      orderNumber,
+      status: "processing",
+      items: orderItems,
+      subtotal,
+      shipping,
+      serviceFee,
+      total,
+      shippingAddress: data.shippingAddress as any,
+      billingAddress: data.shippingAddress as any,
+      paymentMethod: "cash",
+      paymentStatus: "paid",
+      notes: data.notes,
+    }
+
+    const createdOrder = await createOrderAsAdmin(orderInput)
+
+    // Deduct stock now that the order exists. checkStockAvailability already
+    // ran above so this should succeed; the function clamps at 0 defensively.
+    await adjustInventoryForOrderAsAdmin(createdOrder.id)
+
+    sendOrderNotificationEmail(createdOrder).catch((err) =>
+      console.error("Failed to send admin cash order notification:", err)
+    )
+
+    return NextResponse.json({ order: createdOrder }, { status: 201 })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Validation error", details: error.errors },
+        { status: 400 }
+      )
+    }
+    console.error("Admin create order error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 })

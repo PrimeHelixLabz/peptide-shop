@@ -109,14 +109,28 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
         }),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to mark order as paid by cash")
+      const data = await response.json().catch(() => ({}))
+
+      if (response.status === 409 && Array.isArray(data?.shortfalls)) {
+        const lines = data.shortfalls
+          .map(
+            (s: { productName: string; variantName?: string; requested: number; available: number }) =>
+              `${s.productName}${s.variantName ? ` (${s.variantName})` : ""}: need ${s.requested}, only ${s.available} in stock`
+          )
+          .join("\n")
+        toast.error("Cannot mark as paid — insufficient stock", {
+          description: lines,
+        })
+        return
       }
 
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to mark order as paid by cash")
+      }
+
       setOrder(data.order)
       setCashDialogOpen(false)
-      toast.success("Order marked as paid by cash")
+      toast.success("Order marked as paid by cash. Stock has been deducted.")
     } catch (err) {
       console.error("Error marking order as paid by cash:", err)
       toast.error("Failed to mark order as paid by cash")
@@ -132,11 +146,17 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
         method: "DELETE",
       })
 
+      const data = await response.json().catch(() => ({}))
+
       if (!response.ok) {
-        throw new Error("Failed to delete order")
+        throw new Error(data?.error || "Failed to delete order")
       }
 
-      toast.success("Order deleted")
+      toast.success(
+        data?.inventoryRestored
+          ? "Order deleted. Stock has been restored."
+          : "Order deleted. No stock change (order had not been paid)."
+      )
       setDeleteDialogOpen(false)
       router.push("/admin/orders")
     } catch (err) {
@@ -490,12 +510,32 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground">
               This will set order <strong>{order.orderNumber}</strong> to{" "}
-              <strong>Paid</strong> and change the payment method to{" "}
-              <strong>Cash</strong>. Use this only after confirming you have
-              physically received the cash payment from the customer. This
-              overrides any prior bank transfer record on the order.
+              <strong>Paid</strong>, change the payment method to{" "}
+              <strong>Cash</strong>, and{" "}
+              <strong>deduct the following stock</strong>:
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <ul className="rounded-2xl border border-border/50 bg-muted/30 px-4 py-3 text-sm text-foreground">
+            {order.items.map((item, idx) => (
+              <li
+                key={idx}
+                className="flex items-center justify-between py-1"
+              >
+                <span>
+                  {item.productName}
+                  {item.variantName ? ` (${item.variantName})` : ""}
+                </span>
+                <span className="font-semibold tabular-nums">
+                  &minus; {item.quantity}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground">
+            Only confirm after you have physically received the cash payment.
+            If any item lacks stock the action will be blocked and nothing
+            will change.
+          </p>
           <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <AlertDialogCancel
               disabled={markingCash}
@@ -536,12 +576,37 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
               <strong>{order.orderNumber}</strong> for{" "}
               <strong>{displayCustomerName}</strong>{" "}
               (<strong>${order.total.toFixed(2)}</strong>). This action is
-              irreversible — the order and all its line items will be removed
-              from the database, and it will disappear from reports, the
-              customer&rsquo;s history, and any related dashboards. Only
-              proceed if you are certain this order should not exist.
+              irreversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {order.paymentStatus === "paid" ? (
+            <div className="rounded-2xl border border-emerald-600/30 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3">
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                Stock will be restored to inventory:
+              </p>
+              <ul className="mt-2 text-sm text-foreground">
+                {order.items.map((item, idx) => (
+                  <li
+                    key={idx}
+                    className="flex items-center justify-between py-1"
+                  >
+                    <span>
+                      {item.productName}
+                      {item.variantName ? ` (${item.variantName})` : ""}
+                    </span>
+                    <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                      + {item.quantity}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border/50 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+              This order was never marked as paid, so no stock had been
+              deducted. Inventory will not change.
+            </div>
+          )}
           <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <AlertDialogCancel
               disabled={deleting}

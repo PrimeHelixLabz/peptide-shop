@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
-import { Search, Eye, ChevronDown } from "lucide-react"
+import { Search, Eye, ChevronDown, Plus } from "lucide-react"
 import { Pagination } from "./pagination"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
@@ -168,6 +168,13 @@ export function AdminOrdersTable() {
             {filtered.length} {filtered.length === 1 ? 'order' : 'orders'}
             {filtered.length !== orders.length && ` of ${orders.length}`}
           </span>
+          <Link
+            href="/admin/orders/new"
+            className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all hover:brightness-110"
+          >
+            <Plus className="h-4 w-4" />
+            New Cash Order
+          </Link>
           <div className="relative">
             <select
               value={paymentFilter}
