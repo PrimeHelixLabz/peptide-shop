@@ -57,6 +57,7 @@ export interface Product {
   categoryId?: string // New: reference to categories table
   inStock: boolean // Overall stock status (true if any variant is in stock)
   stockQuantity: number // Computed: total stock across all variants (not stored in products table)
+  isActive: boolean // Admin-controlled enable/disable flag. Inactive products are hidden from the store.
   specifications?: Record<string, string | number>
   usage?: string
   shipping?: string

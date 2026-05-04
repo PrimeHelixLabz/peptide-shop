@@ -304,6 +304,7 @@ export async function initializeDatabase() {
     const dbProducts: Product[] = mockProducts.map((p) => ({
       ...p,
       stockQuantity: p.inStock ? 100 : 0,
+      isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }))

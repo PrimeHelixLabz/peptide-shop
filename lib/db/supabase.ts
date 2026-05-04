@@ -99,6 +99,7 @@ function rowToProduct(row: any): Product {
     categoryId: row.category_id || undefined,
     inStock: overallInStock,
     stockQuantity: overallStockQuantity,
+    isActive: row.is_active ?? true,
     specifications: row.specifications || {},
     usage: row.usage,
     shipping: row.shipping,
@@ -160,7 +161,13 @@ function productToRow(product: Partial<Product>): any {
   if (product.slug !== undefined) {
     row.slug = product.slug
   }
-  
+
+  // Admin-controlled enable/disable flag. Only persist when explicitly provided
+  // so partial updates don't accidentally reactivate disabled products.
+  if (product.isActive !== undefined) {
+    row.is_active = product.isActive
+  }
+
   return row
 }
 
@@ -482,8 +489,9 @@ export type SortOption =
   | "date_asc" 
   | "date_desc"
 
-export async function getProducts(options?: { 
+export async function getProducts(options?: {
   includeArchived?: boolean
+  includeInactive?: boolean
   limit?: number
   offset?: number
   sortBy?: SortOption
@@ -502,10 +510,15 @@ export async function getProducts(options?: {
         *
       )
     `)
-  
+
   // Filter out archived products by default
   if (!options?.includeArchived) {
     query = query.eq("is_archived", false)
+  }
+
+  // Filter out admin-disabled (inactive) products by default
+  if (!options?.includeInactive) {
+    query = query.eq("is_active", true)
   }
   
   // Apply sorting
@@ -575,17 +588,25 @@ export async function getProducts(options?: {
 }
 
 // Get total count of products (for pagination)
-export async function getProductsCount(options?: { includeArchived?: boolean }): Promise<number> {
+export async function getProductsCount(options?: {
+  includeArchived?: boolean
+  includeInactive?: boolean
+}): Promise<number> {
   const supabase = createPublicClient()
   let query = supabase
     .from("products")
     .select("*", { count: "exact", head: true })
-  
+
   // Filter out archived products by default
   if (!options?.includeArchived) {
     query = query.eq("is_archived", false)
   }
-  
+
+  // Filter out admin-disabled (inactive) products by default
+  if (!options?.includeInactive) {
+    query = query.eq("is_active", true)
+  }
+
   const { count, error } = await query
 
   if (error) {
@@ -643,6 +664,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     `)
     .eq("slug", slug)
     .eq("is_archived", false)
+    .eq("is_active", true)
     .single()
 
   if (error || !data) return null

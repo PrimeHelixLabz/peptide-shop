@@ -33,7 +33,7 @@ export function toAdminProduct(p: Product): AdminProduct {
     category: p.category || "Uncategorized",
     purity,
     stock,
-    status: p.inStock ? "Active" : "Inactive",
+    status: p.isActive ? "Active" : "Inactive",
     isArchived: p.isArchived || false,
   }
 }

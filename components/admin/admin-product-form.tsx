@@ -229,7 +229,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               specifications: specsArray,
               usage: product.usage || "",
               shipping: product.shipping || "",
-              status: product.inStock ? "Active" : "Inactive",
+              status: product.isActive === false ? "Inactive" : "Active",
               variants: variantsWithImages,
             })
 
@@ -866,9 +866,8 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         }
       }
 
-      // Calculate overall stock status from variants
-      const hasInStockVariant = variantsNormalized.some((v) => parseInt(v.stock) > 0)
-      const totalStock = variantsNormalized.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0)
+      // inStock is derived from variant stock at read time; only the admin-controlled
+      // isActive flag is persisted via the form.
       const defaultVariant = variantsNormalized.find((v) => v.isDefault) || variantsNormalized[0]
 
       const productData = {
@@ -881,8 +880,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         image: "", // legacy
         images: [], // legacy
         categoryId: form.categoryId || undefined,
-        inStock: form.status === "Active" && hasInStockVariant,
-        // stockQuantity is derived from variant stocks, not stored on products table
+        isActive: form.status === "Active",
         specifications: Object.keys(specifications).length > 0 ? specifications : undefined,
         usage: form.usage || undefined,
         shipping: form.shipping || undefined,
