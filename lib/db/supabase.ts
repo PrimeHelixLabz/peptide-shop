@@ -385,65 +385,6 @@ export async function checkStockAvailability(
   return shortfalls
 }
 
-/**
- * Admin-only order creation that bypasses RLS. Used by the manual cash-order
- * flow in the admin dashboard. Distinct from `createLinkMoneyOrderAsAdmin`
- * because it does not write any provider-specific columns.
- */
-export async function createOrderAsAdmin(
-  order: Omit<Order, "createdAt" | "updatedAt">
-): Promise<Order> {
-  const supabase = createAdminClient()
-
-  const email = order.email || (order.shippingAddress as any)?.email || null
-
-  const { data, error } = await supabase
-    .from("orders")
-    .insert({
-      id: order.id,
-      user_id: order.userId,
-      email,
-      order_number: order.orderNumber,
-      status: order.status,
-      items: order.items,
-      subtotal: order.subtotal,
-      shipping: order.shipping,
-      service_fee: order.serviceFee,
-      total: order.total,
-      shipping_address: order.shippingAddress,
-      billing_address: order.billingAddress,
-      payment_method: order.paymentMethod,
-      payment_status: order.paymentStatus,
-      tracking_number: order.trackingNumber,
-      notes: order.notes,
-    })
-    .select()
-    .single()
-
-  if (error) throw error
-
-  return {
-    id: data.id,
-    userId: data.user_id,
-    email: data.email,
-    orderNumber: data.order_number,
-    status: data.status,
-    items: data.items,
-    subtotal: parseFloat(data.subtotal),
-    shipping: parseFloat(data.shipping),
-    serviceFee: parseFloat(data.service_fee),
-    total: parseFloat(data.total),
-    shippingAddress: data.shipping_address,
-    billingAddress: data.billing_address,
-    paymentMethod: data.payment_method,
-    paymentStatus: data.payment_status,
-    trackingNumber: data.tracking_number,
-    notes: data.notes,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  }
-}
-
 // Users
 export async function getUserById(id: string): Promise<User | null> {
   const supabase = await createClient()

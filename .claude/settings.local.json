@@ -10,7 +10,9 @@
       "Bash(pnpm add:*)",
       "Bash(npx pnpm:*)",
       "Bash(grep -E \"\\\\.\\(ts|tsx|sql\\)$\")",
-      "Bash(grep -rni \"usps\\\\|fedex\\\\|shipping.*\\\\$\\\\|shipping.*price\\\\|shippingCost\\\\|SHIPPING_COST\\\\|free.*shipping\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\lib\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\app\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\components\")"
+      "Bash(grep -rni \"usps\\\\|fedex\\\\|shipping.*\\\\$\\\\|shipping.*price\\\\|shippingCost\\\\|SHIPPING_COST\\\\|free.*shipping\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\lib\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\app\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\components\")",
+      "Bash(git checkout *)",
+      "Bash(git stash *)"
     ]
   }
 }

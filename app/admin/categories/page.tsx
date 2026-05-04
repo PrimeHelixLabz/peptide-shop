@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Pagination } from "@/components/admin/pagination"
+import { FormInput } from "@/components/common/form-input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -268,16 +269,14 @@ export default function AdminCategoriesPage() {
       )}
 
       {/* Search */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search categories..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-11 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-blue-500/20"
-        />
-      </div>
+      <FormInput
+        type="text"
+        placeholder="Search categories..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        prefix={<Search className="h-4 w-4" />}
+        aria-label="Search categories"
+      />
 
       {/* Categories Table */}
       <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">

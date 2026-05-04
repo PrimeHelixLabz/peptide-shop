@@ -3,12 +3,14 @@
 import { useState, useMemo, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Search, Pencil, Plus, Trash2, ChevronDown, Archive, RefreshCcw } from "lucide-react"
+import { Search, Pencil, Plus, Trash2, Archive, RefreshCcw } from "lucide-react"
 import { toast } from "sonner"
 import type { AdminProduct } from "@/lib/api/admin-utils"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { Pagination } from "./pagination"
 import { Button } from "@/components/ui/button"
+import { FormInput } from "@/components/common/form-input"
+import { FormSelect } from "@/components/common/form-select"
 import { StatusBadge } from "@/components/common/status-badge"
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
 import { usePersistentTableState } from "@/hooks/usePersistentTableState"
@@ -239,9 +241,8 @@ export function AdminProductsTable({
       {/* Toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Search */}
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
+        <div className="w-full sm:max-w-xs">
+          <FormInput
             type="text"
             placeholder="Search products..."
             value={query}
@@ -251,7 +252,7 @@ export function AdminProductsTable({
                 query: e.target.value,
               }))
             }
-            className="h-12 w-full rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-11 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20"
+            prefix={<Search className="h-4 w-4" />}
             aria-label="Search products"
           />
         </div>
@@ -284,67 +285,52 @@ export function AdminProductsTable({
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Archived Filter */}
-        <div className="relative">
-          <select
-            value={archivedFilter}
-            onChange={(e) =>
-              setTableState((prev) => ({
-                ...prev,
-                archivedFilter: e.target.value as ArchivedFilter,
-              }))
-            }
-            className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
-            aria-label="Filter by archived status"
-          >
-            <option value="active">Active Products</option>
-            <option value="archived">Archived Products</option>
-            <option value="all">All Products</option>
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        </div>
+        <FormSelect
+          value={archivedFilter}
+          onChange={(e) =>
+            setTableState((prev) => ({
+              ...prev,
+              archivedFilter: e.target.value as ArchivedFilter,
+            }))
+          }
+          options={[
+            { value: "active", label: "Active Products" },
+            { value: "archived", label: "Archived Products" },
+            { value: "all", label: "All Products" },
+          ]}
+          aria-label="Filter by archived status"
+        />
 
-        {/* Status Filter */}
-        <div className="relative">
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setTableState((prev) => ({
-                ...prev,
-                statusFilter: e.target.value as StatusFilter,
-              }))
-            }
-            className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
-            aria-label="Filter by status"
-          >
-            <option value="all">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        </div>
+        <FormSelect
+          value={statusFilter}
+          onChange={(e) =>
+            setTableState((prev) => ({
+              ...prev,
+              statusFilter: e.target.value as StatusFilter,
+            }))
+          }
+          options={[
+            { value: "all", label: "All Status" },
+            { value: "Active", label: "Active" },
+            { value: "Inactive", label: "Inactive" },
+          ]}
+          aria-label="Filter by status"
+        />
 
-        {/* Category Filter */}
-        <div className="relative">
-          <select
-            value={categoryFilter}
-            onChange={(e) =>
-              setTableState((prev) => ({
-                ...prev,
-                categoryFilter: e.target.value,
-              }))
-            }
-            className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
-            aria-label="Filter by category"
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat === "all" ? "All Categories" : cat}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        </div>
+        <FormSelect
+          value={categoryFilter}
+          onChange={(e) =>
+            setTableState((prev) => ({
+              ...prev,
+              categoryFilter: e.target.value,
+            }))
+          }
+          options={categories.map((cat) => ({
+            value: cat,
+            label: cat === "all" ? "All Categories" : cat,
+          }))}
+          aria-label="Filter by category"
+        />
 
         {/* Sort */}
         {/* <div className="relative">

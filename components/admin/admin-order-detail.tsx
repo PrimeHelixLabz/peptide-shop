@@ -4,13 +4,14 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ChevronDown, Package, CheckCircle2, Loader2, Banknote, Trash2 } from "lucide-react"
+import { ArrowLeft, Package, CheckCircle2, Loader2, Banknote, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import type { AdminOrder } from "./admin-orders-table"
 import type { Order } from "@/lib/db/schema"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { format } from "date-fns"
 import { formatPaymentMethod } from "@/lib/format-payment-method"
+import { FormSelect } from "@/components/common/form-select"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -421,25 +422,17 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Shipping Status
                 </span>
-                <div className="relative">
-                  <select
-                    value={shippingStatus}
-                    onChange={(e) =>
-                      setShippingStatus(
-                        e.target.value as AdminOrder["shippingStatus"]
-                      )
-                    }
-                    className="h-12 w-full appearance-none rounded-xl bg-white dark:bg-gray-900 border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/20"
-                    aria-label="Update shipping status"
-                  >
-                    {shippingOptions.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                </div>
+                <FormSelect
+                  value={shippingStatus}
+                  onChange={(e) =>
+                    setShippingStatus(
+                      e.target.value as AdminOrder["shippingStatus"]
+                    )
+                  }
+                  options={shippingOptions.map((opt) => ({ value: opt, label: opt }))}
+                  wrapperClassName="w-full"
+                  aria-label="Update shipping status"
+                />
               </div>
             </div>
           </div>

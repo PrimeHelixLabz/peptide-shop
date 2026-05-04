@@ -2,8 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
-import { Search, Eye, ChevronDown, Plus } from "lucide-react"
+import { Search, Eye, Plus } from "lucide-react"
 import { Pagination } from "./pagination"
+import { FormInput } from "@/components/common/form-input"
+import { FormSelect } from "@/components/common/form-select"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
 import { usePersistentTableState } from "@/hooks/usePersistentTableState"
@@ -142,12 +144,30 @@ export function AdminOrdersTable() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Page header with primary action */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground md:text-3xl">
+            Orders
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Manage customer orders. Use &ldquo;New Cash Order&rdquo; to record an in-person cash payment.
+          </p>
+        </div>
+        <Link
+          href="/admin/orders/new"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all sm:w-auto"
+        >
+          <Plus className="h-4 w-4" />
+          New Cash Order
+        </Link>
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Search */}
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
+        <div className="w-full sm:max-w-xs">
+          <FormInput
             type="text"
             placeholder="Search orders..."
             value={query}
@@ -157,7 +177,7 @@ export function AdminOrdersTable() {
                 query: e.target.value,
               }))
             }
-            className="h-12 w-full rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-11 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20"
+            prefix={<Search className="h-4 w-4" />}
             aria-label="Search orders"
           />
         </div>
@@ -168,53 +188,28 @@ export function AdminOrdersTable() {
             {filtered.length} {filtered.length === 1 ? 'order' : 'orders'}
             {filtered.length !== orders.length && ` of ${orders.length}`}
           </span>
-          <Link
-            href="/admin/orders/new"
-            className="inline-flex h-12 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all hover:brightness-110"
-          >
-            <Plus className="h-4 w-4" />
-            New Cash Order
-          </Link>
-          <div className="relative">
-            <select
-              value={paymentFilter}
-              onChange={(e) =>
-                setTableState((prev) => ({
-                  ...prev,
-                  paymentFilter: e.target.value as PaymentFilter,
-                }))
-              }
-              className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
-              aria-label="Filter by payment status"
-            >
-              {paymentFilterOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          </div>
-          <div className="relative">
-            <select
-              value={shippingFilter}
-              onChange={(e) =>
-                setTableState((prev) => ({
-                  ...prev,
-                  shippingFilter: e.target.value as ShippingFilter,
-                }))
-              }
-              className="h-12 appearance-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] pl-4 pr-10 text-sm text-foreground outline-none focus:ring-2 focus:ring-brand-primary/20"
-              aria-label="Filter by shipping status"
-            >
-              {shippingFilterOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          </div>
+          <FormSelect
+            value={paymentFilter}
+            onChange={(e) =>
+              setTableState((prev) => ({
+                ...prev,
+                paymentFilter: e.target.value as PaymentFilter,
+              }))
+            }
+            options={paymentFilterOptions}
+            aria-label="Filter by payment status"
+          />
+          <FormSelect
+            value={shippingFilter}
+            onChange={(e) =>
+              setTableState((prev) => ({
+                ...prev,
+                shippingFilter: e.target.value as ShippingFilter,
+              }))
+            }
+            options={shippingFilterOptions}
+            aria-label="Filter by shipping status"
+          />
         </div>
       </div>
 
