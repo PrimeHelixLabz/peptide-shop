@@ -11,8 +11,17 @@ interface ProductGridProps {
 }
 
 const PRODUCTS_PER_PAGE = 12
+const MAX_FETCH_LIMIT = 100 // matches API safety cap in app/api/products/route.ts
+const SHOP_STATE_KEY = "shop-state"
 
 type SortOption = "name_asc" | "name_desc" | "price_asc" | "price_desc" | "date_asc" | "date_desc"
+
+interface SavedShopState {
+  category: string
+  sort: SortOption
+  count: number
+  scrollY: number
+}
 
 export function ProductGrid({ initialProducts, initialCategories }: ProductGridProps) {
   const [activeCategory, setActiveCategory] = useState("All")
@@ -20,15 +29,89 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(initialProducts.length === PRODUCTS_PER_PAGE)
   const [offset, setOffset] = useState(initialProducts.length)
-  const [categoryChanged, setCategoryChanged] = useState(false)
+  const [initialized, setInitialized] = useState(false)
   const [sortBy, setSortBy] = useState<SortOption>("name_asc")
   const observerTarget = useRef<HTMLDivElement>(null)
+  // After init, the change-effect would otherwise fire once with the (possibly
+  // restored) category/sort and refetch only 12 — wiping the restored set.
+  const skipNextChangeEffect = useRef(true)
 
-  // Load products when category, sort, or search changes
+  // On mount: read saved state, refetch enough products if needed, restore scroll.
   useEffect(() => {
-    // Skip on initial mount
-    if (!categoryChanged) {
-      setCategoryChanged(true)
+    if (initialized) return
+
+    let saved: SavedShopState | null = null
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem(SHOP_STATE_KEY)
+      if (stored) {
+        try {
+          saved = JSON.parse(stored) as SavedShopState
+        } catch {
+          saved = null
+        }
+      }
+    }
+
+    const restoreScroll = () => {
+      if (!saved || saved.scrollY <= 0) return
+      // Two rAFs let the browser lay out the newly rendered products before scrolling.
+      const y = saved.scrollY
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, y)
+        })
+      })
+    }
+
+    const needsRefetch =
+      saved !== null &&
+      (saved.category !== "All" ||
+        saved.sort !== "name_asc" ||
+        saved.count > initialProducts.length)
+
+    if (!needsRefetch) {
+      setInitialized(true)
+      restoreScroll()
+      return
+    }
+
+    setActiveCategory(saved!.category)
+    setSortBy(saved!.sort)
+
+    const fetchCount = Math.min(Math.max(saved!.count, PRODUCTS_PER_PAGE), MAX_FETCH_LIMIT)
+    ;(async () => {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams({
+          limit: fetchCount.toString(),
+          offset: "0",
+          sortBy: saved!.sort,
+        })
+        if (saved!.category !== "All") {
+          params.append("category", saved!.category)
+        }
+        const response = await fetch(`/api/products?${params.toString()}`)
+        if (!response.ok) throw new Error("Failed to fetch products")
+        const data = await response.json()
+        const fetched: ProductDetail[] = data.products || []
+        setProducts(fetched)
+        setOffset(fetched.length)
+        setHasMore(fetched.length >= fetchCount)
+      } catch (err) {
+        console.error("Error restoring shop state:", err)
+      } finally {
+        setLoading(false)
+        setInitialized(true)
+        restoreScroll()
+      }
+    })()
+  }, [initialized, initialProducts.length])
+
+  // Load products when category or sort changes (only after initialization).
+  useEffect(() => {
+    if (!initialized) return
+    if (skipNextChangeEffect.current) {
+      skipNextChangeEffect.current = false
       return
     }
 
@@ -64,7 +147,35 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
     }
 
     loadProducts()
-  }, [activeCategory, categoryChanged, sortBy])
+  }, [activeCategory, sortBy, initialized])
+
+  // Persist filter + scroll state for back-navigation restore.
+  useEffect(() => {
+    if (!initialized) return
+
+    const save = () => {
+      const state: SavedShopState = {
+        category: activeCategory,
+        sort: sortBy,
+        count: products.length,
+        scrollY: window.scrollY,
+      }
+      try {
+        sessionStorage.setItem(SHOP_STATE_KEY, JSON.stringify(state))
+      } catch {
+        // sessionStorage may be unavailable (private mode, quota); ignore.
+      }
+    }
+
+    window.addEventListener("scroll", save, { passive: true })
+    window.addEventListener("beforeunload", save)
+
+    return () => {
+      save()
+      window.removeEventListener("scroll", save)
+      window.removeEventListener("beforeunload", save)
+    }
+  }, [initialized, activeCategory, sortBy, products.length])
 
   // Load more products
   const loadMoreProducts = useCallback(async () => {

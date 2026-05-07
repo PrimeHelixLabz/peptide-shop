@@ -4,7 +4,6 @@ import { Footer } from "@/components/footer"
 import { ProductGrid } from "@/components/product-grid"
 import { getAllProducts, getCategories } from "@/lib/api/server-products"
 import { Section, Container, PageHeader } from "@/components/layout"
-import { ShopScrollProvider } from "@/components/shop-scroll-provider"
 
 export const metadata: Metadata = {
   title: "Shop | PrimeHelix Labz",
@@ -29,27 +28,25 @@ export default async function ShopPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <ShopScrollProvider>
-        <main className="flex-1 flex flex-col gap-20 py-12 md:py-20">
-          {/* Page Header */}
-          <Section background="muted" padding="md">
-            <Container>
-              <PageHeader
-                label="Full Catalog"
-                title="All products"
-                description="Research-grade peptides, rigorously tested and verified. Every compound ships with a full certificate of analysis."
-              />
-            </Container>
-          </Section>
+      <main className="flex-1 flex flex-col gap-20 py-12 md:py-20">
+        {/* Page Header */}
+        <Section background="muted" padding="md">
+          <Container>
+            <PageHeader
+              label="Full Catalog"
+              title="All products"
+              description="Research-grade peptides, rigorously tested and verified. Every compound ships with a full certificate of analysis."
+            />
+          </Container>
+        </Section>
 
-          {/* Product Listing */}
-          <Section background="muted" padding="md">
-            <Container>
-              <ProductGrid initialProducts={products} initialCategories={categories} />
-            </Container>
-          </Section>
-        </main>
-      </ShopScrollProvider>
+        {/* Product Listing */}
+        <Section background="muted" padding="md">
+          <Container>
+            <ProductGrid initialProducts={products} initialCategories={categories} />
+          </Container>
+        </Section>
+      </main>
       <Footer />
     </div>
   )
