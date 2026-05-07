@@ -30,6 +30,8 @@ import {
 const paymentStyles: Record<AdminOrder["paymentStatus"], string> = {
   Paid: "bg-primary text-white",
   Pending: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
+  Authorized: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800",
+  Processing: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800",
   Refunded: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
 }
 
@@ -48,6 +50,8 @@ const shippingOptions: AdminOrder["shippingStatus"][] = [
 // Map database status to AdminOrder status
 const mapPaymentStatus = (status: string): AdminOrder["paymentStatus"] => {
   if (status === "paid") return "Paid"
+  if (status === "authorized") return "Authorized"
+  if (status === "processing") return "Processing"
   if (status === "refunded") return "Refunded"
   return "Pending"
 }

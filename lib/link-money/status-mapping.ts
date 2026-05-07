@@ -5,7 +5,11 @@ const EVENT_TO_STATUS: Record<string, PaymentStatus> = {
   "payment.pending": "PENDING",
   "payment.authorized": "AUTHORIZED",
   "payment.initiated": "INITIATED",
+  "payment.scheduled": "INITIATED",
   "payment.succeeded": "SUCCEEDED",
+  // Link Money's final settlement event — collapsed onto SUCCEEDED so it
+  // shares the existing terminal "paid" handling.
+  "payment.disbursed": "SUCCEEDED",
   "payment.failed": "FAILED",
 }
 

@@ -22,7 +22,7 @@ export interface AdminOrder {
   items: number
   total: string
   date: string
-  paymentStatus: "Paid" | "Pending" | "Refunded"
+  paymentStatus: "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded"
   shippingStatus: "Processing" | "Shipped" | "Delivered"
   paymentMethod?: string // "stripe" | "link_money"
   orderId?: string // Original order ID for detail page
@@ -35,6 +35,8 @@ export interface AdminOrder {
 const paymentStatusMap: Record<AdminOrder["paymentStatus"], StatusVariant> = {
   Paid: "success",
   Pending: "warning",
+  Authorized: "info",
+  Processing: "info",
   Refunded: "neutral",
 }
 
@@ -48,12 +50,14 @@ const shippingStatusMap: Record<AdminOrder["shippingStatus"], StatusVariant> = {
 /*  Filter options                                                     */
 /* ------------------------------------------------------------------ */
 
-type PaymentFilter = "all" | "Paid" | "Pending" | "Refunded"
+type PaymentFilter = "all" | "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded"
 type ShippingFilter = "all" | "Processing" | "Shipped" | "Delivered"
 
 const paymentFilterOptions: { value: PaymentFilter; label: string }[] = [
   { value: "all", label: "All Payments" },
   { value: "Paid", label: "Paid" },
+  { value: "Authorized", label: "Authorized" },
+  { value: "Processing", label: "Processing" },
   { value: "Pending", label: "Pending" },
   { value: "Refunded", label: "Refunded" },
 ]

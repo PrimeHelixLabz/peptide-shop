@@ -11,11 +11,12 @@ import {
   restoreInventoryForOrderAsAdmin,
   checkStockAvailability,
 } from "@/lib/db/supabase"
+import { ORDER_STATUSES, PAYMENT_STATUSES } from "@/lib/db/schema"
 import { z } from "zod"
 
 const updateOrderSchema = z.object({
-  status: z.enum(["pending", "processing", "shipped", "delivered", "cancelled"]).optional(),
-  paymentStatus: z.enum(["pending", "paid", "failed", "refunded"]).optional(),
+  status: z.enum(ORDER_STATUSES).optional(),
+  paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
   paymentMethod: z.enum(["stripe", "link_money", "cash"]).optional(),
   trackingNumber: z.string().optional(),
 })

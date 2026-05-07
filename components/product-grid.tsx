@@ -35,10 +35,20 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
   // After init, the change-effect would otherwise fire once with the (possibly
   // restored) category/sort and refetch only 12 — wiping the restored set.
   const skipNextChangeEffect = useRef(true)
+  // Target Y to scroll to once the restored products are mounted and the page
+  // is tall enough to reach it. State (not ref) so changes trigger the
+  // dedicated scroll effect below.
+  const [pendingScrollY, setPendingScrollY] = useState<number | null>(null)
 
-  // On mount: read saved state, refetch enough products if needed, restore scroll.
+  // On mount: read saved state and refetch enough products if needed.
   useEffect(() => {
     if (initialized) return
+
+    // Disable the browser's native scroll restoration. Otherwise on back-nav
+    // the browser may jump to an old Y before our refetch finishes.
+    if (typeof window !== "undefined" && "scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual"
+    }
 
     let saved: SavedShopState | null = null
     if (typeof window !== "undefined") {
@@ -52,15 +62,10 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
       }
     }
 
-    const restoreScroll = () => {
-      if (!saved || saved.scrollY <= 0) return
-      // Two rAFs let the browser lay out the newly rendered products before scrolling.
-      const y = saved.scrollY
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo(0, y)
-        })
-      })
+    const queueScroll = () => {
+      if (saved && saved.scrollY > 0) {
+        setPendingScrollY(saved.scrollY)
+      }
     }
 
     const needsRefetch =
@@ -71,7 +76,7 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
 
     if (!needsRefetch) {
       setInitialized(true)
-      restoreScroll()
+      queueScroll()
       return
     }
 
@@ -97,15 +102,56 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
         setProducts(fetched)
         setOffset(fetched.length)
         setHasMore(fetched.length >= fetchCount)
+        queueScroll()
       } catch (err) {
         console.error("Error restoring shop state:", err)
       } finally {
         setLoading(false)
         setInitialized(true)
-        restoreScroll()
       }
     })()
   }, [initialized, initialProducts.length])
+
+  // Apply the pending scroll only AFTER the restored products have rendered
+  // AND the page is actually tall enough to reach the target Y. We poll via
+  // rAF because card images and sub-components may grow the layout slightly
+  // after the initial commit.
+  useEffect(() => {
+    if (!initialized) return
+    if (pendingScrollY === null) return
+
+    const targetY = pendingScrollY
+    let attempts = 0
+    let cancelled = false
+
+    const tryScroll = () => {
+      if (cancelled) return
+      const maxScroll =
+        document.documentElement.scrollHeight - window.innerHeight
+      if (maxScroll + 1 < targetY && attempts < 30) {
+        attempts++
+        requestAnimationFrame(tryScroll)
+        return
+      }
+      // globals.css sets `html { scroll-behavior: smooth }` — that would
+      // animate this jump and the animation tends to get cancelled mid-flight
+      // on back-nav, leaving us short of the target. Force an instant jump.
+      const html = document.documentElement
+      const prevBehavior = html.style.scrollBehavior
+      html.style.scrollBehavior = "auto"
+      window.scrollTo(0, targetY)
+      requestAnimationFrame(() => {
+        html.style.scrollBehavior = prevBehavior
+      })
+      setPendingScrollY(null)
+    }
+
+    requestAnimationFrame(tryScroll)
+
+    return () => {
+      cancelled = true
+    }
+  }, [initialized, pendingScrollY, products.length])
 
   // Load products when category or sort changes (only after initialization).
   useEffect(() => {

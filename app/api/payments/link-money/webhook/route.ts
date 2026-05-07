@@ -218,6 +218,23 @@ function headersToObject(req: NextRequest): Record<string, string> {
   return out
 }
 
+// Rank gates forward-only progression of orders.payment_status so an
+// out-of-order webhook (e.g. authorized arriving after succeeded) can't
+// regress visible state. FAILED is handled out-of-band below.
+const ORDER_PAYMENT_STATUS_RANK: Record<string, number> = {
+  pending: 0,
+  authorized: 1,
+  processing: 2,
+  paid: 3,
+  refunded: 4,
+}
+
+const PAYMENT_TO_ORDER_STATUS: Record<string, string> = {
+  AUTHORIZED: "authorized",
+  INITIATED: "processing",
+  SUCCEEDED: "paid",
+}
+
 async function syncOrderFromPayment(
   orderId: string,
   status: string
@@ -232,13 +249,32 @@ async function syncOrderFromPayment(
 
   if (!order) return
 
-  if (
-    status === "AUTHORIZED" ||
-    status === "INITIATED" ||
-    status === "SUCCEEDED"
-  ) {
-    if (order.payment_status === "paid") return
+  if (status === "FAILED") {
+    if (order.payment_status === "failed") return
 
+    if (order.payment_status === "paid") {
+      await restoreInventoryForOrderAsAdmin(order.id)
+    }
+
+    await supabase
+      .from("orders")
+      .update({
+        payment_status: "failed",
+        status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", order.id)
+    return
+  }
+
+  const nextOrderPaymentStatus = PAYMENT_TO_ORDER_STATUS[status]
+  if (!nextOrderPaymentStatus) return
+
+  const currentRank = ORDER_PAYMENT_STATUS_RANK[order.payment_status] ?? 0
+  const nextRank = ORDER_PAYMENT_STATUS_RANK[nextOrderPaymentStatus] ?? 0
+  if (nextRank <= currentRank) return
+
+  if (nextOrderPaymentStatus === "paid") {
     await adjustInventoryForOrderAsAdmin(order.id)
 
     await supabase
@@ -257,20 +293,13 @@ async function syncOrderFromPayment(
     return
   }
 
-  if (status === "FAILED") {
-    if (order.payment_status === "failed") return
-
-    if (order.payment_status === "paid") {
-      await restoreInventoryForOrderAsAdmin(order.id)
-    }
-
-    await supabase
-      .from("orders")
-      .update({
-        payment_status: "failed",
-        status: "cancelled",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", order.id)
-  }
+  // Intermediate states: surface progress to the admin without firing
+  // inventory adjustment or the customer notification email.
+  await supabase
+    .from("orders")
+    .update({
+      payment_status: nextOrderPaymentStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.id)
 }

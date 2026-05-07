@@ -116,12 +116,31 @@ export interface WishlistItem {
   createdAt: string
 }
 
+export const ORDER_STATUSES = [
+  "pending",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+] as const
+export type OrderStatus = (typeof ORDER_STATUSES)[number]
+
+export const PAYMENT_STATUSES = [
+  "pending",
+  "authorized",
+  "processing",
+  "paid",
+  "failed",
+  "refunded",
+] as const
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
+
 export interface Order {
   id: string
   userId: string | null // Nullable for guest orders
   email?: string // Email for guest orders (from shippingAddress)
   orderNumber: string // Unique order number
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
+  status: OrderStatus
   items: OrderItem[]
   subtotal: number
   shipping: number
@@ -130,7 +149,7 @@ export interface Order {
   shippingAddress: Address
   billingAddress?: Address
   paymentMethod: string
-  paymentStatus: "pending" | "paid" | "failed" | "refunded"
+  paymentStatus: PaymentStatus
   trackingNumber?: string
   notes?: string
   createdAt: string

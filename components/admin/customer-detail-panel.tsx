@@ -97,6 +97,8 @@ interface TimelineEvent {
 const paymentStatusVariant: Record<string, StatusVariant> = {
   paid: "success",
   pending: "warning",
+  authorized: "info",
+  processing: "info",
   failed: "error",
   refunded: "neutral",
 }

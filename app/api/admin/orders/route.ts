@@ -81,9 +81,14 @@ export const GET = requireAdminMiddleware(async (req) => {
       const itemsCount = Array.isArray(order.items) ? order.items.length : 0
 
       // Map payment status
-      const paymentStatusMap: Record<string, "Paid" | "Pending" | "Refunded"> = {
+      const paymentStatusMap: Record<
+        string,
+        "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded"
+      > = {
         paid: "Paid",
         pending: "Pending",
+        authorized: "Authorized",
+        processing: "Processing",
         refunded: "Refunded",
         failed: "Pending",
       }
