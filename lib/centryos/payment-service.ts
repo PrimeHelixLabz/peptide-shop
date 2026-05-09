@@ -178,13 +178,17 @@ export async function createPaymentLink(
       input.orderId
     )}`
 
-  const customData: Record<string, unknown> = {
-    orderId: input.orderId,
-    clientReferenceId: input.clientReferenceId,
+  // CentryOS rejects non-string values inside customData with
+  // `"customData.<key>" must be a string`. Stringify everything; nested
+  // structures (cart items) are JSON-encoded so they remain readable
+  // when echoed back on the webhook.
+  const customData: Record<string, string> = {
+    orderId: String(input.orderId),
+    clientReferenceId: String(input.clientReferenceId),
   }
-  if (input.customerUserId) customData.userId = input.customerUserId
+  if (input.customerUserId) customData.userId = String(input.customerUserId)
   if (input.cartItems && input.cartItems.length > 0) {
-    customData.cartItems = input.cartItems
+    customData.cartItems = JSON.stringify(input.cartItems)
   }
 
   const body: CreatePaymentLinkRequest = {
