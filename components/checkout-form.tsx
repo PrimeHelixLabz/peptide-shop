@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, Lock, Truck, MapPin, ArrowLeft } from "lucide-react"
 import { OrderSummary, type ShippingMethod } from "@/components/order-summary"
 import { LinkMoneyButton, type LinkMoneyCheckoutData } from "@/components/link-money-button"
+import { CentryOSButton, type CentryOSCheckoutData } from "@/components/centryos-button"
 
 const checkoutSchema = z.object({
   // Shipping Address
@@ -98,9 +99,15 @@ export function CheckoutForm() {
     }
   }
 
-  // Link Money checkout data (built from watched form values for live updates)
+  // Hosted-checkout data (built from watched form values for live updates).
+  // The same payload powers Link Money and CentryOS — both providers
+  // create the order server-side from this shape.
   const watchedValues = watch()
   const linkMoneyCheckoutData: LinkMoneyCheckoutData = buildCheckoutData(watchedValues)
+  const centryosCheckoutData: CentryOSCheckoutData = buildCheckoutData(watchedValues)
+  const [paymentMethod, setPaymentMethod] = useState<"link_money" | "centryos">(
+    "link_money"
+  )
   const formReady =
     !!watchedValues.shippingFirstName &&
     !!watchedValues.shippingLastName &&
@@ -432,11 +439,42 @@ export function CheckoutForm() {
           </div>
 
           {/* Payment */}
-          <div className="space-y-2">
+          <div className="space-y-4">
             <h2 className="text-xl font-semibold">Payment</h2>
             <p className="text-sm text-muted-foreground">
-              Pay securely via direct bank transfer.
+              Choose how you&apos;d like to pay. Both options process securely
+              off-site and return you here when complete.
             </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("link_money")}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                  paymentMethod === "link_money"
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div>
+                  <p className="text-sm font-medium">Pay by Bank</p>
+                  <p className="text-xs text-muted-foreground">Link Money &middot; ACH</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("centryos")}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                  paymentMethod === "centryos"
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div>
+                  <p className="text-sm font-medium">CentryOS</p>
+                  <p className="text-xs text-muted-foreground">Card via CentryOS</p>
+                </div>
+              </button>
+            </div>
           </div>
 
           {/* Order Notes */}
@@ -458,13 +496,19 @@ export function CheckoutForm() {
           )}
 
           {/* Stripe card checkout is currently disabled — Link Money
-              (Pay by Bank) is the only active payment method. */}
+              (Pay by Bank) and CentryOS are the active payment methods. */}
 
-          {/* Link Money - Pay by Bank */}
-          <LinkMoneyButton
-            checkoutData={linkMoneyCheckoutData}
-            disabled={loading || !formReady}
-          />
+          {paymentMethod === "link_money" ? (
+            <LinkMoneyButton
+              checkoutData={linkMoneyCheckoutData}
+              disabled={loading || !formReady}
+            />
+          ) : (
+            <CentryOSButton
+              checkoutData={centryosCheckoutData}
+              disabled={loading || !formReady}
+            />
+          )}
         </form>
       </div>
 

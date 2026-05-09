@@ -24,7 +24,32 @@ SUPABASE_SECRET_KEY=your_supabase_secret_key
 STRIPE_SECRET_KEY=your_stripe_secret_key
 # Webhook secret for `POST /api/stripe/webhook`
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+
+# Link Money (Pay by Bank)
+LINK_MONEY_ENV=sandbox
+LINK_MONEY_CLIENT_ID=your_link_money_client_id
+LINK_MONEY_CLIENT_SECRET=your_link_money_client_secret
+LINK_MONEY_REDIRECT_URL=https://yourdomain.com/payments/link-money/callback
+LINK_MONEY_WEBHOOK_SECRET=your_link_money_webhook_secret
+
+# CentryOS (hosted checkout via WalletOS)
+# Server-side only — never expose CentryOS_API_CLIENT_* in the client bundle.
+CENTRYOS_ENV=staging              # staging | production
+CENTRYOS_API_CLIENT_ID=your_centryos_client_id
+CENTRYOS_API_CLIENT_SECRET=your_centryos_client_secret
+CENTRYOS_WEBHOOK_SECRET=your_centryos_webhook_secret
+APP_PUBLIC_URL=https://yourdomain.com
+# Optional URL overrides (default to the staging/production hosts that
+# match CENTRYOS_ENV — only set these if CentryOS gives you a custom host).
+# CENTRYOS_ACCOUNT_URL=https://staging-api.accounts.walletos.xyz
+# CENTRYOS_LIQUIDITY_URL=https://staging-api.liquidity.walletos.xyz
 ```
+
+**CentryOS webhook URL:** point your CentryOS dashboard webhook at
+`${APP_PUBLIC_URL}/api/payments/centryos/webhook`. The same value is
+sent in each create-link request under `advancedConfig.webhookPath`,
+so the hosted checkout will retry against this URL with HMAC-SHA512
+signed bodies (`signature` header).
 
 **Where to find these keys:**
 - Go to your Supabase project dashboard

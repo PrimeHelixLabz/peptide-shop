@@ -1776,3 +1776,102 @@ export async function deleteOrderAsAdmin(orderId: string): Promise<boolean> {
   }
   return true
 }
+
+// ── CentryOS helpers ────────────────────────────────────────
+
+/**
+ * Create an order with CentryOS provider fields populated.
+ * Mirrors createLinkMoneyOrderAsAdmin so both hosted-checkout flows
+ * have a parallel insertion shape.
+ */
+export async function createCentryOSOrderAsAdmin(
+  order: Omit<Order, "createdAt" | "updatedAt"> & {
+    providerPaymentId?: string
+    providerCustomerId?: string
+    providerMetadata?: Record<string, unknown>
+  }
+): Promise<Order> {
+  const supabase = createAdminClient()
+
+  const email = order.email || (order.shippingAddress as any)?.email || null
+
+  const { data, error } = await supabase
+    .from("orders")
+    .insert({
+      id: order.id,
+      user_id: order.userId,
+      email,
+      order_number: order.orderNumber,
+      status: order.status,
+      items: order.items,
+      subtotal: order.subtotal,
+      shipping: order.shipping,
+      service_fee: order.serviceFee,
+      total: order.total,
+      shipping_address: order.shippingAddress,
+      billing_address: order.billingAddress,
+      payment_method: order.paymentMethod,
+      payment_status: order.paymentStatus,
+      tracking_number: order.trackingNumber,
+      notes: order.notes,
+      provider: "centryos",
+      provider_payment_id: order.providerPaymentId ?? null,
+      provider_customer_id: order.providerCustomerId ?? null,
+      provider_metadata: order.providerMetadata ?? null,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    email: data.email,
+    orderNumber: data.order_number,
+    status: data.status,
+    items: data.items,
+    subtotal: parseFloat(data.subtotal),
+    shipping: parseFloat(data.shipping),
+    serviceFee: parseFloat(data.service_fee),
+    total: parseFloat(data.total),
+    shippingAddress: data.shipping_address,
+    billingAddress: data.billing_address,
+    paymentMethod: data.payment_method,
+    paymentStatus: data.payment_status,
+    trackingNumber: data.tracking_number,
+    notes: data.notes,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }
+}
+
+/**
+ * Deletes a CentryOS order that was never paid. Used when the customer
+ * explicitly cancels or the payment fails — so pending rows don't
+ * clutter the admin dashboard or affect inventory counts. Only removes
+ * orders still in pending/cancelled status to avoid wiping a paid one
+ * via a misordered request.
+ */
+export async function deletePendingCentryOSOrderAsAdmin(
+  orderId: string
+): Promise<boolean> {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from("orders")
+    .delete()
+    .eq("id", orderId)
+    .eq("provider", "centryos")
+    .in("status", ["pending", "cancelled"])
+
+  if (error) {
+    console.error(
+      "deletePendingCentryOSOrderAsAdmin: failed to delete order",
+      error,
+      { orderId }
+    )
+    return false
+  }
+  return true
+}

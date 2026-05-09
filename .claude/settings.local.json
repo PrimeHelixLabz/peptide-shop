@@ -12,7 +12,10 @@
       "Bash(grep -E \"\\\\.\\(ts|tsx|sql\\)$\")",
       "Bash(grep -rni \"usps\\\\|fedex\\\\|shipping.*\\\\$\\\\|shipping.*price\\\\|shippingCost\\\\|SHIPPING_COST\\\\|free.*shipping\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\lib\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\app\" \"d:\\\\Work\\\\Brandon\\\\peptide-e-commerce-landing-page\\\\components\")",
       "Bash(git checkout *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "PowerShell(Remove-Item -Recurse -Force \"app\\\\api\\\\webhooks\\\\centryos\"; if \\(\\(Get-ChildItem \"app\\\\api\\\\webhooks\" -Force | Measure-Object\\).Count -eq 0\\) { Remove-Item \"app\\\\api\\\\webhooks\" }; \"done\")",
+      "PowerShell(\"done\")"
     ]
   }
 }

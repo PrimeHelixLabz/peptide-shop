@@ -8,6 +8,8 @@ export function formatPaymentMethod(method: string): string {
       return "Credit/Debit Card"
     case "link_money":
       return "Pay by Bank"
+    case "centryos":
+      return "CentryOS"
     case "cash":
       return "Cash"
     default:
@@ -24,6 +26,8 @@ export function formatPaymentMethodShort(method: string): string {
       return "Card"
     case "link_money":
       return "Bank"
+    case "centryos":
+      return "CentryOS"
     case "cash":
       return "Cash"
     default:
