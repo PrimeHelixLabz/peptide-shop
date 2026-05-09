@@ -13,9 +13,14 @@ import {
 import type { CentryOSWebhookBody } from "@/lib/centryos/payment-types"
 import {
   logWebhook,
+  logProcessingTrace,
+  notifyProcessingComplete,
   notifyWebhookReceived,
   type CentryOSWebhookLogEntry,
+  type ProcessingLogContext,
+  type ProcessingOutcome,
 } from "@/lib/centryos/webhook-log"
+import { ProcessingTrace } from "@/lib/centryos/processing-trace"
 import { reserveWebhookEvent } from "@/lib/payments/webhook-dedupe"
 
 const PROVIDER = "centryos"
@@ -153,29 +158,76 @@ export async function POST(req: NextRequest) {
 
   // Defer business processing so the webhook ACK isn't blocked on
   // inventory/email work. CentryOS only needs a 200 to stop retrying.
+  // Every step is recorded on a ProcessingTrace so the final outcome
+  // is persisted to centryos_processing_logs and emailed for debugging.
   after(async () => {
+    const trace = new ProcessingTrace()
+    trace.attach("eventType", eventType)
+    trace.attach("status", status)
+    trace.attach("orderId", orderId)
+    trace.attach("paymentLinkId", paymentLinkId)
+    trace.attach("transactionId", transactionId)
+    trace.attach("dedupeKey", dedupeKey)
+
+    let outcome: ProcessingOutcome = "skipped"
+    let reason: string | null = null
+    let topError: string | null = null
+
     try {
       if ((eventType ?? "").toUpperCase() !== "COLLECTION") {
-        // Unknown event types are stored above and ignored here.
-        return
-      }
-      const result = await applyCollectionWebhook(body)
-      if (!result.payment) {
-        console.warn("CentryOS webhook: payment row not found", {
-          orderId,
-          paymentLinkId,
-        })
-        return
-      }
-      if (result.applied && result.payment.orderId) {
-        await syncOrderFromPayment(
-          result.payment.orderId,
-          result.payment.status
-        )
+        trace.step("processing.unsupported_event", true, { eventType })
+        reason = `non-COLLECTION event: ${eventType ?? "null"}`
+      } else {
+        const result = await applyCollectionWebhook(body, trace)
+        if (!result.payment) {
+          reason = result.reason ?? "payment row not found"
+          trace.step("processing.payment_not_found", false, {
+            reason,
+          })
+        } else if (!result.applied) {
+          reason = result.reason ?? "no state change"
+          trace.step("processing.no_change", true, {
+            reason,
+            currentStatus: result.payment.status,
+          })
+        } else {
+          if (result.payment.orderId) {
+            await syncOrderFromPayment(
+              result.payment.orderId,
+              result.payment.status,
+              trace
+            )
+          } else {
+            trace.step("processing.skip_order_sync", true, {
+              reason: "payment row has no order_id",
+            })
+          }
+          outcome = "applied"
+          reason = `payment → ${result.payment.status}`
+        }
       }
     } catch (err) {
+      outcome = "failed"
+      topError = err instanceof Error ? err.message : String(err)
+      trace.step("processing.threw", false, undefined, err)
       console.error("CentryOS webhook: background processing failed", err)
     }
+
+    const ctx: ProcessingLogContext = {
+      eventType,
+      status,
+      orderId,
+      paymentLinkId,
+      transactionId,
+      outcome,
+      reason,
+      error: topError,
+    }
+
+    await Promise.allSettled([
+      logProcessingTrace(trace, ctx),
+      notifyProcessingComplete(trace, ctx),
+    ])
   })
 
   return finish(
@@ -233,7 +285,8 @@ const PAYMENT_TO_ORDER_STATUS: Record<string, string> = {
  */
 async function syncOrderFromPayment(
   orderId: string,
-  status: string
+  status: string,
+  trace?: ProcessingTrace
 ): Promise<void> {
   const supabase = createAdminClient()
 
@@ -243,13 +296,27 @@ async function syncOrderFromPayment(
     .eq("id", orderId)
     .single()
 
-  if (!order) return
+  if (!order) {
+    trace?.step("sync.order_not_found", false, { orderId })
+    return
+  }
+
+  trace?.attach("orderNumber", order.order_number)
+  trace?.step("sync.order_loaded", true, {
+    orderId: order.id,
+    payment_status: order.payment_status,
+    status: order.status,
+  })
 
   if (status === "FAILED" || status === "EXPIRED" || status === "CANCELLED") {
-    if (order.payment_status === "failed") return
+    if (order.payment_status === "failed") {
+      trace?.step("sync.failed_already", true)
+      return
+    }
 
     if (order.payment_status === "paid") {
       await restoreInventoryForOrderAsAdmin(order.id)
+      trace?.step("sync.inventory_restored", true)
     }
 
     await supabase
@@ -260,15 +327,30 @@ async function syncOrderFromPayment(
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id)
+    trace?.step("sync.order_marked_failed", true, {
+      payment_status: "failed",
+      status: "cancelled",
+    })
     return
   }
 
   const nextOrderPaymentStatus = PAYMENT_TO_ORDER_STATUS[status]
-  if (!nextOrderPaymentStatus) return
+  if (!nextOrderPaymentStatus) {
+    trace?.step("sync.unmapped_status", true, { paymentStatus: status })
+    return
+  }
 
   const currentRank = ORDER_PAYMENT_STATUS_RANK[order.payment_status] ?? 0
   const nextRank = ORDER_PAYMENT_STATUS_RANK[nextOrderPaymentStatus] ?? 0
-  if (nextRank <= currentRank) return
+  if (nextRank <= currentRank) {
+    trace?.step("sync.no_advance", true, {
+      from: order.payment_status,
+      to: nextOrderPaymentStatus,
+      currentRank,
+      nextRank,
+    })
+    return
+  }
 
   if (nextOrderPaymentStatus === "paid") {
     const adjustResult = await adjustInventoryForOrderAsAdmin(order.id)
@@ -276,6 +358,7 @@ async function syncOrderFromPayment(
     if (adjustResult.rpcError) {
       // Surface as an exception so CentryOS will redeliver — we never
       // bumped order.payment_status, so reprocessing is safe.
+      trace?.step("sync.inventory_adjust", false, undefined, "rpc failed")
       console.error("CentryOS: inventory rpc failed; will retry", {
         orderId: order.id,
       })
@@ -283,10 +366,15 @@ async function syncOrderFromPayment(
     }
 
     if (!adjustResult.ok) {
+      trace?.step("sync.inventory_short", false, {
+        shortfalls: adjustResult.shortfalls,
+      })
       console.error(
         "CentryOS: PAYMENT TAKEN BUT INVENTORY SHORT — admin action required",
         { orderId: order.id, shortfalls: adjustResult.shortfalls }
       )
+    } else {
+      trace?.step("sync.inventory_adjust", true)
     }
 
     await supabase
@@ -297,10 +385,15 @@ async function syncOrderFromPayment(
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id)
+    trace?.step("sync.order_marked_paid", true, {
+      payment_status: "paid",
+      status: order.status === "pending" ? "processing" : order.status,
+    })
 
     getOrderByIdAsAdmin(order.id)
       .then((full) => full && sendOrderNotificationEmail(full))
       .catch((err) => console.error("notif email failed", err))
+    trace?.step("sync.notification_email_dispatched", true)
 
     return
   }
@@ -314,4 +407,7 @@ async function syncOrderFromPayment(
       updated_at: new Date().toISOString(),
     })
     .eq("id", order.id)
+  trace?.step("sync.order_intermediate_update", true, {
+    payment_status: nextOrderPaymentStatus,
+  })
 }

@@ -10,6 +10,7 @@ import type {
   PaymentRecord,
   PaymentStatus,
 } from "./payment-types"
+import type { ProcessingTrace } from "./processing-trace"
 import type {
   CreatePaymentLinkRequest,
   CreatePaymentLinkResponse,
@@ -326,7 +327,8 @@ export interface ApplyWebhookResult {
  *  - stale status → raw payload still stored, status unchanged
  */
 export async function applyCollectionWebhook(
-  body: CentryOSWebhookBody
+  body: CentryOSWebhookBody,
+  trace?: ProcessingTrace
 ): Promise<ApplyWebhookResult> {
   const orderIdFromMetadata = body?.payload?.metadata?.orderId
   const clientRefFromMetadata =
@@ -335,24 +337,53 @@ export async function applyCollectionWebhook(
   const paymentLinkId = body?.paymentLink?.id ?? null
   const transactionId = body?.payload?.transactionId ?? null
 
+  trace?.step("apply.start", true, {
+    orderIdFromMetadata: orderIdFromMetadata ?? null,
+    clientRefFromMetadata: clientRefFromMetadata ?? null,
+    paymentLinkId,
+    transactionId,
+    rawStatus: body?.status ?? null,
+  })
+
   // Resolve the payment row in priority order:
   //   1. metadata.clientReferenceId (set when we created the link)
   //   2. metadata.orderId (matches our payments.order_id)
   //   3. paymentLink.id (fallback if both are missing)
   let existing: PaymentRecord | null = null
+  let resolvedBy: string | null = null
   if (clientRefFromMetadata) {
     existing = await getPaymentByClientReferenceId(clientRefFromMetadata)
+    if (existing) resolvedBy = "clientReferenceId"
+    trace?.step("apply.lookup.byClientReferenceId", !!existing, {
+      key: clientRefFromMetadata,
+      found: !!existing,
+    })
   }
   if (!existing && orderIdFromMetadata) {
     existing = await getPaymentByOrderId(orderIdFromMetadata)
+    if (existing) resolvedBy = "orderId"
+    trace?.step("apply.lookup.byOrderId", !!existing, {
+      key: orderIdFromMetadata,
+      found: !!existing,
+    })
   }
   if (!existing && paymentLinkId) {
     existing = await getPaymentByPaymentLinkId(paymentLinkId)
+    if (existing) resolvedBy = "paymentLinkId"
+    trace?.step("apply.lookup.byPaymentLinkId", !!existing, {
+      key: paymentLinkId,
+      found: !!existing,
+    })
   }
 
   if (!existing) {
+    trace?.step("apply.payment_not_found", false)
     return { payment: null, applied: false, reason: "payment row not found" }
   }
+
+  trace?.attach("paymentId", existing.id)
+  trace?.attach("paymentOrderId", existing.orderId)
+  trace?.attach("resolvedBy", resolvedBy)
 
   // Idempotency: if this exact transaction has already been applied
   // and we are already SUCCEEDED, we are done.
@@ -361,12 +392,23 @@ export async function applyCollectionWebhook(
     existing.providerTransactionId === transactionId &&
     existing.status === "SUCCEEDED"
   ) {
+    trace?.step("apply.duplicate_transaction", true, {
+      transactionId,
+      currentStatus: existing.status,
+    })
     return { payment: existing, applied: false, reason: "duplicate transaction" }
   }
 
   const nextStatus = mapCollectionStatus(body.status)
   const advance = shouldAdvanceStatus(existing.status, nextStatus)
   const needsTxnId = !existing.providerTransactionId && !!transactionId
+
+  trace?.step("apply.status_transition", true, {
+    from: existing.status,
+    to: nextStatus,
+    advance,
+    needsTxnId,
+  })
 
   const updates: Record<string, unknown> = {
     raw_webhook: body as unknown as Record<string, unknown>,
@@ -383,10 +425,15 @@ export async function applyCollectionWebhook(
     .single()
 
   if (error || !data) {
+    trace?.step("apply.db_update", false, undefined, error?.message)
     throw new Error(
       `CentryOS applyCollectionWebhook failed: ${error?.message ?? "unknown"}`
     )
   }
+
+  trace?.step("apply.db_update", true, {
+    fieldsWritten: Object.keys(updates),
+  })
 
   return {
     payment: rowToRecord(data as PaymentRow),
