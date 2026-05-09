@@ -120,33 +120,37 @@ export const POST = requireAdminMiddleware(async (req) => {
     // Variant phase. If any variant insert fails, hard-delete the product so
     // we never leave behind a variantless (and therefore unbuyable) row.
     try {
-      // Normalize: ensure exactly one default variant.
-      const hasDefault = variants.some((v) => v.isDefault)
-      const normalizedVariants = hasDefault
-        ? variants
-        : variants.map((v, i) => ({ ...v, isDefault: i === 0 }))
+      // Pick exactly one default. The DB has a partial unique index
+      // (idx_product_variants_one_default_per_product) that rejects multiple
+      // is_default=true rows per product, so we must collapse "0 or many
+      // defaults" down to "exactly one" before inserting.
+      const requestedDefault = variants.findIndex((v) => v.isDefault)
+      const chosenDefault = requestedDefault >= 0 ? requestedDefault : 0
 
-      let defaultVariantId: string | null = null
-
-      for (let i = 0; i < normalizedVariants.length; i++) {
-        const v = normalizedVariants[i]
+      // Insert every variant as non-default first, then promote the chosen one.
+      // This avoids any race with the partial unique index even if the loop
+      // were ever parallelized.
+      const createdIds: string[] = []
+      for (let i = 0; i < variants.length; i++) {
+        const v = variants[i]
         const created = await createVariant({
           productId: product.id,
           sku: v.sku,
           price: v.price,
           stock: v.stock,
           inStock: v.stock > 0,
-          isDefault: !!v.isDefault,
+          isDefault: false,
           displayOrder: v.displayOrder ?? i,
         })
-        if (v.isDefault) defaultVariantId = created.id
+        createdIds.push(created.id)
       }
 
-      // setDefaultVariant clears stale defaults and (if no explicit thumbnail)
-      // syncs the product thumbnail from the default variant's primary image.
-      // Images are uploaded by the client after this returns, so the sync is
-      // typically a no-op here — that's fine.
+      const defaultVariantId = createdIds[chosenDefault] ?? null
       if (defaultVariantId) {
+        // setDefaultVariant clears stale defaults and (if no explicit thumbnail)
+        // syncs the product thumbnail from the default variant's primary image.
+        // Images are uploaded by the client after this returns, so the sync is
+        // typically a no-op here — that's fine.
         await setDefaultVariant(product.id, defaultVariantId, { syncThumbnail: true })
       }
 

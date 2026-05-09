@@ -245,25 +245,24 @@ export async function DELETE(
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    // Restore stock that was previously decremented for this order. Only paid
-    // orders had their inventory adjusted; pending Link Money / unpaid orders
-    // never touched stock and must not be restored (would inflate inventory).
-    const inventoryWasAdjusted = order.paymentStatus === "paid"
-    if (inventoryWasAdjusted) {
-      await restoreInventoryForOrderAsAdmin(order.id)
-    }
+    // Always call restore — the RPC is idempotent and uses
+    // orders.inventory_adjusted_at as the source of truth, so it correctly
+    // skips orders that never had inventory adjusted (avoids the prior
+    // payment-status heuristic which wrongly treated customer 'pending'
+    // orders that had been decremented at creation time as not-adjusted).
+    const restoreResult = await restoreInventoryForOrderAsAdmin(order.id)
 
     const deleted = await deleteOrderAsAdmin(order.id)
     if (!deleted) {
-      // If delete fails after we restored, undo the restore so we don't leave
-      // stock inflated relative to what's actually been shipped.
-      if (inventoryWasAdjusted) {
+      // If we just restored stock and the delete failed, re-decrement so we
+      // don't leave inventory inflated relative to physically reserved goods.
+      if (restoreResult.restored) {
         await adjustInventoryForOrderAsAdmin(order.id)
       }
       return NextResponse.json({ error: "Failed to delete order" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, inventoryRestored: inventoryWasAdjusted })
+    return NextResponse.json({ success: true, inventoryRestored: restoreResult.restored })
   } catch (error) {
     if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {
       return NextResponse.json({ error: error.message }, { status: error.message === "Unauthorized" ? 401 : 403 })

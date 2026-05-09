@@ -53,7 +53,7 @@ export const GET = requireAdminMiddleware(async (req) => {
     // -----------------------------------------------------------------------
     const { data: productsData, error: productsError } = await supabase
       .from("products")
-      .select("id, name, in_stock, product_variants(stock)")
+      .select("id, name, product_variants(stock)")
       .or("is_archived.is.null,is_archived.eq.false")
 
     if (productsError) {

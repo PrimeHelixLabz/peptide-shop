@@ -72,7 +72,7 @@ BEGIN
 
   -- Phase 1: lock every variant row first and check availability.
   -- Two passes guarantee that if ANY item is short, we decrement NONE.
-  FOR v_item IN SELECT jsonb_array_elements(v_items) LOOP
+  FOR v_item IN SELECT elem FROM jsonb_array_elements(v_items) AS t(elem) LOOP
     v_variant_id := NULLIF(v_item->>'variantId', '')::UUID;
     v_quantity   := COALESCE((v_item->>'quantity')::INT, 0);
 
@@ -111,7 +111,7 @@ BEGIN
   END IF;
 
   -- Phase 2: decrement (locks held from phase 1 keep this safe).
-  FOR v_item IN SELECT jsonb_array_elements(v_items) LOOP
+  FOR v_item IN SELECT elem FROM jsonb_array_elements(v_items) AS t(elem) LOOP
     v_variant_id := NULLIF(v_item->>'variantId', '')::UUID;
     v_quantity   := COALESCE((v_item->>'quantity')::INT, 0);
 
@@ -164,7 +164,7 @@ BEGIN
     RETURN jsonb_build_object('ok', true, 'no_op', true);
   END IF;
 
-  FOR v_item IN SELECT jsonb_array_elements(v_items) LOOP
+  FOR v_item IN SELECT elem FROM jsonb_array_elements(v_items) AS t(elem) LOOP
     v_variant_id := NULLIF(v_item->>'variantId', '')::UUID;
     v_quantity   := COALESCE((v_item->>'quantity')::INT, 0);
 

@@ -255,24 +255,38 @@ export async function adjustInventoryForOrderAsAdmin(
   return { ok: false, shortfalls }
 }
 
+export interface RestoreInventoryResult {
+  /** true when the RPC call succeeded (regardless of whether work was needed). */
+  ok: boolean
+  /** true only when stock was actually incremented. False for never-adjusted orders. */
+  restored: boolean
+}
+
 /**
  * Restores inventory that was previously decremented for an order.
  * Used when a Link Money payment is reversed (e.g. ACH return) after
  * inventory was already adjusted. Backed by `restore_inventory_for_order`
  * (migration 028) so the increment + claim release happen atomically.
  *
- * No-op if the order's inventory was never adjusted.
+ * No-op if the order's inventory was never adjusted (returns
+ * `{ ok: true, restored: false }`).
  */
-export async function restoreInventoryForOrderAsAdmin(orderId: string): Promise<void> {
+export async function restoreInventoryForOrderAsAdmin(
+  orderId: string
+): Promise<RestoreInventoryResult> {
   const supabase = createAdminClient()
 
-  const { error } = await supabase.rpc("restore_inventory_for_order", {
+  const { data, error } = await supabase.rpc("restore_inventory_for_order", {
     p_order_id: orderId,
   })
 
   if (error) {
     console.error("restoreInventoryForOrderAsAdmin: rpc failed", error, { orderId })
+    return { ok: false, restored: false }
   }
+
+  const result = (data ?? {}) as { ok?: boolean; no_op?: boolean }
+  return { ok: !!result.ok, restored: !!result.ok && !result.no_op }
 }
 
 /**
