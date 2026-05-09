@@ -252,6 +252,17 @@ export async function DELETE(
     // orders that had been decremented at creation time as not-adjusted).
     const restoreResult = await restoreInventoryForOrderAsAdmin(order.id)
 
+    if (!restoreResult.ok) {
+      // The restore RPC itself failed (DB unavailable etc). Don't proceed to
+      // delete — if this order had inventory adjusted, deleting now would
+      // permanently lose stock with no recovery path. Surface the failure
+      // and let the admin retry once the DB recovers.
+      return NextResponse.json(
+        { error: "Could not restore inventory; delete aborted, please retry" },
+        { status: 503 }
+      )
+    }
+
     const deleted = await deleteOrderAsAdmin(order.id)
     if (!deleted) {
       // If we just restored stock and the delete failed, re-decrement so we

@@ -18,7 +18,7 @@ const details = [
     icon: Globe,
     title: "Domestic Coverage",
     description:
-      "We currently ship to all 50 US states. International shipping availability varies by destination and applicable regulations.",
+      "We currently ship to all 50 US states. International shipping is not available at this time.",
   },
 ]
 

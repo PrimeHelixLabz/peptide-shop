@@ -6,7 +6,7 @@ import { Section, Container, PageHeader } from "@/components/layout"
 export const metadata: Metadata = {
   title: "Shipping Policy | PrimeHelix Labz",
   description:
-    "Learn about PrimeHelix Labz shipping policies, delivery times, shipping methods, and international shipping information.",
+    "Learn about PrimeHelix Labz shipping policies, delivery times, and shipping methods for orders within the United States.",
   alternates: {
     canonical: "/shipping-policy",
   },
@@ -71,25 +71,9 @@ export default function ShippingPolicyPage() {
                 </section>
 
                 <section>
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Domestic Shipping</h2>
+                  <h2 className="text-xl font-semibold text-foreground mb-4">Shipping Destinations</h2>
                   <p className="text-muted-foreground">
-                    We ship to all 50 states within the United States via FedEx 2Day. You will receive a tracking number via email once your order ships.
-                  </p>
-                </section>
-
-                <section>
-                  <h2 className="text-xl font-semibold text-foreground mb-4">International Shipping</h2>
-                  <p className="text-muted-foreground mb-4">
-                    We currently offer international shipping to select countries. International orders are subject to:
-                  </p>
-                  <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
-                    <li>Customs clearance procedures, which may cause delays</li>
-                    <li>Import duties and taxes, which are the responsibility of the recipient</li>
-                    <li>Compliance with local laws and regulations</li>
-                    <li>Extended delivery times (typically 7-21 business days)</li>
-                  </ul>
-                  <p className="text-muted-foreground mt-4">
-                    Please note that we are not responsible for any customs delays, duties, or taxes. It is the customer's responsibility to ensure that importing our products is legal in their country.
+                    We ship to all 50 states within the United States via FedEx 2Day. You will receive a tracking number via email once your order ships. We do not offer international shipping at this time and cannot fulfill orders to addresses outside the United States.
                   </p>
                 </section>
 
