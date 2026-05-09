@@ -18,7 +18,6 @@ import type {
   CartItem,
   WishlistItem,
   Order,
-  OrderItem,
   Address,
 } from "./schema"
 
@@ -171,148 +170,108 @@ function productToRow(product: Partial<Product>): any {
   return row
 }
 
+export interface InventoryShortfall {
+  variantId: string
+  requested: number
+  available: number
+  reason: "insufficient_stock" | "variant_not_found"
+}
+
+export interface AdjustInventoryResult {
+  ok: boolean
+  alreadyAdjusted?: boolean
+  shortfalls?: InventoryShortfall[]
+  /**
+   * True only when the RPC itself errored (e.g. database unavailable).
+   * Distinct from `ok: false` which means the RPC ran and reported a shortfall.
+   * Callers should retry on rpcError and roll back on shortfall.
+   */
+  rpcError?: boolean
+}
+
 /**
- * Admin-only helper to decrement inventory for all items in an order.
+ * Admin-only helper to atomically decrement inventory for all items in an order.
  *
- * This is intended to be called from background jobs and webhooks (e.g. Stripe)
- * after a successful payment.
+ * Backed by the `decrement_inventory_for_order` Postgres function (migration 028)
+ * so two concurrent calls cannot oversell, and webhook redeliveries cannot
+ * double-decrement (the function uses orders.inventory_adjusted_at as an
+ * idempotency token claimed atomically per order).
+ *
+ * Callers MUST inspect the return value:
+ *  - `ok: true, alreadyAdjusted: true`  → redelivery; nothing happened, that's fine
+ *  - `ok: true`                         → inventory was decremented
+ *  - `ok: false, shortfalls: [...]`     → at least one item was short; NO stock was
+ *                                          changed; caller should roll back the order
+ *  - `rpcError: true`                   → DB call failed; caller should retry or
+ *                                          surface a transient error to the user
  */
-export async function adjustInventoryForOrderAsAdmin(orderId: string): Promise<void> {
+export async function adjustInventoryForOrderAsAdmin(
+  orderId: string
+): Promise<AdjustInventoryResult> {
   const supabase = createAdminClient()
 
-  // Fetch order items using admin client to bypass RLS
-  const { data: orderRow, error: orderError } = await supabase
-    .from("orders")
-    .select("id, items")
-    .eq("id", orderId)
-    .single()
+  const { data, error } = await supabase.rpc("decrement_inventory_for_order", {
+    p_order_id: orderId,
+  })
 
-  if (orderError || !orderRow) {
-    console.error("adjustInventoryForOrderAsAdmin: failed to load order", orderError, {
-      orderId,
-    })
-    return
+  if (error) {
+    console.error("adjustInventoryForOrderAsAdmin: rpc failed", error, { orderId })
+    return { ok: false, rpcError: true }
   }
 
-  const items: OrderItem[] = orderRow.items || []
-
-  for (const item of items) {
-    try {
-      // If the order item references a specific variant, decrement that variant's stock.
-      if (item.variantId) {
-        const { data: variantRow, error: variantError } = await supabase
-          .from("product_variants")
-          .select("id, stock, in_stock")
-          .eq("id", item.variantId)
-          .single()
-
-        if (variantError || !variantRow) {
-          console.error(
-            "adjustInventoryForOrderAsAdmin: failed to load variant",
-            variantError,
-            { variantId: item.variantId, orderId }
-          )
-          continue
-        }
-
-        const currentStock = (variantRow as any).stock ?? 0
-        const newStock = Math.max(0, currentStock - item.quantity)
-
-        const { error: updateVariantError } = await supabase
-          .from("product_variants")
-          .update({
-            stock: newStock,
-            in_stock: newStock > 0,
-          })
-          .eq("id", item.variantId)
-
-        if (updateVariantError) {
-          console.error(
-            "adjustInventoryForOrderAsAdmin: failed to update variant stock",
-            updateVariantError,
-            { variantId: item.variantId, orderId }
-          )
-        }
-
-        continue
-      }
-
-      // No variant specified – skip product-level stock update.
-      // Stock is now derived exclusively from product_variants.
-    } catch (err) {
-      console.error(
-        "adjustInventoryForOrderAsAdmin: unexpected error adjusting item",
-        err,
-        { orderId, item }
-      )
-    }
+  const result = (data ?? {}) as {
+    ok?: boolean
+    already_adjusted?: boolean
+    shortfalls?: Array<{
+      variantId?: string
+      requested?: number
+      available?: number
+      reason?: string
+    }>
   }
+
+  if (result.ok && result.already_adjusted) {
+    return { ok: true, alreadyAdjusted: true }
+  }
+
+  if (result.ok) {
+    return { ok: true }
+  }
+
+  const shortfalls: InventoryShortfall[] = (result.shortfalls ?? []).map((s) => ({
+    variantId: String(s.variantId ?? ""),
+    requested: Number(s.requested ?? 0),
+    available: Number(s.available ?? 0),
+    reason: (s.reason === "variant_not_found"
+      ? "variant_not_found"
+      : "insufficient_stock") as InventoryShortfall["reason"],
+  }))
+
+  console.warn("adjustInventoryForOrderAsAdmin: inventory shortfall", {
+    orderId,
+    shortfalls,
+  })
+
+  return { ok: false, shortfalls }
 }
 
 /**
  * Restores inventory that was previously decremented for an order.
  * Used when a Link Money payment is reversed (e.g. ACH return) after
- * inventory was already adjusted.
+ * inventory was already adjusted. Backed by `restore_inventory_for_order`
+ * (migration 028) so the increment + claim release happen atomically.
+ *
+ * No-op if the order's inventory was never adjusted.
  */
 export async function restoreInventoryForOrderAsAdmin(orderId: string): Promise<void> {
   const supabase = createAdminClient()
 
-  const { data: orderRow, error: orderError } = await supabase
-    .from("orders")
-    .select("id, items")
-    .eq("id", orderId)
-    .single()
+  const { error } = await supabase.rpc("restore_inventory_for_order", {
+    p_order_id: orderId,
+  })
 
-  if (orderError || !orderRow) {
-    console.error("restoreInventoryForOrderAsAdmin: failed to load order", orderError, {
-      orderId,
-    })
-    return
-  }
-
-  const items: OrderItem[] = orderRow.items || []
-
-  for (const item of items) {
-    try {
-      if (item.variantId) {
-        const { data: variantRow, error: variantError } = await supabase
-          .from("product_variants")
-          .select("id, stock")
-          .eq("id", item.variantId)
-          .single()
-
-        if (variantError || !variantRow) {
-          console.error(
-            "restoreInventoryForOrderAsAdmin: failed to load variant",
-            variantError,
-            { variantId: item.variantId, orderId }
-          )
-          continue
-        }
-
-        const currentStock = (variantRow as any).stock ?? 0
-        const newStock = currentStock + item.quantity
-
-        const { error: updateError } = await supabase
-          .from("product_variants")
-          .update({ stock: newStock, in_stock: true })
-          .eq("id", item.variantId)
-
-        if (updateError) {
-          console.error(
-            "restoreInventoryForOrderAsAdmin: failed to update variant stock",
-            updateError,
-            { variantId: item.variantId, orderId }
-          )
-        }
-      }
-    } catch (err) {
-      console.error(
-        "restoreInventoryForOrderAsAdmin: unexpected error restoring item",
-        err,
-        { orderId, item }
-      )
-    }
+  if (error) {
+    console.error("restoreInventoryForOrderAsAdmin: rpc failed", error, { orderId })
   }
 }
 

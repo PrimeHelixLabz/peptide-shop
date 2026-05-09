@@ -177,7 +177,36 @@ export async function PUT(
     }
 
     if (willTransitionToPaid) {
-      await adjustInventoryForOrderAsAdmin(updatedOrder.id)
+      const adjustResult = await adjustInventoryForOrderAsAdmin(updatedOrder.id)
+
+      if (adjustResult.rpcError || !adjustResult.ok) {
+        // Roll back ONLY the fields the admin actually submitted, restoring
+        // each to its pre-update value. Avoids accidentally clobbering fields
+        // that are unrelated to the inventory adjustment.
+        const rollback: Parameters<typeof updateOrder>[1] = {}
+        if (data.paymentStatus !== undefined) rollback.paymentStatus = order.paymentStatus
+        if (data.status !== undefined) rollback.status = order.status
+        if (data.trackingNumber !== undefined) rollback.trackingNumber = order.trackingNumber
+        if (data.paymentMethod !== undefined) rollback.paymentMethod = order.paymentMethod
+        await updateOrder(order.id, rollback)
+
+        if (adjustResult.rpcError) {
+          return NextResponse.json(
+            { error: "Inventory service unavailable, please retry" },
+            { status: 503 }
+          )
+        }
+
+        return NextResponse.json(
+          {
+            error: "Insufficient stock",
+            message:
+              "Stock dropped between the pre-flight check and the decrement (likely a concurrent order). Restock the affected variants and try again.",
+            shortfalls: adjustResult.shortfalls,
+          },
+          { status: 409 }
+        )
+      }
     }
 
     return NextResponse.json({ order: updatedOrder })

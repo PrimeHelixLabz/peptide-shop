@@ -8,6 +8,7 @@ import {
   createOrderAsAdmin,
   adjustInventoryForOrderAsAdmin,
   checkStockAvailability,
+  deleteOrderAsAdmin,
 } from "@/lib/db/supabase"
 import { getShippingCost } from "@/lib/order-constants"
 import type { Order, OrderItem } from "@/lib/db/schema"
@@ -244,9 +245,30 @@ export const POST = requireAdminMiddleware(async (req) => {
 
     const createdOrder = await createOrderAsAdmin(orderInput)
 
-    // Deduct stock now that the order exists. checkStockAvailability already
-    // ran above so this should succeed; the function clamps at 0 defensively.
-    await adjustInventoryForOrderAsAdmin(createdOrder.id)
+    // Atomic deduct. The pre-flight check above is best-effort; another order
+    // could have decremented stock in the gap, so the RPC is the real gate.
+    const adjustResult = await adjustInventoryForOrderAsAdmin(createdOrder.id)
+
+    if (adjustResult.rpcError || !adjustResult.ok) {
+      await deleteOrderAsAdmin(createdOrder.id)
+
+      if (adjustResult.rpcError) {
+        return NextResponse.json(
+          { error: "Inventory service unavailable, please retry" },
+          { status: 503 }
+        )
+      }
+
+      return NextResponse.json(
+        {
+          error: "Insufficient stock",
+          message:
+            "Stock changed between the pre-flight check and the decrement. Adjust quantities or restock and try again.",
+          shortfalls: adjustResult.shortfalls,
+        },
+        { status: 409 }
+      )
+    }
 
     sendOrderNotificationEmail(createdOrder).catch((err) =>
       console.error("Failed to send admin cash order notification:", err)

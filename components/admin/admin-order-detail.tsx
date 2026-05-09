@@ -319,6 +319,16 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                     <p className="text-sm font-medium text-foreground">
                       {item.productName}
                     </p>
+                    {item.variantName &&
+                    !item.productName.includes(`(${item.variantName})`) ? (
+                      // Show variant on its own line for older orders whose
+                      // productName doesn't already include "(SKU)" — e.g.
+                      // backfilled rows from migration 029.
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Variant:{" "}
+                        <span className="text-foreground">{item.variantName}</span>
+                      </p>
+                    ) : null}
                     <p className="text-xs text-muted-foreground">
                       Qty: {item.quantity}
                     </p>

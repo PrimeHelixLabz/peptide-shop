@@ -8,21 +8,21 @@ import { useAuth } from "@/lib/auth/auth-context"
 export interface CartItem {
   product: Product
   quantity: number
-  variantId?: string
+  variantId: string
 }
 
 // Simplified cart item for localStorage (without full product data)
 interface LocalCartItem {
   productId: string
   quantity: number
-  variantId?: string
+  variantId: string
 }
 
 interface CartContextValue {
   items: CartItem[]
-  addItem: (product: Product, quantity?: number, variantId?: string) => void
-  removeItem: (productId: string, variantId?: string) => void
-  updateQuantity: (productId: string, quantity: number, variantId?: string) => void
+  addItem: (product: Product, quantity: number, variantId: string) => void
+  removeItem: (productId: string, variantId: string) => void
+  updateQuantity: (productId: string, quantity: number, variantId: string) => void
   clearCart: () => void
   totalItems: number
   subtotal: number
@@ -46,24 +46,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Check if we're on an admin page
   const isAdminPage = pathname?.startsWith("/admin") ?? false
 
-  // Get cart from localStorage
+  // Get cart from localStorage. Drops any legacy entries that pre-date the
+  // variantId requirement — they would fail server-side validation anyway.
   const getLocalCart = useCallback((): LocalCartItem[] => {
     if (typeof window === "undefined") return []
-    
+
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY)
       if (!stored) return []
-      
+
       const data = JSON.parse(stored)
-      // Support versioning for future migrations
-      if (data.version === CART_VERSION && Array.isArray(data.items)) {
-        return data.items
-      }
-      // Legacy format (array directly)
-      if (Array.isArray(data)) {
-        return data
-      }
-      return []
+      const raw: unknown[] =
+        data.version === CART_VERSION && Array.isArray(data.items)
+          ? data.items
+          : Array.isArray(data)
+            ? data
+            : []
+
+      return raw.filter(
+        (it): it is LocalCartItem =>
+          !!it &&
+          typeof it === "object" &&
+          typeof (it as LocalCartItem).productId === "string" &&
+          typeof (it as LocalCartItem).variantId === "string" &&
+          typeof (it as LocalCartItem).quantity === "number"
+      )
     } catch (error) {
       console.error("Error reading cart from localStorage:", error)
       return []
@@ -114,14 +121,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       
       // Filter out failed fetches and build cart items
       const validResults = results.filter((result): result is { item: LocalCartItem; product: Product } => result !== null)
-      
+
       // Update localStorage to remove invalid products
       const validVariantKeys = new Set(
-        validResults.map(r => `${r.item.productId}-${r.item.variantId || 'none'}`)
+        validResults.map(r => `${r.item.productId}-${r.item.variantId}`)
       )
-      
+
       const cleanedLocalItems = localItems.filter(item => {
-        const key = `${item.productId}-${item.variantId || 'none'}`
+        const key = `${item.productId}-${item.variantId}`
         return validVariantKeys.has(key)
       })
       
@@ -172,18 +179,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [isAdminPage, loadLocalCart, user, authLoading])
 
   const addItem = useCallback(
-    (product: Product, quantity = 1, variantId?: string) => {
-      // Determine max quantity from the specific variant's stock
-      const variant = variantId && product.variants
-        ? product.variants.find(v => v.id === variantId)
-        : null
-      const maxQuantity = variant?.stock ?? 10
+    (product: Product, quantity: number, variantId: string) => {
+      const variant = product.variants?.find(v => v.id === variantId)
+      const maxQuantity = variant?.stock ?? 0
+      if (maxQuantity <= 0) return
 
       // Use ref as source of truth to prevent race conditions
       const localItems = localCartRef.current
-      const key = `${product.id}-${variantId || 'none'}`
+      const key = `${product.id}-${variantId}`
       const existingIndex = localItems.findIndex(
-        item => `${item.productId}-${item.variantId || 'none'}` === key
+        item => `${item.productId}-${item.variantId}` === key
       )
 
       let updatedItems: LocalCartItem[]
@@ -223,10 +228,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   )
 
   const removeItem = useCallback(
-    (productId: string, variantId?: string) => {
-      const key = `${productId}-${variantId || 'none'}`
+    (productId: string, variantId: string) => {
+      const key = `${productId}-${variantId}`
       const updatedItems = localCartRef.current.filter(
-        item => `${item.productId}-${item.variantId || 'none'}` !== key
+        item => `${item.productId}-${item.variantId}` !== key
       )
 
       localCartRef.current = updatedItems
@@ -243,7 +248,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   )
 
   const updateQuantity = useCallback(
-    (productId: string, quantity: number, variantId?: string) => {
+    (productId: string, quantity: number, variantId: string) => {
       if (quantity < 1) {
         removeItem(productId, variantId)
         return
@@ -253,16 +258,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const cartItem = items.find(
         i => i.product.id === productId && i.variantId === variantId
       )
-      const variant = variantId && cartItem?.product.variants
-        ? cartItem.product.variants.find(v => v.id === variantId)
-        : null
-      const maxQuantity = variant?.stock ?? 10
+      const variant = cartItem?.product.variants?.find(v => v.id === variantId)
+      const maxQuantity = variant?.stock ?? 0
 
       const clampedQuantity = Math.min(quantity, maxQuantity)
 
-      const key = `${productId}-${variantId || 'none'}`
+      const key = `${productId}-${variantId}`
       const updatedItems = localCartRef.current.map((item) =>
-        `${item.productId}-${item.variantId || 'none'}` === key
+        `${item.productId}-${item.variantId}` === key
           ? { ...item, quantity: clampedQuantity }
           : item
       )
@@ -294,10 +297,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => {
-      const variant = item.variantId && item.product.variants
-        ? item.product.variants.find(v => v.id === item.variantId)
-        : null
-      const price = variant?.price || item.product.price
+      const variant = item.product.variants?.find(v => v.id === item.variantId)
+      const price = variant?.price ?? 0
       return sum + price * item.quantity
     }, 0),
     [items]

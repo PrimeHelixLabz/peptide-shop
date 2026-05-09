@@ -51,11 +51,25 @@ export const POST = async (req: NextRequest) => {
 
           const checkoutData = pendingCheckout.checkout_data
 
-          // Idempotency check: if order with this orderNumber already exists, skip creation
+          // Idempotency check: if order with this orderNumber already exists,
+          // skip creation but still ensure inventory was adjusted. The adjust
+          // RPC is idempotent (orders.inventory_adjusted_at), so this is safe
+          // and recovers from a prior delivery that created the order but
+          // failed before the inventory step.
           const existingOrder = await getOrderByNumber(checkoutData.orderNumber)
           if (existingOrder) {
-            console.warn("Webhook: order already exists, skipping duplicate", checkoutData.orderNumber)
-            // Clean up pending checkout since order was already created
+            console.warn("Webhook: order already exists, skipping creation", checkoutData.orderNumber)
+            const adjustResult = await adjustInventoryForOrderAsAdmin(existingOrder.id)
+            if (adjustResult.rpcError) {
+              // Don't clean up pending checkout — let Stripe retry the whole event.
+              throw new Error("inventory rpc failed on retry")
+            }
+            if (!adjustResult.ok) {
+              console.error(
+                "Webhook (retry): order existed but inventory short — admin action required",
+                { orderId: existingOrder.id, shortfalls: adjustResult.shortfalls }
+              )
+            }
             await deletePendingCheckoutAsAdmin(pendingCheckoutId)
             break
           }
@@ -86,15 +100,35 @@ export const POST = async (req: NextRequest) => {
               paymentMethod: "stripe",
               notes: checkoutData.notes,
             })
-
-            // Decrement inventory for all items in the paid order
-            await adjustInventoryForOrderAsAdmin(createdOrder.id)
           } catch (orderError) {
-            // If order creation or inventory adjustment fails, clean up pending checkout
-            // so Stripe retry doesn't leave it in limbo
-            console.error("Webhook: failed to create order or adjust inventory", orderError)
+            // Order creation itself failed — clean up pending checkout so the
+            // retry path runs from scratch instead of leaving it in limbo.
+            console.error("Webhook: failed to create order", orderError)
             await deletePendingCheckoutAsAdmin(pendingCheckoutId)
             throw orderError
+          }
+
+          // Inventory adjust is idempotent (claims orders.inventory_adjusted_at)
+          // so a Stripe redelivery cannot double-decrement.
+          const adjustResult = await adjustInventoryForOrderAsAdmin(createdOrder.id)
+
+          if (adjustResult.rpcError) {
+            // Transient DB problem — let Stripe retry by 5xx-ing.
+            console.error(
+              "Webhook: inventory RPC failed; will retry via Stripe redelivery",
+              { orderId: createdOrder.id }
+            )
+            throw new Error("inventory rpc failed")
+          }
+
+          if (!adjustResult.ok) {
+            // Stock was insufficient AFTER payment succeeded. We do NOT throw —
+            // a Stripe retry will not fix this. Order stays paid; admin must
+            // intervene (issue refund, restock, or cancel).
+            console.error(
+              "Webhook: PAYMENT TAKEN BUT INVENTORY SHORT — admin action required",
+              { orderId: createdOrder.id, shortfalls: adjustResult.shortfalls }
+            )
           }
 
           // Send order notification email to support (non-blocking)

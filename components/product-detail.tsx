@@ -130,15 +130,13 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
       router.push(`/signin?redirect=/shop/${product.slug}`)
       return
     }
-    // Create a product object with variant info for cart
+    if (!selectedVariant) return
     const productToAdd = {
       ...product,
       price: displayPrice,
       inStock: displayInStock,
-      variantId: selectedVariant?.id,
-      variantName: selectedVariant?.name,
     }
-    addItem(productToAdd, quantity, selectedVariant?.id)
+    addItem(productToAdd, quantity, selectedVariant.id)
     setAdded(true)
     setTimeout(() => setAdded(false), 2500)
   }

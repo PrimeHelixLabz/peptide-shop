@@ -11,7 +11,7 @@ const createStripeCheckoutSchema = z.object({
     z.object({
       productId: z.string(),
       quantity: z.number().min(1),
-      variantId: z.string().uuid().optional(),
+      variantId: z.string().uuid(),
     })
   ),
   shippingAddress: z.object({
@@ -69,36 +69,26 @@ export const POST = requireAuthMiddleware(
           )
         }
 
-        let variant = null as any
-        let displayPrice = product.price
-        let displayImage = product.images?.[0] || product.image
-        let displayName = product.name
-        let inStock = product.inStock
-        let stockQuantity = product.stockQuantity
-        let stripePriceId: string | undefined
-
-        if (cartItem.variantId) {
-          variant = await getVariantById(cartItem.variantId)
-          if (!variant) {
-            return NextResponse.json(
-              { error: `Variant ${cartItem.variantId} not found` },
-              { status: 400 }
-            )
-          }
-          if (variant.productId !== product.id) {
-            return NextResponse.json(
-              { error: `Variant does not belong to product ${product.name}` },
-              { status: 400 }
-            )
-          }
-          displayPrice = variant.price
-          displayName = `${product.name} (${variant.sku})`
-          inStock = variant.inStock
-          stockQuantity = variant.stock
-          stripePriceId = variant.stripePriceId
+        const variant = await getVariantById(cartItem.variantId)
+        if (!variant) {
+          return NextResponse.json(
+            { error: `Variant ${cartItem.variantId} not found` },
+            { status: 400 }
+          )
+        }
+        if (variant.productId !== product.id) {
+          return NextResponse.json(
+            { error: `Variant does not belong to product ${product.name}` },
+            { status: 400 }
+          )
         }
 
-        if (!inStock || stockQuantity < cartItem.quantity) {
+        const displayPrice = variant.price
+        const displayName = `${product.name} (${variant.sku})`
+        const displayImage = product.images?.[0] || product.image
+        const stripePriceId = variant.stripePriceId
+
+        if (!variant.inStock || variant.stock < cartItem.quantity) {
           return NextResponse.json(
             { error: `${displayName} is out of stock` },
             { status: 400 }
@@ -114,8 +104,8 @@ export const POST = requireAuthMiddleware(
           productImage: displayImage,
           price: displayPrice,
           quantity: cartItem.quantity,
-          variantId: variant?.id,
-          variantName: variant?.sku,
+          variantId: variant.id,
+          variantName: variant.sku,
           specifications: product.specifications,
         })
 

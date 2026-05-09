@@ -833,7 +833,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
 
       // Normalize default variant (exactly one)
       const defaultCount = form.variants.filter((v) => !!v.isDefault).length
-      const variantsNormalized =
+      let variantsNormalized: ProductVariantFormData[] =
         defaultCount === 1
           ? form.variants
           : form.variants.map((v, i) => ({ ...v, isDefault: i === 0 }))
@@ -870,6 +870,19 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
       // isActive flag is persisted via the form.
       const defaultVariant = variantsNormalized.find((v) => v.isDefault) || variantsNormalized[0]
 
+      // For new products, bundle variants into the create call so the
+      // product+variants insert is atomic on the server. For edits, the
+      // existing two-phase flow below handles per-variant updates.
+      const variantsForCreate = !productId
+        ? variantsNormalized.map((v, i) => ({
+            sku: v.sku,
+            price: parseFloat(v.price),
+            stock: parseInt(v.stock) || 0,
+            isDefault: !!v.isDefault,
+            displayOrder: i,
+          }))
+        : undefined
+
       const productData = {
         name: form.name,
         price: defaultVariant ? parseFloat(defaultVariant.price) : 0, // Backward compatibility
@@ -884,6 +897,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         specifications: Object.keys(specifications).length > 0 ? specifications : undefined,
         usage: form.usage || undefined,
         shipping: form.shipping || undefined,
+        ...(variantsForCreate ? { variants: variantsForCreate } : {}),
       }
 
       const url = productId ? `/api/products/${productId}` : "/api/products"
@@ -900,6 +914,21 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         const savedProductId = result.product?.id || productId
         if (!savedProductId) {
           throw new Error("Failed to determine saved product id")
+        }
+
+        // For new products, the server already created variants atomically as
+        // part of POST /api/products. Match the returned IDs back into our
+        // form state by SKU so the variant-save loop below treats them as
+        // existing (PUT) rather than re-creating duplicates.
+        if (!productId && Array.isArray(result.product?.variants)) {
+          const idBySku = new Map<string, string>()
+          for (const v of result.product.variants) {
+            if (v?.sku && v?.id) idBySku.set(String(v.sku), String(v.id))
+          }
+          variantsNormalized = variantsNormalized.map((v) => ({
+            ...v,
+            id: v.id || idBySku.get(v.sku),
+          }))
         }
 
         // If we created the product and initially uploaded the thumbnail to temp/,

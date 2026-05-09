@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
-import { getOrders, createOrder, adjustInventoryForOrderAsAdmin } from "@/lib/db/supabase"
+import {
+  getOrders,
+  createOrder,
+  adjustInventoryForOrderAsAdmin,
+  deleteOrderAsAdmin,
+} from "@/lib/db/supabase"
 import { getCartItems, clearCart } from "@/lib/db/supabase"
 import { getProductById, getVariantById } from "@/lib/db/supabase"
 import { z } from "zod"
@@ -11,7 +16,10 @@ const createOrderSchema = z.object({
   cartItems: z.array(z.object({
     productId: z.string(),
     quantity: z.number().min(1),
-    variantId: z.string().uuid().optional(),
+    // variantId is required: every product must have at least one variant
+    // (enforced by migration 026 + admin form), and inventory adjustment
+    // depends on variantId to know which row to decrement.
+    variantId: z.string().uuid(),
   })),
   shippingAddress: z.object({
     street: z.string().min(1),
@@ -76,36 +84,25 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
         )
       }
 
-      // Handle variant if provided
-      let variant = null
-      let displayPrice = product.price
-      let displayImage = product.images?.[0] || product.image
-      let displayName = product.name
-      let inStock = product.inStock
-      let stockQuantity = product.stockQuantity
-
-      if (cartItem.variantId) {
-        variant = await getVariantById(cartItem.variantId)
-        if (!variant) {
-          return NextResponse.json(
-            { error: `Variant ${cartItem.variantId} not found` },
-            { status: 400 }
-          )
-        }
-        if (variant.productId !== product.id) {
-          return NextResponse.json(
-            { error: `Variant does not belong to product ${product.name}` },
-            { status: 400 }
-          )
-        }
-        displayPrice = variant.price
-        displayImage = variant.images?.[0] || variant.image || displayImage
-        displayName = `${product.name} (${variant.sku})`
-        inStock = variant.inStock
-        stockQuantity = variant.stock
+      const variant = await getVariantById(cartItem.variantId)
+      if (!variant) {
+        return NextResponse.json(
+          { error: `Variant ${cartItem.variantId} not found` },
+          { status: 400 }
+        )
+      }
+      if (variant.productId !== product.id) {
+        return NextResponse.json(
+          { error: `Variant does not belong to product ${product.name}` },
+          { status: 400 }
+        )
       }
 
-      if (!inStock || stockQuantity < cartItem.quantity) {
+      const displayPrice = variant.price
+      const displayImage = variant.images?.[0] || variant.image || product.images?.[0] || product.image
+      const displayName = `${product.name} (${variant.sku})`
+
+      if (!variant.inStock || variant.stock < cartItem.quantity) {
         return NextResponse.json(
           { error: `${displayName} is out of stock` },
           { status: 400 }
@@ -121,8 +118,8 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
         productImage: displayImage,
         price: displayPrice,
         quantity: cartItem.quantity,
-        variantId: variant?.id,
-        variantName: variant?.sku,
+        variantId: variant.id,
+        variantName: variant.sku,
         specifications: product.specifications,
       })
     }
@@ -159,8 +156,30 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
 
     const createdOrder = await createOrder(order)
 
-    // Decrement inventory for all items in the order
-    await adjustInventoryForOrderAsAdmin(createdOrder.id)
+    // Atomically decrement inventory. If a concurrent order beat us to the
+    // last units, the function returns a shortfall and leaves stock untouched
+    // — we then delete the order we just created so the customer isn't
+    // charged for unavailable stock and inventory stays consistent.
+    const adjustResult = await adjustInventoryForOrderAsAdmin(createdOrder.id)
+
+    if (adjustResult.rpcError) {
+      await deleteOrderAsAdmin(createdOrder.id)
+      return NextResponse.json(
+        { error: "Could not reserve inventory, please try again" },
+        { status: 503 }
+      )
+    }
+
+    if (!adjustResult.ok) {
+      await deleteOrderAsAdmin(createdOrder.id)
+      return NextResponse.json(
+        {
+          error: "Some items are no longer in stock",
+          shortfalls: adjustResult.shortfalls,
+        },
+        { status: 409 }
+      )
+    }
 
     // Clear cart if authenticated
     if (req.user) {

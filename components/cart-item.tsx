@@ -9,26 +9,16 @@ import { getProductImageUrl } from "@/lib/storage/image-utils"
 export function CartItemRow({ item }: { item: CartItem }) {
   const { updateQuantity, removeItem } = useCart()
   const { product, quantity, variantId } = item
-  
-  // Get variant info if variantId exists
-  const variant = variantId && product.variants
-    ? product.variants.find(v => v.id === variantId)
-    : null
-  
-  // Use variant image if available, otherwise product image
+
+  const variant = product.variants?.find(v => v.id === variantId)
+
   const displayImage = variant?.image || variant?.images?.[0] || product.image
   const displayImages = variant?.images || product.images
-  
-  // Use variant price if available, otherwise product price
-  const displayPrice = variant?.price || product.price
-  
-  // Display name with variant
+  const displayPrice = variant?.price ?? 0
   const displayName = variant
     ? `${product.name} (${variant.sku})`
     : product.name
-
-  // Max quantity based on variant stock
-  const maxQuantity = variant?.stock ?? 10
+  const maxQuantity = variant?.stock ?? 0
 
   return (
     <div className="flex gap-5 rounded-3xl bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 sm:gap-6">

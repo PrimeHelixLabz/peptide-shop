@@ -14,18 +14,10 @@ import {
   notifyWebhookReceived,
   type WebhookLogEntry,
 } from "@/lib/link-money/webhook-log"
+import { reserveWebhookEvent } from "@/lib/payments/webhook-dedupe"
 
 const MAX_TIMESTAMP_SKEW_MS = 5 * 60 * 1000
-const processedUniqueIds = new Set<string>()
-const PROCESSED_IDS_MAX = 5000
-
-function rememberUniqueId(uniqueId: string): void {
-  if (processedUniqueIds.size >= PROCESSED_IDS_MAX) {
-    const oldest = processedUniqueIds.values().next().value
-    if (oldest) processedUniqueIds.delete(oldest)
-  }
-  processedUniqueIds.add(uniqueId)
-}
+const PROVIDER = "link_money"
 
 function verifySignature(params: {
   secret: string
@@ -123,7 +115,8 @@ export async function POST(req: NextRequest) {
     return finish(401, "invalid signature", { error: "Invalid signature" })
   }
 
-  if (processedUniqueIds.has(uniqueId)) {
+  const reservation = await reserveWebhookEvent(PROVIDER, uniqueId)
+  if (reservation === "duplicate") {
     return finish(
       200,
       null,
@@ -131,7 +124,16 @@ export async function POST(req: NextRequest) {
       { signatureValid: true }
     )
   }
-  rememberUniqueId(uniqueId)
+  if (reservation === "error") {
+    // Returning 5xx tells Link Money to retry — preferable to silently
+    // dropping the event when the dedupe layer is unavailable.
+    return finish(
+      503,
+      "dedupe store unavailable",
+      { error: "Dedupe store unavailable, please retry" },
+      { signatureValid: true }
+    )
+  }
 
   let body: LinkMoneyWebhookBody
   try {
@@ -275,7 +277,29 @@ async function syncOrderFromPayment(
   if (nextRank <= currentRank) return
 
   if (nextOrderPaymentStatus === "paid") {
-    await adjustInventoryForOrderAsAdmin(order.id)
+    // Idempotent atomic decrement. A redelivered webhook will see
+    // already_adjusted=true and become a no-op.
+    const adjustResult = await adjustInventoryForOrderAsAdmin(order.id)
+
+    if (adjustResult.rpcError) {
+      // Surface as an exception so the outer background handler logs it.
+      // Link Money will redeliver the event because we never bumped status.
+      console.error("Link Money: inventory rpc failed; will retry", {
+        orderId: order.id,
+      })
+      throw new Error("inventory rpc failed")
+    }
+
+    if (!adjustResult.ok) {
+      // Payment succeeded but stock was insufficient. Do NOT block the
+      // payment_status update — admin needs to intervene (refund/restock),
+      // and leaving the order stuck in "processing" forever is worse than
+      // marking it paid with a loud log.
+      console.error(
+        "Link Money: PAYMENT TAKEN BUT INVENTORY SHORT — admin action required",
+        { orderId: order.id, shortfalls: adjustResult.shortfalls }
+      )
+    }
 
     await supabase
       .from("orders")

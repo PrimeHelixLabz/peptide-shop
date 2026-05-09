@@ -50,7 +50,13 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault()
     e.stopPropagation()
     if (!user) { router.push(`/signin?redirect=/shop/${product.slug}`); return }
-    addItem(product, 1)
+    // Multi-variant products require a deliberate selection — send the user
+    // to the detail page rather than guessing.
+    if (!product.variants || product.variants.length !== 1) {
+      router.push(`/shop/${product.slug}`)
+      return
+    }
+    addItem(product, 1, product.variants[0].id)
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
   }

@@ -46,13 +46,14 @@ export const GET = requireAdminMiddleware(async (req) => {
     }
 
     // -----------------------------------------------------------------------
-    // 2. Fetch all non-archived products with stock info
-    //    stock_quantity lives on the products table; variants have their own
-    //    stock but the products.stock_quantity is the aggregated total.
+    // 2. Fetch all non-archived products with their variants
+    //    Variant stock is the source of truth — products.stock_quantity is a
+    //    legacy column not maintained by the order flow, so summing variants
+    //    is the only way to get accurate per-product inventory.
     // -----------------------------------------------------------------------
     const { data: productsData, error: productsError } = await supabase
       .from("products")
-      .select("id, name, stock_quantity, in_stock")
+      .select("id, name, in_stock, product_variants(stock)")
       .or("is_archived.is.null,is_archived.eq.false")
 
     if (productsError) {
@@ -63,7 +64,19 @@ export const GET = requireAdminMiddleware(async (req) => {
       )
     }
 
-    const products = productsData || []
+    const products = (productsData || []).map((p: any) => {
+      const variants = Array.isArray(p.product_variants) ? p.product_variants : []
+      const stockQuantity = variants.reduce(
+        (sum: number, v: any) => sum + (Number(v?.stock) || 0),
+        0
+      )
+      return {
+        id: p.id as string,
+        name: p.name as string,
+        stockQuantity,
+      }
+    })
+
     const orders = (ordersData || []).map((o: any) => ({
       id: o.id as string,
       createdAt: o.created_at as string,
@@ -82,7 +95,7 @@ export const GET = requireAdminMiddleware(async (req) => {
 
     for (const p of products) {
       productNames[p.id] = p.name
-      stockByProduct[p.id] = p.stock_quantity ?? 0
+      stockByProduct[p.id] = p.stockQuantity
     }
 
     // -----------------------------------------------------------------------
@@ -112,9 +125,9 @@ export const GET = requireAdminMiddleware(async (req) => {
     const demandTrend = buildDemandTrendSeries(orders)
 
     const stockOverview = buildStockOverviewSeries(
-      products.map((p: any) => ({
+      products.map((p) => ({
         name: p.name,
-        stockQuantity: p.stock_quantity ?? 0,
+        stockQuantity: p.stockQuantity,
       }))
     )
 
