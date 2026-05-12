@@ -15,6 +15,7 @@ import {
   createPayment,
   setSessionKey,
 } from "@/lib/link-money/payment-service"
+import { sendCustomerOrderPlacedEmail } from "@/lib/email"
 
 const sessionRequestSchema = z.object({
   cartItems: z.array(
@@ -123,7 +124,7 @@ export const POST = requireAuthMiddleware(
 
       // ── Create order row first so the payments FK (order_id) resolves. ──
       const orderId = crypto.randomUUID()
-      await createLinkMoneyOrderAsAdmin({
+      const createdOrder = await createLinkMoneyOrderAsAdmin({
         id: orderId,
         userId,
         email: shippingAddress.email,
@@ -238,6 +239,13 @@ export const POST = requireAuthMiddleware(
         orderNumber,
         "- orderId:",
         orderId
+      )
+
+      // Notify the customer that we've received the order and payment is
+      // processing. Payment can take a few business days to clear via
+      // Link.money, and silence in that window triggers chargebacks.
+      sendCustomerOrderPlacedEmail(createdOrder).catch((err) =>
+        console.error("Failed to send customer order-placed email:", err)
       )
 
       return NextResponse.json(

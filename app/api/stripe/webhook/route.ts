@@ -8,7 +8,10 @@ import {
   deletePendingCheckoutAsAdmin,
   getOrderByNumber,
 } from "@/lib/db/supabase"
-import { sendOrderNotificationEmail } from "@/lib/email"
+import {
+  sendOrderNotificationEmail,
+  sendCustomerOrderConfirmedEmail,
+} from "@/lib/email"
 
 export const POST = async (req: NextRequest) => {
   const sig = req.headers.get("stripe-signature")
@@ -134,6 +137,9 @@ export const POST = async (req: NextRequest) => {
           // Send order notification email to support (non-blocking)
           sendOrderNotificationEmail(createdOrder).catch((err) =>
             console.error("Failed to send order notification:", err)
+          )
+          sendCustomerOrderConfirmedEmail(createdOrder).catch((err) =>
+            console.error("Failed to send customer paid-confirmation email:", err)
           )
 
           // Clean up the pending checkout

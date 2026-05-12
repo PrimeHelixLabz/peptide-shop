@@ -6,7 +6,10 @@ import {
   restoreInventoryForOrderAsAdmin,
   getOrderByIdAsAdmin,
 } from "@/lib/db/supabase"
-import { sendOrderNotificationEmail } from "@/lib/email"
+import {
+  sendOrderNotificationEmail,
+  sendCustomerOrderConfirmedEmail,
+} from "@/lib/email"
 import { applyWebhook } from "@/lib/link-money/payment-service"
 import type { LinkMoneyWebhookBody } from "@/lib/link-money/payment-types"
 import {
@@ -241,21 +244,20 @@ async function syncOrderFromPayment(
   orderId: string,
   status: string
 ): Promise<void> {
+  // Load the FULL order once, up front. Earlier versions did a 4-field SELECT
+  // here and re-fetched the full row after the UPDATE to feed the email
+  // dispatch — any transient read failure on the re-fetch silently dropped
+  // the notification email. We now use the in-memory copy throughout.
+  const fullOrder = await getOrderByIdAsAdmin(orderId)
+  if (!fullOrder) return
+
   const supabase = createAdminClient()
 
-  const { data: order } = await supabase
-    .from("orders")
-    .select("id, payment_status, status, order_number")
-    .eq("id", orderId)
-    .single()
-
-  if (!order) return
-
   if (status === "FAILED") {
-    if (order.payment_status === "failed") return
+    if (fullOrder.paymentStatus === "failed") return
 
-    if (order.payment_status === "paid") {
-      await restoreInventoryForOrderAsAdmin(order.id)
+    if (fullOrder.paymentStatus === "paid") {
+      await restoreInventoryForOrderAsAdmin(fullOrder.id)
     }
 
     await supabase
@@ -265,27 +267,27 @@ async function syncOrderFromPayment(
         status: "cancelled",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", order.id)
+      .eq("id", fullOrder.id)
     return
   }
 
   const nextOrderPaymentStatus = PAYMENT_TO_ORDER_STATUS[status]
   if (!nextOrderPaymentStatus) return
 
-  const currentRank = ORDER_PAYMENT_STATUS_RANK[order.payment_status] ?? 0
+  const currentRank = ORDER_PAYMENT_STATUS_RANK[fullOrder.paymentStatus] ?? 0
   const nextRank = ORDER_PAYMENT_STATUS_RANK[nextOrderPaymentStatus] ?? 0
   if (nextRank <= currentRank) return
 
   if (nextOrderPaymentStatus === "paid") {
     // Idempotent atomic decrement. A redelivered webhook will see
     // already_adjusted=true and become a no-op.
-    const adjustResult = await adjustInventoryForOrderAsAdmin(order.id)
+    const adjustResult = await adjustInventoryForOrderAsAdmin(fullOrder.id)
 
     if (adjustResult.rpcError) {
       // Surface as an exception so the outer background handler logs it.
       // Link Money will redeliver the event because we never bumped status.
       console.error("Link Money: inventory rpc failed; will retry", {
-        orderId: order.id,
+        orderId: fullOrder.id,
       })
       throw new Error("inventory rpc failed")
     }
@@ -297,22 +299,34 @@ async function syncOrderFromPayment(
       // marking it paid with a loud log.
       console.error(
         "Link Money: PAYMENT TAKEN BUT INVENTORY SHORT — admin action required",
-        { orderId: order.id, shortfalls: adjustResult.shortfalls }
+        { orderId: fullOrder.id, shortfalls: adjustResult.shortfalls }
       )
     }
+
+    const nextOrderStatus =
+      fullOrder.status === "pending" ? "processing" : fullOrder.status
 
     await supabase
       .from("orders")
       .update({
         payment_status: "paid",
-        status: order.status === "pending" ? "processing" : order.status,
+        status: nextOrderStatus,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", order.id)
+      .eq("id", fullOrder.id)
 
-    getOrderByIdAsAdmin(order.id)
-      .then((full) => full && sendOrderNotificationEmail(full))
-      .catch((err) => console.error("notif email failed", err))
+    const paidOrder = {
+      ...fullOrder,
+      paymentStatus: "paid" as const,
+      status: nextOrderStatus,
+    }
+
+    sendOrderNotificationEmail(paidOrder).catch((err) =>
+      console.error("support notif email failed", err)
+    )
+    sendCustomerOrderConfirmedEmail(paidOrder).catch((err) =>
+      console.error("customer paid-confirmation email failed", err)
+    )
 
     return
   }
@@ -325,5 +339,5 @@ async function syncOrderFromPayment(
       payment_status: nextOrderPaymentStatus,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", order.id)
+    .eq("id", fullOrder.id)
 }

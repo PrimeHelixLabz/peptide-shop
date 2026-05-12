@@ -19,7 +19,8 @@
       "Bash(npx --no-install tsc --noEmit)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(npm run *)",
-      "Bash(grep -E \"^\\(next|tsc|eslint\\)$\")"
+      "Bash(grep -E \"^\\(next|tsc|eslint\\)$\")",
+      "PowerShell(node node_modules\\\\typescript\\\\bin\\\\tsc --noEmit 2>&1)"
     ]
   }
 }

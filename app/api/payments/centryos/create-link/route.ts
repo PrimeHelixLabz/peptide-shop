@@ -17,6 +17,7 @@ import {
   createPayment,
   createPaymentLink,
 } from "@/lib/centryos/payment-service"
+import { sendCustomerOrderPlacedEmail } from "@/lib/email"
 
 const createLinkSchema = z.object({
   cartItems: z.array(
@@ -142,7 +143,7 @@ export const POST = requireAuthMiddleware(
       // ── Create order row first so payments.order_id resolves. ──
       const orderId = crypto.randomUUID()
       createdOrderId = orderId
-      await createCentryOSOrderAsAdmin({
+      const createdOrder = await createCentryOSOrderAsAdmin({
         id: orderId,
         userId,
         email: shippingAddress.email,
@@ -197,6 +198,13 @@ export const POST = requireAuthMiddleware(
           expiredAt: link.expiredAt,
         },
       })
+
+      // Notify the customer that we've received the order and payment is
+      // processing. CentryOS hosted-checkout can take a few business days to
+      // settle, and silence in that window triggers chargebacks.
+      sendCustomerOrderPlacedEmail(createdOrder).catch((err) =>
+        console.error("Failed to send customer order-placed email:", err)
+      )
 
       return NextResponse.json(
         {

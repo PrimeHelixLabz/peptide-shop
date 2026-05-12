@@ -5,7 +5,10 @@ import {
   restoreInventoryForOrderAsAdmin,
   getOrderByIdAsAdmin,
 } from "@/lib/db/supabase"
-import { sendOrderNotificationEmail } from "@/lib/email"
+import {
+  sendOrderNotificationEmail,
+  sendCustomerOrderConfirmedEmail,
+} from "@/lib/email"
 import {
   applyCollectionWebhook,
   verifyWebhookSignature,
@@ -296,34 +299,33 @@ async function syncOrderFromPayment(
   status: string,
   trace?: ProcessingTrace
 ): Promise<void> {
-  const supabase = createAdminClient()
-
-  const { data: order } = await supabase
-    .from("orders")
-    .select("id, payment_status, status, order_number")
-    .eq("id", orderId)
-    .single()
-
-  if (!order) {
+  // Load the FULL order once, up front. Earlier versions did a 4-field SELECT
+  // here and re-fetched the full row after the UPDATE to feed the email
+  // dispatch — any transient read failure on the re-fetch silently dropped
+  // the notification email. We now use the in-memory copy throughout.
+  const fullOrder = await getOrderByIdAsAdmin(orderId)
+  if (!fullOrder) {
     trace?.step("sync.order_not_found", false, { orderId })
     return
   }
 
-  trace?.attach("orderNumber", order.order_number)
+  const supabase = createAdminClient()
+
+  trace?.attach("orderNumber", fullOrder.orderNumber)
   trace?.step("sync.order_loaded", true, {
-    orderId: order.id,
-    payment_status: order.payment_status,
-    status: order.status,
+    orderId: fullOrder.id,
+    payment_status: fullOrder.paymentStatus,
+    status: fullOrder.status,
   })
 
   if (status === "FAILED" || status === "EXPIRED" || status === "CANCELLED") {
-    if (order.payment_status === "failed") {
+    if (fullOrder.paymentStatus === "failed") {
       trace?.step("sync.failed_already", true)
       return
     }
 
-    if (order.payment_status === "paid") {
-      await restoreInventoryForOrderAsAdmin(order.id)
+    if (fullOrder.paymentStatus === "paid") {
+      await restoreInventoryForOrderAsAdmin(fullOrder.id)
       trace?.step("sync.inventory_restored", true)
     }
 
@@ -334,7 +336,7 @@ async function syncOrderFromPayment(
         status: "cancelled",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", order.id)
+      .eq("id", fullOrder.id)
     trace?.step("sync.order_marked_failed", true, {
       payment_status: "failed",
       status: "cancelled",
@@ -348,11 +350,11 @@ async function syncOrderFromPayment(
     return
   }
 
-  const currentRank = ORDER_PAYMENT_STATUS_RANK[order.payment_status] ?? 0
+  const currentRank = ORDER_PAYMENT_STATUS_RANK[fullOrder.paymentStatus] ?? 0
   const nextRank = ORDER_PAYMENT_STATUS_RANK[nextOrderPaymentStatus] ?? 0
   if (nextRank <= currentRank) {
     trace?.step("sync.no_advance", true, {
-      from: order.payment_status,
+      from: fullOrder.paymentStatus,
       to: nextOrderPaymentStatus,
       currentRank,
       nextRank,
@@ -361,14 +363,14 @@ async function syncOrderFromPayment(
   }
 
   if (nextOrderPaymentStatus === "paid") {
-    const adjustResult = await adjustInventoryForOrderAsAdmin(order.id)
+    const adjustResult = await adjustInventoryForOrderAsAdmin(fullOrder.id)
 
     if (adjustResult.rpcError) {
       // Surface as an exception so CentryOS will redeliver — we never
       // bumped order.payment_status, so reprocessing is safe.
       trace?.step("sync.inventory_adjust", false, undefined, "rpc failed")
       console.error("CentryOS: inventory rpc failed; will retry", {
-        orderId: order.id,
+        orderId: fullOrder.id,
       })
       throw new Error("inventory rpc failed")
     }
@@ -379,28 +381,40 @@ async function syncOrderFromPayment(
       })
       console.error(
         "CentryOS: PAYMENT TAKEN BUT INVENTORY SHORT — admin action required",
-        { orderId: order.id, shortfalls: adjustResult.shortfalls }
+        { orderId: fullOrder.id, shortfalls: adjustResult.shortfalls }
       )
     } else {
       trace?.step("sync.inventory_adjust", true)
     }
 
+    const nextOrderStatus =
+      fullOrder.status === "pending" ? "processing" : fullOrder.status
+
     await supabase
       .from("orders")
       .update({
         payment_status: "paid",
-        status: order.status === "pending" ? "processing" : order.status,
+        status: nextOrderStatus,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", order.id)
+      .eq("id", fullOrder.id)
     trace?.step("sync.order_marked_paid", true, {
       payment_status: "paid",
-      status: order.status === "pending" ? "processing" : order.status,
+      status: nextOrderStatus,
     })
 
-    getOrderByIdAsAdmin(order.id)
-      .then((full) => full && sendOrderNotificationEmail(full))
-      .catch((err) => console.error("notif email failed", err))
+    const paidOrder = {
+      ...fullOrder,
+      paymentStatus: "paid" as const,
+      status: nextOrderStatus,
+    }
+
+    sendOrderNotificationEmail(paidOrder).catch((err) =>
+      console.error("support notif email failed", err)
+    )
+    sendCustomerOrderConfirmedEmail(paidOrder).catch((err) =>
+      console.error("customer paid-confirmation email failed", err)
+    )
     trace?.step("sync.notification_email_dispatched", true)
 
     return
@@ -414,7 +428,7 @@ async function syncOrderFromPayment(
       payment_status: nextOrderPaymentStatus,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", order.id)
+    .eq("id", fullOrder.id)
   trace?.step("sync.order_intermediate_update", true, {
     payment_status: nextOrderPaymentStatus,
   })

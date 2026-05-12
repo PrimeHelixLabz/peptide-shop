@@ -12,7 +12,10 @@ import {
 } from "@/lib/db/supabase"
 import { getShippingCost } from "@/lib/order-constants"
 import type { Order, OrderItem } from "@/lib/db/schema"
-import { sendOrderNotificationEmail } from "@/lib/email"
+import {
+  sendOrderNotificationEmail,
+  sendCustomerOrderConfirmedEmail,
+} from "@/lib/email"
 
 export const GET = requireAdminMiddleware(async (req) => {
   try {
@@ -272,6 +275,9 @@ export const POST = requireAdminMiddleware(async (req) => {
 
     sendOrderNotificationEmail(createdOrder).catch((err) =>
       console.error("Failed to send admin cash order notification:", err)
+    )
+    sendCustomerOrderConfirmedEmail(createdOrder).catch((err) =>
+      console.error("Failed to send customer paid-confirmation email:", err)
     )
 
     return NextResponse.json({ order: createdOrder }, { status: 201 })
