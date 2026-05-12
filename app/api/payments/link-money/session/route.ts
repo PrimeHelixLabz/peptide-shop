@@ -9,7 +9,7 @@ import {
   updateOrderAsAdmin,
 } from "@/lib/db/supabase"
 import type { OrderItem } from "@/lib/db/schema"
-import { SERVICE_FEE_RATE, getShippingCost } from "@/lib/order-constants"
+import { getServiceFeeRate, getShippingCost } from "@/lib/order-constants"
 import type { LinkMoneySessionResponse } from "@/lib/link-money/types"
 import {
   createPayment,
@@ -113,7 +113,7 @@ export const POST = requireAuthMiddleware(
       }
 
       const shipping = getShippingCost(subtotal, shippingMethod)
-      const serviceFee = subtotal * SERVICE_FEE_RATE
+      const serviceFee = subtotal * getServiceFeeRate("link_money")
       const total = subtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()

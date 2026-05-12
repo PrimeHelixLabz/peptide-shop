@@ -15,7 +15,11 @@
       "Bash(git stash *)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "PowerShell(Remove-Item -Recurse -Force \"app\\\\api\\\\webhooks\\\\centryos\"; if \\(\\(Get-ChildItem \"app\\\\api\\\\webhooks\" -Force | Measure-Object\\).Count -eq 0\\) { Remove-Item \"app\\\\api\\\\webhooks\" }; \"done\")",
-      "PowerShell(\"done\")"
+      "PowerShell(\"done\")",
+      "Bash(npx --no-install tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(npm run *)",
+      "Bash(grep -E \"^\\(next|tsc|eslint\\)$\")"
     ]
   }
 }

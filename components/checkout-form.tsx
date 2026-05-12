@@ -15,6 +15,11 @@ import { Loader2, Lock, Truck, MapPin, ArrowLeft } from "lucide-react"
 import { OrderSummary, type ShippingMethod } from "@/components/order-summary"
 import { LinkMoneyButton, type LinkMoneyCheckoutData } from "@/components/link-money-button"
 import { CentryOSButton, type CentryOSCheckoutData } from "@/components/centryos-button"
+import {
+  getServiceFeeRate,
+  getShippingCost,
+  type PaymentMethod,
+} from "@/lib/order-constants"
 
 const checkoutSchema = z.object({
   // Shipping Address
@@ -105,9 +110,16 @@ export function CheckoutForm() {
   const watchedValues = watch()
   const linkMoneyCheckoutData: LinkMoneyCheckoutData = buildCheckoutData(watchedValues)
   const centryosCheckoutData: CentryOSCheckoutData = buildCheckoutData(watchedValues)
-  const [paymentMethod, setPaymentMethod] = useState<"link_money" | "centryos">(
-    "link_money"
-  )
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("link_money")
+
+  // Mirror OrderSummary's math so the Pay button can display the total
+  // the customer will be charged. Server-side routes recompute from the
+  // same helpers, so this is display-only — never load-bearing for trust.
+  const shippingCost = getShippingCost(subtotal, shippingMethod)
+  const checkoutServiceFee = subtotal * getServiceFeeRate(paymentMethod)
+  const checkoutTotal = subtotal + shippingCost + checkoutServiceFee
+  const totalLabel = `$${checkoutTotal.toFixed(2)}`
+
   const formReady =
     !!watchedValues.shippingFirstName &&
     !!watchedValues.shippingLastName &&
@@ -277,6 +289,48 @@ export function CheckoutForm() {
             </div>
           </div>
 
+          {/* Payment Method (moved up so the customer sees the applicable
+              service fee in the right-side summary before filling in address
+              details). The actual Pay button still lives at the bottom of
+              the form, after order notes. */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Payment Method</h2>
+            <p className="text-sm text-muted-foreground">
+              Choose how you&apos;d like to pay. Both options process securely
+              off-site and return you here when complete.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("link_money")}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                  paymentMethod === "link_money"
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div>
+                  <p className="text-sm font-medium">Pay by Bank</p>
+                  <p className="text-xs text-muted-foreground">Link Money &middot; ACH &middot; 5% service fee</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("centryos")}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                  paymentMethod === "centryos"
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div>
+                  <p className="text-sm font-medium">Pay with CentryOS</p>
+                  <p className="text-xs text-muted-foreground">Card via CentryOS &middot; no service fee</p>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Shipping Address */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">{shippingMethod === "local-pickup" ? "Contact Information" : "Shipping Address"}</h2>
@@ -438,45 +492,6 @@ export function CheckoutForm() {
             )}
           </div>
 
-          {/* Payment */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Payment</h2>
-            <p className="text-sm text-muted-foreground">
-              Choose how you&apos;d like to pay. Both options process securely
-              off-site and return you here when complete.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("link_money")}
-                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
-                  paymentMethod === "link_money"
-                    ? "border-primary bg-primary/5"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-medium">Pay by Bank</p>
-                  <p className="text-xs text-muted-foreground">Link Money &middot; ACH</p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("centryos")}
-                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
-                  paymentMethod === "centryos"
-                    ? "border-primary bg-primary/5"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-medium">CentryOS</p>
-                  <p className="text-xs text-muted-foreground">Card via CentryOS</p>
-                </div>
-              </button>
-            </div>
-          </div>
-
           {/* Order Notes */}
           <div>
             <Label htmlFor="notes">Order Notes (Optional)</Label>
@@ -502,11 +517,13 @@ export function CheckoutForm() {
             <LinkMoneyButton
               checkoutData={linkMoneyCheckoutData}
               disabled={loading || !formReady}
+              totalLabel={totalLabel}
             />
           ) : (
             <CentryOSButton
               checkoutData={centryosCheckoutData}
               disabled={loading || !formReady}
+              totalLabel={totalLabel}
             />
           )}
         </form>
@@ -514,7 +531,11 @@ export function CheckoutForm() {
 
       {/* Order Summary */}
       <div className="lg:sticky lg:top-28 lg:self-start">
-        <OrderSummary showCheckoutButton={false} shippingMethod={shippingMethod} />
+        <OrderSummary
+          showCheckoutButton={false}
+          shippingMethod={shippingMethod}
+          paymentMethod={paymentMethod}
+        />
       </div>
     </div>
   )

@@ -330,40 +330,51 @@ export async function applyCollectionWebhook(
   body: CentryOSWebhookBody,
   trace?: ProcessingTrace
 ): Promise<ApplyWebhookResult> {
-  const orderIdFromMetadata = body?.payload?.metadata?.orderId
-  const clientRefFromMetadata =
+  // CentryOS echoes the original customData under payload.paymentLink.
+  // payload.metadata holds checkout-form fields (Email, First/Last name,
+  // Phone), NOT our orderId/clientReferenceId. Fall back to metadata and
+  // top-level paymentLink for any future shape drift.
+  const customData = body?.payload?.paymentLink?.customData ?? undefined
+  const orderIdResolved =
+    (customData?.orderId as string | undefined) ??
+    (body?.payload?.metadata?.orderId as string | undefined) ??
+    null
+  const clientRefResolved =
+    (customData?.clientReferenceId as string | undefined) ??
     (body?.payload?.metadata as { clientReferenceId?: string } | undefined)
-      ?.clientReferenceId
-  const paymentLinkId = body?.paymentLink?.id ?? null
+      ?.clientReferenceId ??
+    null
+  const paymentLinkId =
+    body?.payload?.paymentLink?.id ?? body?.paymentLink?.id ?? null
   const transactionId = body?.payload?.transactionId ?? null
 
   trace?.step("apply.start", true, {
-    orderIdFromMetadata: orderIdFromMetadata ?? null,
-    clientRefFromMetadata: clientRefFromMetadata ?? null,
+    orderIdResolved,
+    clientRefResolved,
     paymentLinkId,
     transactionId,
     rawStatus: body?.status ?? null,
   })
 
   // Resolve the payment row in priority order:
-  //   1. metadata.clientReferenceId (set when we created the link)
-  //   2. metadata.orderId (matches our payments.order_id)
+  //   1. customData.clientReferenceId (set when we created the link)
+  //   2. customData.orderId (matches our payments.order_id)
   //   3. paymentLink.id (fallback if both are missing)
   let existing: PaymentRecord | null = null
   let resolvedBy: string | null = null
-  if (clientRefFromMetadata) {
-    existing = await getPaymentByClientReferenceId(clientRefFromMetadata)
+  if (clientRefResolved) {
+    existing = await getPaymentByClientReferenceId(clientRefResolved)
     if (existing) resolvedBy = "clientReferenceId"
     trace?.step("apply.lookup.byClientReferenceId", !!existing, {
-      key: clientRefFromMetadata,
+      key: clientRefResolved,
       found: !!existing,
     })
   }
-  if (!existing && orderIdFromMetadata) {
-    existing = await getPaymentByOrderId(orderIdFromMetadata)
+  if (!existing && orderIdResolved) {
+    existing = await getPaymentByOrderId(orderIdResolved)
     if (existing) resolvedBy = "orderId"
     trace?.step("apply.lookup.byOrderId", !!existing, {
-      key: orderIdFromMetadata,
+      key: orderIdResolved,
       found: !!existing,
     })
   }

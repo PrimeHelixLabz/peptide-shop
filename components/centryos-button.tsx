@@ -33,6 +33,8 @@ interface CentryOSButtonProps {
   checkoutData: CentryOSCheckoutData
   /** Disable when the form is incomplete. */
   disabled?: boolean
+  /** Optional pre-formatted total (e.g. "$132.00") rendered inside the button. */
+  totalLabel?: string
 }
 
 /**
@@ -42,7 +44,7 @@ interface CentryOSButtonProps {
  * The customer is redirected back to /payments/centryos/callback after
  * paying — but the order is not marked paid until the webhook arrives.
  */
-export function CentryOSButton({ checkoutData, disabled }: CentryOSButtonProps) {
+export function CentryOSButton({ checkoutData, disabled, totalLabel }: CentryOSButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -98,7 +100,7 @@ export function CentryOSButton({ checkoutData, disabled }: CentryOSButtonProps) 
         ) : (
           <>
             <CreditCard className="mr-2 h-4 w-4" />
-            Pay with CentryOS
+            {totalLabel ? `Pay ${totalLabel} with CentryOS` : "Pay with CentryOS"}
           </>
         )}
       </Button>

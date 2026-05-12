@@ -3,10 +3,11 @@
 import { useCart } from "@/lib/cart-context"
 import { FlaskConical, Shield, Truck } from "lucide-react"
 import {
-  SERVICE_FEE_RATE,
   SHIPPING_CARRIER_LABEL,
   FREE_SHIPPING_THRESHOLD,
   getShippingCost,
+  getServiceFeeRate,
+  type PaymentMethod,
 } from "@/lib/order-constants"
 
 export type ShippingMethod = "ship" | "local-pickup"
@@ -14,14 +15,26 @@ export type ShippingMethod = "ship" | "local-pickup"
 interface OrderSummaryProps {
   showCheckoutButton?: boolean
   shippingMethod?: ShippingMethod
+  /**
+   * Currently-selected payment method. Drives the service-fee line —
+   * CentryOS resolves to 0% and is rendered as FREE. When omitted (e.g.
+   * cart drawer, pre-checkout views), falls back to the default rate.
+   */
+  paymentMethod?: PaymentMethod
 }
 
-export function OrderSummary({ showCheckoutButton = true, shippingMethod = "ship" }: OrderSummaryProps) {
+export function OrderSummary({
+  showCheckoutButton = true,
+  shippingMethod = "ship",
+  paymentMethod,
+}: OrderSummaryProps) {
   const { subtotal, totalItems } = useCart()
 
   const shipping = getShippingCost(subtotal, shippingMethod)
   const shippingLabel = shippingMethod === "local-pickup" ? "Local Pickup" : SHIPPING_CARRIER_LABEL
-  const serviceFee = subtotal * SERVICE_FEE_RATE
+  const serviceFeeRate = getServiceFeeRate(paymentMethod)
+  const serviceFee = subtotal * serviceFeeRate
+  const isFeeWaived = serviceFeeRate === 0
   const total = subtotal + shipping + serviceFee
 
   const amountToFreeShipping =
@@ -85,10 +98,11 @@ export function OrderSummary({ showCheckoutButton = true, shippingMethod = "ship
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Service Fee ({(SERVICE_FEE_RATE * 100).toFixed(0)}%)
+            Service Fee
+            {!isFeeWaived && ` (${(serviceFeeRate * 100).toFixed(0)}%)`}
           </span>
           <span className="text-sm font-medium text-foreground">
-            ${serviceFee.toFixed(2)}
+            {isFeeWaived ? "FREE" : `$${serviceFee.toFixed(2)}`}
           </span>
         </div>
 

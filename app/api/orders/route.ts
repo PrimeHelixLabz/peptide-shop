@@ -10,7 +10,7 @@ import { getCartItems, clearCart } from "@/lib/db/supabase"
 import { getProductById, getVariantById } from "@/lib/db/supabase"
 import { z } from "zod"
 import type { Order, OrderItem, Address } from "@/lib/db/schema"
-import { SERVICE_FEE_RATE } from "@/lib/order-constants"
+import { getServiceFeeRate } from "@/lib/order-constants"
 
 const createOrderSchema = z.object({
   cartItems: z.array(z.object({
@@ -125,7 +125,7 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
     }
 
     const shipping = 0 // Shipping (non-Stripe path, no method selection)
-    const serviceFee = subtotal * SERVICE_FEE_RATE
+    const serviceFee = subtotal * getServiceFeeRate(paymentMethod)
     const total = subtotal + shipping + serviceFee
 
     // Generate order number

@@ -7,13 +7,26 @@ import {
 import {
   applyCollectionWebhook,
   getPaymentByOrderId,
+  getPaymentByPaymentLinkId,
   getTransactionStatus,
 } from "@/lib/centryos/payment-service"
-import type { CentryOSWebhookBody } from "@/lib/centryos/payment-types"
+import type {
+  CentryOSWebhookBody,
+  PaymentRecord,
+} from "@/lib/centryos/payment-types"
 
-const bodySchema = z.object({
-  orderId: z.string().uuid(),
-})
+// Accept either orderId, transactionId, or both. transactionId is the
+// recovery path when a webhook was missed: the admin reads the txn id
+// from the CentryOS dashboard/email and replays it through the applier
+// even though our payments row has no transactionId yet.
+const bodySchema = z
+  .object({
+    orderId: z.string().uuid().optional(),
+    transactionId: z.string().min(1).optional(),
+  })
+  .refine((v) => v.orderId || v.transactionId, {
+    message: "Provide orderId, transactionId, or both",
+  })
 
 /**
  * POST /api/admin/payments/centryos/sync
@@ -30,34 +43,60 @@ export const POST = requireAdminMiddleware(
   async (req: AuthenticatedRequest) => {
     try {
       const body = await req.json()
-      const { orderId } = bodySchema.parse(body)
+      const { orderId, transactionId: txnIdOverride } = bodySchema.parse(body)
 
-      const payment = await getPaymentByOrderId(orderId)
-      if (!payment) {
-        return NextResponse.json(
-          { error: "No CentryOS payment found for this order" },
-          { status: 404 }
-        )
+      let payment: PaymentRecord | null = null
+      if (orderId) {
+        payment = await getPaymentByOrderId(orderId)
+        if (!payment) {
+          return NextResponse.json(
+            { error: "No CentryOS payment found for this order" },
+            { status: 404 }
+          )
+        }
       }
 
-      if (!payment.providerTransactionId) {
+      const transactionId =
+        txnIdOverride ?? payment?.providerTransactionId ?? null
+      if (!transactionId) {
         return NextResponse.json(
           {
             error:
-              "Payment has no transactionId yet — wait for the webhook or manually charge the link.",
-            payment: {
-              status: payment.status,
-              checkoutUrl: payment.checkoutUrl,
-            },
+              "Payment has no transactionId yet. Pass `transactionId` in the request body (e.g. from the CentryOS dashboard or webhook email) or wait for the webhook.",
+            payment: payment
+              ? {
+                  status: payment.status,
+                  checkoutUrl: payment.checkoutUrl,
+                }
+              : null,
           },
           { status: 409 }
         )
       }
 
-      const txn = await getTransactionStatus(payment.providerTransactionId)
+      const txn = await getTransactionStatus(transactionId)
 
-      // Reshape the transaction into the webhook payload our applier
-      // already understands — single code path for both inputs.
+      // If we don't have a payment row yet (transactionId-only recovery),
+      // try resolving it from the txn's paymentLink so we can populate the
+      // synthetic customData with the canonical clientReferenceId.
+      if (!payment && txn.paymentLink?.id) {
+        payment = await getPaymentByPaymentLinkId(txn.paymentLink.id)
+      }
+
+      if (!payment) {
+        return NextResponse.json(
+          {
+            error:
+              "Could not locate a local payments row for this transaction. Provide an orderId or verify the transactionId.",
+            transaction: txn,
+          },
+          { status: 404 }
+        )
+      }
+
+      // Mirror the real CentryOS webhook shape: paymentLink + customData
+      // live under `payload`. The applier reads customData first so the
+      // lookup resolves by clientReferenceId.
       const synthetic: CentryOSWebhookBody = {
         eventType: "COLLECTION",
         status: txn.status,
@@ -65,17 +104,21 @@ export const POST = requireAdminMiddleware(
           transactionId: txn.id,
           amount: txn.amount,
           currency: txn.currency,
-          metadata: {
-            ...(txn.metadata ?? {}),
-            orderId: txn.metadata?.orderId ?? orderId,
+          metadata: { ...(txn.metadata ?? {}) },
+          paymentLink: {
+            id:
+              txn.paymentLink?.id ??
+              payment.providerPaymentLinkId ??
+              undefined,
+            token:
+              txn.paymentLink?.token ??
+              payment.providerPaymentLinkToken ??
+              undefined,
+            customData: {
+              orderId: payment.orderId ?? undefined,
+              clientReferenceId: payment.clientReferenceId,
+            },
           },
-        },
-        paymentLink: {
-          id: txn.paymentLink?.id ?? payment.providerPaymentLinkId ?? undefined,
-          token:
-            txn.paymentLink?.token ??
-            payment.providerPaymentLinkToken ??
-            undefined,
         },
       }
 

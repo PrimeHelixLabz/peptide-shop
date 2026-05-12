@@ -97,9 +97,17 @@ export async function POST(req: NextRequest) {
 
   const eventType = body?.eventType ?? null
   const status = body?.status ?? null
+  // CentryOS echoes the original customData under payload.paymentLink.
+  // payload.metadata holds checkout-form fields (Email, First/Last name,
+  // Phone), NOT our orderId/clientReferenceId. Fall back to metadata and
+  // top-level paymentLink for any future shape drift.
+  const customData = body?.payload?.paymentLink?.customData ?? undefined
   const orderId =
-    (body?.payload?.metadata?.orderId as string | undefined) ?? null
-  const paymentLinkId = body?.paymentLink?.id ?? null
+    (customData?.orderId as string | undefined) ??
+    (body?.payload?.metadata?.orderId as string | undefined) ??
+    null
+  const paymentLinkId =
+    body?.payload?.paymentLink?.id ?? body?.paymentLink?.id ?? null
   const transactionId = body?.payload?.transactionId ?? null
 
   // Build a dedupe key. CentryOS does not document a stable event id;

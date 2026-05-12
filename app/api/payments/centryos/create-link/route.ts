@@ -12,7 +12,7 @@ import {
   updateOrderAsAdmin,
 } from "@/lib/db/supabase"
 import type { OrderItem } from "@/lib/db/schema"
-import { SERVICE_FEE_RATE, getShippingCost } from "@/lib/order-constants"
+import { getServiceFeeRate, getShippingCost } from "@/lib/order-constants"
 import {
   createPayment,
   createPaymentLink,
@@ -129,7 +129,9 @@ export const POST = requireAuthMiddleware(
       }
 
       const shipping = getShippingCost(subtotal, shippingMethod)
-      const serviceFee = subtotal * SERVICE_FEE_RATE
+      // CentryOS deducts its MDR from our receivable — no customer-side
+      // service fee here. Rate resolves to 0 via SERVICE_FEE_RATE_BY_METHOD.
+      const serviceFee = subtotal * getServiceFeeRate("centryos")
       const total = subtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()

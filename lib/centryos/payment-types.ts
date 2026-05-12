@@ -48,14 +48,34 @@ export interface CentryOSWebhookBody {
     transactionId?: string
     amount?: number
     currency?: string
+    // Checkout-form fields collected from the customer (Email, First/Last
+    // name, Phone, etc.). NOT where we put orderId/clientReferenceId —
+    // those go through paymentLink.customData below.
     metadata?: {
       orderId?: string
       userId?: string
       clientReferenceId?: string
       [key: string]: unknown
     }
+    // CentryOS echoes back the payment-link record (including the
+    // customData we sent on creation) under payload.paymentLink.
+    paymentLink?: {
+      id?: string
+      token?: string
+      externalId?: string | null
+      customData?: {
+        orderId?: string
+        clientReferenceId?: string
+        userId?: string
+        cartItems?: string
+        [key: string]: unknown
+      }
+      [key: string]: unknown
+    }
     [key: string]: unknown
   }
+  // Legacy/fallback location — some event shapes have surfaced
+  // paymentLink at the top level. Prefer payload.paymentLink.
   paymentLink?: {
     id?: string
     token?: string

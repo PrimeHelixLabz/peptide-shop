@@ -33,6 +33,8 @@ interface LinkMoneyButtonProps {
   checkoutData: LinkMoneyCheckoutData
   /** Disable when form is incomplete */
   disabled?: boolean
+  /** Optional pre-formatted total (e.g. "$132.00") rendered inside the button. */
+  totalLabel?: string
 }
 
 /**
@@ -42,6 +44,7 @@ interface LinkMoneyButtonProps {
 export function LinkMoneyButton({
   checkoutData,
   disabled,
+  totalLabel,
 }: LinkMoneyButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -102,7 +105,7 @@ export function LinkMoneyButton({
         ) : (
           <>
             <Landmark className="mr-2 h-4 w-4" />
-            Pay by Bank
+            {totalLabel ? `Pay ${totalLabel} by Bank` : "Pay by Bank"}
           </>
         )}
       </Button>

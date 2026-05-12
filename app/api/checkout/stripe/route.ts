@@ -4,7 +4,7 @@ import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/mid
 import { getProductById, getVariantById, createPendingCheckoutAsAdmin } from "@/lib/db/supabase"
 import type { OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
-import { SERVICE_FEE_RATE, SHIPPING_CARRIER_LABEL, getShippingCost } from "@/lib/order-constants"
+import { getServiceFeeRate, SHIPPING_CARRIER_LABEL, getShippingCost } from "@/lib/order-constants"
 
 const createStripeCheckoutSchema = z.object({
   cartItems: z.array(
@@ -121,7 +121,8 @@ export const POST = requireAuthMiddleware(
       // Shipping is free once subtotal crosses FREE_SHIPPING_THRESHOLD; helper
       // is the source of truth so server total can't be tricked by client.
       const shipping = getShippingCost(subtotal, shippingMethod)
-      const serviceFee = subtotal * SERVICE_FEE_RATE
+      const stripeServiceFeeRate = getServiceFeeRate("stripe")
+      const serviceFee = subtotal * stripeServiceFeeRate
       const total = subtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()
@@ -174,7 +175,7 @@ export const POST = requireAuthMiddleware(
             currency: "usd",
             unit_amount: Math.round(serviceFee * 100),
             product_data: {
-              name: `Service Fee (${(SERVICE_FEE_RATE * 100).toFixed(0)}%)`,
+              name: `Service Fee (${(stripeServiceFeeRate * 100).toFixed(0)}%)`,
             },
           },
         })
