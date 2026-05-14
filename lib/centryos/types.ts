@@ -24,6 +24,7 @@ export interface CreatePaymentLinkRequest {
   currency: string
   name: string
   amount: number
+  amountLocked: boolean
   redirectTo: string
   checkoutType: "generic" | "recurring"
   isOpenLink: boolean
