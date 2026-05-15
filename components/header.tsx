@@ -11,6 +11,7 @@ import { AccountMenu } from "@/components/account-menu"
 
 const navLinks = [
   { label: "Shop", href: "/shop" },
+  { label: "Blog", href: "/blog" },
   { label: "About", href: "/about" },
   { label: "FAQ", href: "/faq" },
   { label: "Contact", href: "/contact" },

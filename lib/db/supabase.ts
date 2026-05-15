@@ -1322,6 +1322,7 @@ export async function createOrder(
       payment_status: order.paymentStatus,
       tracking_number: order.trackingNumber,
       notes: order.notes,
+      affiliate_code: order.affiliateCode ?? null,
     })
     .select()
     .single()
@@ -1345,6 +1346,7 @@ export async function createOrder(
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
     notes: data.notes,
+    affiliateCode: data.affiliate_code ?? null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   }
@@ -1603,6 +1605,7 @@ export async function createOrderAsAdmin(
       payment_status: order.paymentStatus,
       tracking_number: order.trackingNumber,
       notes: order.notes,
+      affiliate_code: order.affiliateCode ?? null,
     })
     .select()
     .single()
@@ -1626,6 +1629,7 @@ export async function createOrderAsAdmin(
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
     notes: data.notes,
+    affiliateCode: data.affiliate_code ?? null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   }
@@ -1814,6 +1818,7 @@ export async function createCentryOSOrderAsAdmin(
       payment_status: order.paymentStatus,
       tracking_number: order.trackingNumber,
       notes: order.notes,
+      affiliate_code: order.affiliateCode ?? null,
       provider: "centryos",
       provider_payment_id: order.providerPaymentId ?? null,
       provider_customer_id: order.providerCustomerId ?? null,

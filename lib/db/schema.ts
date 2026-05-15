@@ -152,6 +152,11 @@ export interface Order {
   paymentStatus: PaymentStatus
   trackingNumber?: string
   notes?: string
+  /**
+   * Captured affiliate referral code. Set at order creation from the phl_ref
+   * cookie. Used by the affiliate-conversion trigger to attribute commissions.
+   */
+  affiliateCode?: string | null
   createdAt: string
   updatedAt: string
 }

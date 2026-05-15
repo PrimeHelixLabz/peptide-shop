@@ -2,6 +2,11 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { updateSession } from "@/lib/supabase/middleware"
 
+const REF_COOKIE_NAME = "phl_ref"
+const REF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 90 // 90 days
+// Bound the format defensively; the trigger does the authoritative validation.
+const REF_CODE_PATTERN = /^[A-Z0-9]{4,32}$/i
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -37,6 +42,25 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
+  // Affiliate attribution: capture ?ref=CODE into a 90-day cookie. Last-touch
+  // wins. Applied to every response (including redirects) so a user landing
+  // on a protected page with ?ref doesn't lose attribution when bounced to
+  // /signin.
+  const refParam = request.nextUrl.searchParams.get("ref")
+  const refToSet =
+    refParam && REF_CODE_PATTERN.test(refParam) ? refParam.toUpperCase() : null
+  const applyRefCookie = (response: NextResponse) => {
+    if (refToSet) {
+      response.cookies.set(REF_COOKIE_NAME, refToSet, {
+        maxAge: REF_COOKIE_MAX_AGE_SECONDS,
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      })
+    }
+    return response
+  }
+
   const isAuthPage =
     pathname === "/signin" ||
     pathname === "/signup" ||
@@ -54,19 +78,20 @@ export async function proxy(request: NextRequest) {
     pathname === "/wishlist" ||
     pathname.startsWith("/orders") ||
     pathname.startsWith("/payments") ||
-    pathname.startsWith("/admin")
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/affiliates/dashboard")
 
   // Redirect unauthenticated users away from protected routes
   if (!user && isProtectedRoute) {
     const signInUrl = new URL("/signin", request.url)
     signInUrl.searchParams.set("redirect", pathname + request.nextUrl.search)
-    return NextResponse.redirect(signInUrl)
+    return applyRefCookie(NextResponse.redirect(signInUrl))
   }
 
   // If already authenticated, redirect away from sign-in/sign-up pages to home
   // but allow access to forgot-password and reset-password
   if (user && isAuthPage && !isPasswordPage) {
-    return NextResponse.redirect(new URL("/", request.url))
+    return applyRefCookie(NextResponse.redirect(new URL("/", request.url)))
   }
 
   // Admin routes require admin role
@@ -78,11 +103,11 @@ export async function proxy(request: NextRequest) {
       .single()
 
     if (profile?.role !== "admin") {
-      return NextResponse.redirect(new URL("/", request.url))
+      return applyRefCookie(NextResponse.redirect(new URL("/", request.url)))
     }
   }
 
-  return supabaseResponse
+  return applyRefCookie(supabaseResponse)
 }
 
 export const config = {

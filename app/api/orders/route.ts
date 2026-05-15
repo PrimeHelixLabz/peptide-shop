@@ -11,6 +11,7 @@ import { getProductById, getVariantById } from "@/lib/db/supabase"
 import { z } from "zod"
 import type { Order, OrderItem, Address } from "@/lib/db/schema"
 import { getServiceFeeRate } from "@/lib/order-constants"
+import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
 
 const createOrderSchema = z.object({
   cartItems: z.array(z.object({
@@ -152,6 +153,7 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
       paymentMethod: resolvedPaymentMethod,
       paymentStatus,
       notes,
+      affiliateCode: getAffiliateCodeFromRequest(req),
     }
 
     const createdOrder = await createOrder(order)

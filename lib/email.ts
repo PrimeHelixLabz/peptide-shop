@@ -315,6 +315,135 @@ export async function sendCustomerOrderPlacedEmail(order: Order): Promise<void> 
   }
 }
 
+interface WelcomeArticle {
+  title: string
+  url: string
+  description: string
+}
+
+const WELCOME_ARTICLES: WelcomeArticle[] = [
+  {
+    title: "BPC-157 Research Guide",
+    url: "https://primehelixlabz.com/blog/bpc-157-research-guide",
+    description:
+      "Structure, mechanisms studied in animal models, and what published preclinical literature reports.",
+  },
+  {
+    title: "BPC-157 vs TB-500",
+    url: "https://primehelixlabz.com/blog/bpc-157-vs-tb-500",
+    description:
+      "How these two tissue-repair peptides differ structurally and mechanistically.",
+  },
+  {
+    title: "Peptide Storage Guide",
+    url: "https://primehelixlabz.com/blog/peptide-storage-guide",
+    description:
+      "Lyophilized vs reconstituted, temperature, freeze-thaw, and shelf life in the lab.",
+  },
+  {
+    title: "How to Read a Certificate of Analysis",
+    url: "https://primehelixlabz.com/blog/how-to-read-peptide-coa",
+    description:
+      "Field-by-field walkthrough of a peptide COA, plus the red flags to watch for.",
+  },
+  {
+    title: "GHK-Cu Research Overview",
+    url: "https://primehelixlabz.com/blog/ghk-cu-research-overview",
+    description:
+      "The copper-binding tripeptide, its mechanisms in dermal-research literature, and lab handling.",
+  },
+]
+
+export async function sendNewsletterWelcomeEmail(toEmail: string): Promise<void> {
+  const safeEmail = escapeHtml(toEmail.trim())
+
+  const articleCards = WELCOME_ARTICLES.map(
+    (a) => `
+      <a href="${a.url}" style="display: block; text-decoration: none; margin: 12px 0; padding: 16px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; color: #111827;">
+        <p style="margin: 0 0 6px; font-weight: 600; color: #1e293b; font-size: 15px;">${a.title}</p>
+        <p style="margin: 0; color: #4b5563; font-size: 13px; line-height: 1.5;">${a.description}</p>
+      </a>`
+  ).join("")
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <!-- Header -->
+          <div style="background-color: #1e293b; padding: 28px 24px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 22px; letter-spacing: 0.02em;">Welcome to PrimeHelix Labz</h1>
+            <p style="margin: 8px 0 0; color: #cbd5e1; font-size: 13px;">Your peptide research guide is below.</p>
+          </div>
+
+          <!-- Body -->
+          <div style="padding: 28px 24px;">
+            <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.65;">
+              Thanks for subscribing. As promised, here is our complete peptide research
+              guide &mdash; five field-tested articles covering the most-studied
+              compounds, lab handling, and how to evaluate quality documentation.
+              Bookmark them, share them with your lab, and refer back as you need.
+            </p>
+
+            <h2 style="margin: 28px 0 8px; color: #111827; font-size: 16px;">Your research library</h2>
+            ${articleCards}
+
+            <div style="margin-top: 28px; padding: 16px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;">
+              <p style="margin: 0; color: #1e3a8a; font-size: 14px; line-height: 1.6;">
+                <strong>What to expect from us:</strong> occasional emails when we
+                publish new research articles or add new compounds to the catalog.
+                No spam &mdash; we email only when there&rsquo;s something worth your
+                time.
+              </p>
+            </div>
+
+            <p style="margin: 28px 0 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
+              Browse our full catalog at
+              <a href="https://primehelixlabz.com/shop" style="color: #1e293b; font-weight: 500;">primehelixlabz.com/shop</a>.
+              All products ship with a lot-specific Certificate of Analysis.
+            </p>
+
+            <p style="margin: 24px 0 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Questions? Reply to this email or reach us at
+              <a href="mailto:${SUPPORT_EMAIL}" style="color: #1e293b;">${SUPPORT_EMAIL}</a>.
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div style="background-color: #f9fafb; padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 6px; color: #6b7280; font-size: 12px;">
+              You received this because you subscribed at primehelixlabz.com
+              with the email <strong>${safeEmail}</strong>.
+            </p>
+            <p style="margin: 0 0 6px; color: #9ca3af; font-size: 11px;">
+              PrimeHelix Labz &middot; 20403 N Lake Pleasant RD, Suite 117, Peoria, AZ 85382
+            </p>
+            <p style="margin: 0; color: #9ca3af; font-size: 11px;">
+              All products are sold strictly for research purposes only. Not for human consumption.
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>`
+
+  const { error } = await resend.emails.send({
+    from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+    to: [toEmail.trim()],
+    replyTo: SUPPORT_EMAIL,
+    subject: "Your peptide research guide is here",
+    html,
+  })
+
+  if (error) {
+    console.error("Failed to send newsletter welcome email:", error)
+    throw new Error(error.message)
+  }
+}
+
 export async function sendCustomerOrderConfirmedEmail(order: Order): Promise<void> {
   const to = getCustomerEmail(order)
   if (!to) {

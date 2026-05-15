@@ -102,6 +102,7 @@ export const POST = async (req: NextRequest) => {
               billingAddress: checkoutData.billingAddress,
               paymentMethod: "stripe",
               notes: checkoutData.notes,
+              affiliateCode: checkoutData.affiliateCode ?? null,
             })
           } catch (orderError) {
             // Order creation itself failed — clean up pending checkout so the

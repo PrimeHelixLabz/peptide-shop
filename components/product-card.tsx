@@ -11,6 +11,8 @@ import { useAuth } from "@/lib/auth/auth-context"
 import { Badge } from "@/components/common/badge"
 import { PriceDisplay } from "@/components/common/price-display"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
+import { ReviewSummary } from "@/components/reviews/review-summary"
+import type { ProductRatingSummary } from "@/lib/db/reviews"
 
 export interface Product {
   id: string
@@ -36,6 +38,8 @@ export interface Product {
     image?: string // legacy
     images?: string[] // legacy
   }> // Product variants
+  // Aggregated review counts/average. Optional — not all callers compute it.
+  ratingSummary?: ProductRatingSummary
 }
 
 export function ProductCard({ product }: { product: Product }) {
@@ -116,6 +120,13 @@ export function ProductCard({ product }: { product: Product }) {
           <h3 className="text-lg font-semibold text-foreground">
             {product.name}
           </h3>
+          {product.ratingSummary && product.ratingSummary.count > 0 && (
+            <ReviewSummary
+              count={product.ratingSummary.count}
+              average={product.ratingSummary.average}
+              size="sm"
+            />
+          )}
           {product.variants && product.variants.length > 1 && (
             <p className="text-xs text-muted-foreground">
               {product.variants.length} strength options available

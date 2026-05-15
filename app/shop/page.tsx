@@ -3,6 +3,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ProductGrid } from "@/components/product-grid"
 import { getAllProducts, getCategories } from "@/lib/api/server-products"
+import { getProductRatingSummaries } from "@/lib/db/reviews"
 import { Section, Container, PageHeader } from "@/components/layout"
 
 export const metadata: Metadata = {
@@ -25,6 +26,15 @@ export default async function ShopPage() {
   const products = await getAllProducts({ limit: 12, offset: 0, sortBy: "name_asc" })
   const categories = await getCategories()
 
+  // Attach rating summaries so product cards can render stars on first paint.
+  // Products loaded later via /api/products will fall back to no-rating display
+  // until a follow-up batch-fetch is wired through that route.
+  const summaries = await getProductRatingSummaries(products.map((p) => p.id))
+  const productsWithRatings = products.map((p) => ({
+    ...p,
+    ratingSummary: summaries.get(p.id),
+  }))
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -43,7 +53,7 @@ export default async function ShopPage() {
         {/* Product Listing */}
         <Section background="muted" padding="md">
           <Container>
-            <ProductGrid initialProducts={products} initialCategories={categories} />
+            <ProductGrid initialProducts={productsWithRatings} initialCategories={categories} />
           </Container>
         </Section>
       </main>

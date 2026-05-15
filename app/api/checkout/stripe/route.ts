@@ -5,6 +5,7 @@ import { getProductById, getVariantById, createPendingCheckoutAsAdmin } from "@/
 import type { OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
 import { getServiceFeeRate, SHIPPING_CARRIER_LABEL, getShippingCost } from "@/lib/order-constants"
+import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
 
 const createStripeCheckoutSchema = z.object({
   cartItems: z.array(
@@ -199,6 +200,7 @@ export const POST = requireAuthMiddleware(
         shippingAddress,
         billingAddress: billingAddress || shippingAddress,
         notes,
+        affiliateCode: getAffiliateCodeFromRequest(req),
       }
 
       const session = await stripe.checkout.sessions.create({

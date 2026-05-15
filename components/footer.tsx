@@ -9,10 +9,12 @@ const policyLinks = [
 
 const siteLinks = [
   { label: "Shop", href: "/shop" },
+  { label: "Blog", href: "/blog" },
   { label: "About", href: "/about" },
   { label: "FAQ", href: "/faq" },
   { label: "Contact", href: "/contact" },
   { label: "Track Order", href: "/orders" },
+  { label: "Affiliate Program", href: "/affiliates" },
 ]
 
 export function Footer() {

@@ -6,13 +6,21 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Minus, Plus, ShoppingCart, Check, FlaskConical, Shield, Truck, ChevronLeft, ChevronRight, Heart } from "lucide-react"
 import type { ProductDetail } from "@/lib/products"
+import type { ProductRatingSummary } from "@/lib/db/reviews"
+import { ReviewSummary } from "@/components/reviews/review-summary"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { useAuth } from "@/lib/auth/auth-context"
 
 type TabId = "description" | "coa"
 
-export function ProductDetailView({ product }: { product: ProductDetail }) {
+export function ProductDetailView({
+  product,
+  ratingSummary,
+}: {
+  product: ProductDetail
+  ratingSummary?: ProductRatingSummary
+}) {
   const hasCoa = !!product.coaUrl
   const tabs: { id: TabId; label: string }[] = hasCoa
     ? [
@@ -313,6 +321,20 @@ export function ProductDetailView({ product }: { product: ProductDetail }) {
               <h1 className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl text-balance">
                 {product.name}
               </h1>
+              {ratingSummary && ratingSummary.count > 0 && (
+                <a
+                  href="#reviews"
+                  className="mt-1 inline-flex items-center gap-1.5 text-xs hover:underline"
+                  aria-label={`Read ${ratingSummary.count} reviews`}
+                >
+                  <ReviewSummary
+                    count={ratingSummary.count}
+                    average={ratingSummary.average}
+                    size="sm"
+                  />
+                  <span className="text-muted-foreground">&middot; Read reviews</span>
+                </a>
+              )}
             </div>
             <button
               onClick={() => {

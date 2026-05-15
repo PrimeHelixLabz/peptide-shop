@@ -7,11 +7,14 @@ import { ArrowRight } from "lucide-react"
 import { getAllProducts } from "@/lib/api/server-products"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { PriceDisplay } from "@/components/common/price-display"
+import { ReviewSummary } from "@/components/reviews/review-summary"
+import { getProductRatingSummaries } from "@/lib/db/reviews"
 
 export async function ProductsSection() {
   const allProducts = await getAllProducts()
   // Show first 3 products as featured, or all if less than 3
   const products = allProducts.slice(0, 3)
+  const summaries = await getProductRatingSummaries(products.map((p) => p.id))
   return (
     <Section id="products" background="muted" padding="md">
       <Container>
@@ -61,6 +64,12 @@ export async function ProductsSection() {
                       </span>
                     )}
                   </div>
+                  {(() => {
+                    const s = summaries.get(product.id)
+                    return s && s.count > 0 ? (
+                      <ReviewSummary count={s.count} average={s.average} size="sm" />
+                    ) : null
+                  })()}
                   {/* Short Description - DISABLED */}
                   {/* <p className="text-sm leading-relaxed text-muted-foreground">
                     {product.description}

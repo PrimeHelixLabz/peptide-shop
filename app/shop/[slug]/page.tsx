@@ -4,7 +4,12 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ProductDetailView } from "@/components/product-detail"
 import { RelatedProducts } from "@/components/related-products"
+import { ProductReviews } from "@/components/reviews/product-reviews"
 import { getProductBySlug, getRelatedProducts } from "@/lib/api/server-products"
+import {
+  getProductReviews,
+  getProductRatingSummary,
+} from "@/lib/db/reviews"
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -48,7 +53,11 @@ export default async function ProductPage({ params }: PageProps) {
     notFound()
   }
 
-  const related = await getRelatedProducts(product.id, 3)
+  const [related, reviews, ratingSummary] = await Promise.all([
+    getRelatedProducts(product.id, 3),
+    getProductReviews(product.id, { limit: 50 }),
+    getProductRatingSummary(product.id),
+  ])
 
   // JSON-LD structured data using only real product fields
   const lowestPrice = product.variants?.length
@@ -58,7 +67,7 @@ export default async function ProductPage({ params }: PageProps) {
     ? Math.max(...product.variants.map((v) => v.price))
     : product.price
 
-  const jsonLd = {
+  const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
@@ -94,17 +103,84 @@ export default async function ProductPage({ params }: PageProps) {
     }),
   }
 
+  if (ratingSummary.count > 0) {
+    jsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: ratingSummary.average,
+      reviewCount: ratingSummary.count,
+      bestRating: 5,
+      worstRating: 1,
+    }
+    // Include up to the 5 most recent reviews in structured data so search
+    // engines can surface review snippets without needing to crawl the page.
+    jsonLd.review = reviews.slice(0, 5).map((r) => ({
+      "@type": "Review",
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: r.rating,
+        bestRating: 5,
+        worstRating: 1,
+      },
+      author: { "@type": "Person", name: r.customerName },
+      datePublished: r.createdAt,
+      name: r.title,
+      reviewBody: r.body,
+    }))
+  }
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://primehelixlabz.com/",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Shop",
+        item: "https://primehelixlabz.com/shop",
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: product.name,
+        item: `https://primehelixlabz.com/shop/${slug}`,
+      },
+    ],
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-[#f6f6f7]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <Header />
       <main className="flex-1 flex flex-col gap-20 py-12 md:py-20">
         <div className="mx-auto max-w-7xl px-6 md:px-10">
-          <ProductDetailView product={product} />
+          <ProductDetailView product={product} ratingSummary={ratingSummary} />
         </div>
+
+        {/* Reviews */}
+        <section className="bg-[#f6f6f7]">
+          <div className="mx-auto max-w-7xl px-6 md:px-10">
+            <ProductReviews
+              productId={product.id}
+              productName={product.name}
+              productSlug={slug}
+              initialReviews={reviews}
+              summary={ratingSummary}
+            />
+          </div>
+        </section>
 
         {/* Related Products */}
         <section className="bg-[#f6f6f7]">
