@@ -24,7 +24,8 @@
       "Bash(npx -p typescript@5.7.3 tsc --noEmit)",
       "Bash(pnpm install *)",
       "PowerShell($pnpmCmd = \\(Get-Command pnpm -ErrorAction SilentlyContinue\\); if \\($null -eq $pnpmCmd\\) { \"pnpm not on PATH\" } else { $pnpmCmd.Source })",
-      "PowerShell($npmCmd = \\(Get-Command npm -ErrorAction SilentlyContinue\\); if \\($null -eq $npmCmd\\) { \"npm not on PATH\" } else { $npmCmd.Source })"
+      "PowerShell($npmCmd = \\(Get-Command npm -ErrorAction SilentlyContinue\\); if \\($null -eq $npmCmd\\) { \"npm not on PATH\" } else { $npmCmd.Source })",
+      "Bash(pnpm --version)"
     ]
   }
 }
