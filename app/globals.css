@@ -239,6 +239,82 @@ html {
   @apply bg-muted font-semibold text-foreground;
 }
 
+/* ============================================================
+ * Blog article prose
+ * ============================================================
+ * Larger typography variant for /blog/[slug] body rendering.
+ * Shares the .ql-editor-content selector for compatibility with
+ * Quill-produced HTML, but bumps font size and spacing for
+ * long-form reading.
+ */
+.blog-article-prose {
+  @apply text-base leading-relaxed text-muted-foreground md:text-[17px] md:leading-[1.8];
+  overflow-wrap: break-word;
+  width: 100%;
+}
+.blog-article-prose * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.blog-article-prose h1,
+.blog-article-prose h2 {
+  @apply mt-12 mb-4 text-2xl font-semibold tracking-tight text-foreground md:text-3xl;
+}
+.blog-article-prose h3 {
+  @apply mt-8 mb-3 text-xl font-semibold tracking-tight text-foreground md:text-2xl;
+}
+.blog-article-prose h4 {
+  @apply mt-6 mb-2 text-lg font-semibold text-foreground;
+}
+.blog-article-prose p {
+  @apply my-4;
+}
+.blog-article-prose ul,
+.blog-article-prose ol {
+  @apply my-6 ml-6 space-y-2;
+}
+.blog-article-prose ul {
+  @apply list-disc;
+}
+.blog-article-prose ol {
+  @apply list-decimal;
+}
+.blog-article-prose blockquote {
+  @apply my-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 not-italic text-sm leading-relaxed text-amber-900 md:p-6 md:text-base;
+  border-left-width: 1px;
+}
+.blog-article-prose a {
+  @apply text-primary underline;
+}
+.blog-article-prose strong {
+  @apply font-semibold text-foreground;
+}
+.blog-article-prose em {
+  @apply italic;
+}
+.blog-article-prose code {
+  @apply rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground;
+}
+.blog-article-prose pre {
+  @apply my-6 overflow-x-auto rounded-2xl bg-gray-900 p-5 text-sm text-gray-100;
+}
+.blog-article-prose pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+.blog-article-prose img {
+  @apply my-6 h-auto w-full rounded-2xl;
+}
+.blog-article-prose table {
+  @apply my-8 w-full border-collapse overflow-hidden rounded-2xl text-sm;
+}
+.blog-article-prose th,
+.blog-article-prose td {
+  @apply border border-gray-200 px-4 py-3;
+}
+.blog-article-prose th {
+  @apply bg-gray-50 font-semibold text-foreground;
+}
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;

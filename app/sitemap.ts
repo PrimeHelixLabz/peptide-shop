@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next'
 import { getAllProducts } from '@/lib/api/server-products'
-import { getAllPostsMeta } from '@/lib/blog/posts'
+import { getPublishedPosts } from '@/lib/blog/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,12 +75,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // Blog post pages
-  const blogPages: MetadataRoute.Sitemap = getAllPostsMeta().map((post) => ({
-    url: `${BASE_URL}/blog/${post.slug}`,
-    lastModified: new Date(post.updatedAt || post.publishedAt),
-    changeFrequency: 'monthly' as const,
-    priority: 0.7,
-  }))
+  let blogPages: MetadataRoute.Sitemap = []
+  try {
+    const posts = await getPublishedPosts()
+    blogPages = posts.map((post) => ({
+      url: `${BASE_URL}/blog/${post.slug}`,
+      lastModified: new Date(post.updatedAt),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    }))
+  } catch {
+    // If blog fetch fails, sitemap still returns the rest.
+  }
 
   return [...staticPages, ...productPages, ...blogPages]
 }

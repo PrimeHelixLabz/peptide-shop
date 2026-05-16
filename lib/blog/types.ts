@@ -1,17 +1,51 @@
-import type { ReactNode } from "react"
+export type BlogPostStatus = "draft" | "published"
 
-export interface BlogPostMeta {
+/**
+ * Public blog post shape returned by reads. body_html is sanitized HTML
+ * suitable for dangerouslySetInnerHTML; never re-sanitize at render.
+ */
+export interface BlogPost {
+  id: string
   slug: string
   title: string
   description: string
-  publishedAt: string
-  updatedAt?: string
-  author: string
-  readMinutes: number
+  bodyHtml: string
+  featuredImage: string | null
+  authorName: string
+  authorUserId: string | null
+  status: BlogPostStatus
   tags: string[]
-  featuredImage?: string
+  readMinutes: number
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
 }
 
-export interface BlogPost extends BlogPostMeta {
-  Component: () => ReactNode
+/** Lightweight summary used by the index page and admin list. */
+export interface BlogPostSummary {
+  id: string
+  slug: string
+  title: string
+  description: string
+  featuredImage: string | null
+  authorName: string
+  status: BlogPostStatus
+  tags: string[]
+  readMinutes: number
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** Shape accepted by the create/update API. body_html is pre-sanitize. */
+export interface BlogPostInput {
+  slug: string
+  title: string
+  description: string
+  bodyHtml: string
+  featuredImage: string | null
+  authorName: string
+  status: BlogPostStatus
+  tags: string[]
+  readMinutes: number
 }

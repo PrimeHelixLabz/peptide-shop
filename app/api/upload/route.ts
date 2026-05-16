@@ -40,16 +40,20 @@ export const POST = requireAuthMiddleware(async (req) => {
     const filename = `${timestamp}-${randomString}.${extension}`
 
     // If productId is provided, store under that product directory. Otherwise, use temp.
-    // Supports sub-arch paths for thumbnails and variant images.
-    const baseDir = productId || "temp"
+    // Supports sub-arch paths for thumbnails and variant images. Blog images
+    // live under a flat `blog/` prefix so they can be referenced
+    // independently of any product lifecycle.
+    const baseDir = kind === "blog" ? "blog" : productId || "temp"
     const subDir =
-      productId && kind === "thumbnail"
-        ? "thumbnail"
-        : productId && kind === "variant" && variantId
-          ? `variants/${variantId}`
-          : productId && kind === "coa"
-            ? "coa"
-            : ""
+      kind === "blog"
+        ? ""
+        : productId && kind === "thumbnail"
+          ? "thumbnail"
+          : productId && kind === "variant" && variantId
+            ? `variants/${variantId}`
+            : productId && kind === "coa"
+              ? "coa"
+              : ""
 
     const directory = subDir ? `${baseDir}/${subDir}` : baseDir
     const filepath = `${directory}/${filename}`

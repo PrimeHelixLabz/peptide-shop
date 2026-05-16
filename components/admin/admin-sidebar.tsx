@@ -11,12 +11,14 @@ import {
   X,
   FolderTree,
   Users,
+  FileText,
 } from "lucide-react"
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Categories", href: "/admin/categories", icon: FolderTree },
+  { label: "Blog", href: "/admin/blog", icon: FileText },
   { label: "Orders", href: "/admin/orders", icon: ClipboardList },
   { label: "Customers", href: "/admin/customers", icon: Users },
 ]

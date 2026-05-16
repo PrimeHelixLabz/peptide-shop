@@ -1,23 +1,30 @@
 import type { Metadata } from "next"
+import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { Prose } from "@/components/blog/article-prose"
-import { getAllSlugs, getPostBySlug, getAllPostsMeta } from "@/lib/blog/posts"
+import {
+  getPublishedPostBySlug,
+  getPublishedPosts,
+  getPublishedSlugs,
+} from "@/lib/blog/db"
 
 interface PageProps {
   params: Promise<{ slug: string }>
 }
 
-export const revalidate = 3600
-export const dynamicParams = false
+// ISR: refresh after 5 minutes so admin edits go live without a redeploy.
+export const revalidate = 300
+export const dynamicParams = true
 
 export async function generateStaticParams() {
-  return getAllSlugs().map((slug) => ({ slug }))
+  const slugs = await getPublishedSlugs()
+  return slugs.map((slug) => ({ slug }))
 }
 
-function formatDate(iso: string) {
+function formatDate(iso: string | null) {
+  if (!iso) return ""
   return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -27,7 +34,7 @@ function formatDate(iso: string) {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  const post = getPostBySlug(slug)
+  const post = await getPublishedPostBySlug(slug)
   if (!post) {
     return { title: "Article Not Found | PrimeHelix Labz" }
   }
@@ -39,23 +46,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: post.title,
       description: post.description,
       type: "article",
-      publishedTime: post.publishedAt,
-      modifiedTime: post.updatedAt || post.publishedAt,
-      authors: [post.author],
+      publishedTime: post.publishedAt ?? undefined,
+      modifiedTime: post.updatedAt,
+      authors: [post.authorName],
       tags: post.tags,
+      images: post.featuredImage ? [{ url: post.featuredImage }] : undefined,
     },
   }
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug } = await params
-  const post = getPostBySlug(slug)
+  const post = await getPublishedPostBySlug(slug)
   if (!post) notFound()
 
-  const Article = post.Component
-
   // Related posts: 2 most recent other posts
-  const related = getAllPostsMeta()
+  const allPosts = await getPublishedPosts()
+  const related = allPosts
     .filter((p) => p.slug !== post.slug)
     .slice(0, 2)
 
@@ -65,10 +72,10 @@ export default async function BlogPostPage({ params }: PageProps) {
     headline: post.title,
     description: post.description,
     datePublished: post.publishedAt,
-    dateModified: post.updatedAt || post.publishedAt,
+    dateModified: post.updatedAt,
     author: {
       "@type": "Organization",
-      name: post.author,
+      name: post.authorName,
     },
     publisher: {
       "@type": "Organization",
@@ -84,6 +91,7 @@ export default async function BlogPostPage({ params }: PageProps) {
       "@id": `https://primehelixlabz.com/blog/${post.slug}`,
     },
     keywords: post.tags.join(", "),
+    ...(post.featuredImage && { image: post.featuredImage }),
   }
 
   const breadcrumbLd = {
@@ -134,16 +142,18 @@ export default async function BlogPostPage({ params }: PageProps) {
           </nav>
 
           <header className="mb-10 flex flex-col gap-4 border-b border-gray-200 pb-10">
-            <div className="flex flex-wrap gap-2">
-              {post.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+            {post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {post.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
             <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground md:text-4xl lg:text-5xl text-balance">
               {post.title}
             </h1>
@@ -151,9 +161,9 @@ export default async function BlogPostPage({ params }: PageProps) {
               {post.description}
             </p>
             <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-              <span>{post.author}</span>
+              <span>{post.authorName}</span>
               <span aria-hidden="true">&middot;</span>
-              <time dateTime={post.publishedAt}>
+              <time dateTime={post.publishedAt ?? undefined}>
                 {formatDate(post.publishedAt)}
               </time>
               <span aria-hidden="true">&middot;</span>
@@ -161,9 +171,24 @@ export default async function BlogPostPage({ params }: PageProps) {
             </div>
           </header>
 
-          <Prose>
-            <Article />
-          </Prose>
+          {post.featuredImage && (
+            <div className="relative mb-10 aspect-[16/9] overflow-hidden rounded-3xl bg-gray-100">
+              <Image
+                src={post.featuredImage}
+                alt={post.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 768px"
+                priority
+                unoptimized={post.featuredImage.includes("supabase")}
+              />
+            </div>
+          )}
+
+          <div
+            className="blog-article-prose"
+            dangerouslySetInnerHTML={{ __html: post.bodyHtml }}
+          />
 
           {related.length > 0 && (
             <aside className="mt-16 border-t border-gray-200 pt-10">

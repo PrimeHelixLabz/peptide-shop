@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
+import Image from "next/image"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { getAllPostsMeta } from "@/lib/blog/posts"
+import { getPublishedPosts } from "@/lib/blog/db"
 
 export const metadata: Metadata = {
   title: "Research Blog | PrimeHelix Labz",
@@ -19,9 +20,10 @@ export const metadata: Metadata = {
   },
 }
 
-export const revalidate = 3600
+export const revalidate = 300 // 5 minutes — fast enough to reflect new posts
 
-function formatDate(iso: string) {
+function formatDate(iso: string | null) {
+  if (!iso) return ""
   return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -29,8 +31,8 @@ function formatDate(iso: string) {
   })
 }
 
-export default function BlogIndexPage() {
-  const posts = getAllPostsMeta()
+export default async function BlogIndexPage() {
+  const posts = await getPublishedPosts()
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -47,11 +49,11 @@ export default function BlogIndexPage() {
       headline: p.title,
       description: p.description,
       datePublished: p.publishedAt,
-      dateModified: p.updatedAt || p.publishedAt,
+      dateModified: p.updatedAt,
       url: `https://primehelixlabz.com/blog/${p.slug}`,
       author: {
         "@type": "Organization",
-        name: p.author,
+        name: p.authorName,
       },
     })),
   }
@@ -78,39 +80,61 @@ export default function BlogIndexPage() {
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {posts.map((post) => (
-              <Link
-                key={post.slug}
-                href={`/blog/${post.slug}`}
-                className="group flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] md:p-8"
-              >
-                <div className="flex flex-wrap gap-2">
-                  {post.tags.slice(0, 3).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <h2 className="text-xl font-semibold leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary md:text-2xl">
-                  {post.title}
-                </h2>
-                <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
-                  {post.description}
-                </p>
-                <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-muted-foreground">
-                  <time dateTime={post.publishedAt}>
-                    {formatDate(post.publishedAt)}
-                  </time>
-                  <span aria-hidden="true">&middot;</span>
-                  <span>{post.readMinutes} min read</span>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {posts.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground">
+              New articles coming soon.
+            </p>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {posts.map((post) => (
+                <Link
+                  key={post.slug}
+                  href={`/blog/${post.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
+                >
+                  {post.featuredImage && (
+                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100">
+                      <Image
+                        src={post.featuredImage}
+                        alt={post.title}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        unoptimized={post.featuredImage.includes("supabase")}
+                      />
+                    </div>
+                  )}
+                  <div className="flex flex-1 flex-col gap-4 p-6 md:p-8">
+                    {post.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {post.tags.slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <h2 className="text-xl font-semibold leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary md:text-2xl">
+                      {post.title}
+                    </h2>
+                    <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+                      {post.description}
+                    </p>
+                    <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-muted-foreground">
+                      <time dateTime={post.publishedAt ?? undefined}>
+                        {formatDate(post.publishedAt)}
+                      </time>
+                      <span aria-hidden="true">&middot;</span>
+                      <span>{post.readMinutes} min read</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </main>
       <Footer />
