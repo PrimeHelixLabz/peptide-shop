@@ -2,7 +2,15 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { usePathname } from "next/navigation"
-import { X, Mail, CheckCircle2 } from "lucide-react"
+import { Mail, CheckCircle2 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { FormInput } from "@/components/common/form-input"
 
 const STORAGE_KEY = "phl-newsletter-popup-state-v1"
 const DISMISS_DAYS = 30
@@ -74,34 +82,12 @@ export function NewsletterPopup() {
     setIsOpen(true)
   }, [])
 
-  const close = useCallback(() => {
-    setIsOpen(false)
-  }, [])
-
-  const dismiss = useCallback(() => {
-    writeStoredState({ ...readStoredState(), dismissedAt: Date.now() })
-    close()
-  }, [close])
-
-  // Lock body scroll when open
-  useEffect(() => {
-    if (!isOpen) return
-    const originalOverflow = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    return () => {
-      document.body.style.overflow = originalOverflow
+  const handleOpenChange = useCallback((next: boolean) => {
+    setIsOpen(next)
+    if (!next && status !== "success") {
+      writeStoredState({ ...readStoredState(), dismissedAt: Date.now() })
     }
-  }, [isOpen])
-
-  // ESC to close
-  useEffect(() => {
-    if (!isOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") dismiss()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [isOpen, dismiss])
+  }, [status])
 
   // Trigger setup
   useEffect(() => {
@@ -178,52 +164,29 @@ export function NewsletterPopup() {
     [email, website]
   )
 
-  if (!isOpen) return null
-
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="newsletter-popup-title"
-      onClick={dismiss}
-    >
-      <div
-        className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-[0_25px_50px_rgba(0,0,0,0.25)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Close"
-          className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md gap-0 overflow-hidden rounded-3xl border-0 bg-card p-0 shadow-[0_25px_50px_rgba(0,0,0,0.25)]">
         {status === "success" ? (
           <div className="flex flex-col items-center gap-4 px-8 py-12 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-7 w-7 text-green-600" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
+              <CheckCircle2 className="h-7 w-7 text-success" />
             </div>
-            <h2
-              id="newsletter-popup-title"
-              className="text-xl font-semibold tracking-tight text-foreground md:text-2xl"
-            >
+            <DialogTitle className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
               Check your inbox
-            </h2>
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
               Your peptide research guide is on its way to{" "}
               <strong className="text-foreground">{email}</strong>. If you don&rsquo;t
               see it within a couple of minutes, check your spam folder.
-            </p>
-            <button
+            </DialogDescription>
+            <Button
               type="button"
-              onClick={close}
-              className="mt-2 inline-flex items-center justify-center rounded-2xl bg-primary px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95"
+              onClick={() => setIsOpen(false)}
+              className="mt-2"
             >
               Continue browsing
-            </button>
+            </Button>
           </div>
         ) : (
           <>
@@ -231,32 +194,26 @@ export function NewsletterPopup() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm">
                 <Mail className="h-5 w-5 text-white" />
               </div>
-              <h2
-                id="newsletter-popup-title"
-                className="text-xl font-semibold tracking-tight text-white md:text-2xl"
-              >
+              <DialogTitle className="text-xl font-semibold tracking-tight text-white md:text-2xl">
                 Get our peptide research guide
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+              </DialogTitle>
+              <DialogDescription className="mt-2 text-sm leading-relaxed text-slate-300">
                 Five field-tested articles on the most-studied compounds, lab
                 handling, and quality assurance &mdash; free.
-              </p>
+              </DialogDescription>
             </div>
 
-            <form onSubmit={handleSubmit} className="px-8 py-6">
-              <label htmlFor="newsletter-email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="newsletter-email"
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-8 py-6">
+              <FormInput
                 type="email"
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
+                aria-label="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={status === "submitting"}
-                className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-foreground placeholder:text-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
+                error={status === "error" ? errorMessage : undefined}
               />
 
               {/* Honeypot — hidden from real users, visible to most bots */}
@@ -271,19 +228,15 @@ export function NewsletterPopup() {
                 aria-hidden="true"
               />
 
-              {status === "error" && (
-                <p className="mt-3 text-xs text-red-600">{errorMessage}</p>
-              )}
-
-              <button
+              <Button
                 type="submit"
                 disabled={status === "submitting"}
-                className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-primary px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full"
               >
                 {status === "submitting" ? "Sending…" : "Send me the guide"}
-              </button>
+              </Button>
 
-              <p className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground">
+              <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
                 No spam. Unsubscribe anytime. By subscribing you agree to our{" "}
                 <a
                   href="/privacy-policy"
@@ -296,7 +249,7 @@ export function NewsletterPopup() {
             </form>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

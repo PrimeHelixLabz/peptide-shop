@@ -3,6 +3,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { Section, Container, PageHeader } from "@/components/layout"
+import { Badge } from "@/components/common/badge"
 import { getPublishedPosts } from "@/lib/blog/db"
 
 export const metadata: Metadata = {
@@ -65,77 +67,71 @@ export default async function BlogIndexPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Header />
-      <main className="flex-1 py-12 md:py-20">
-        <div className="mx-auto max-w-5xl px-6 md:px-10">
-          <div className="mb-12 flex flex-col gap-3 text-center md:mb-16">
-            <span className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
-              Research Blog
-            </span>
-            <h1 className="text-4xl font-semibold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl text-balance">
-              Peptide science, made readable.
-            </h1>
-            <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-muted-foreground">
-              Field-tested articles on peptide research, laboratory handling, and
-              quality assurance &mdash; written for researchers, by researchers.
-            </p>
-          </div>
+      <main className="flex-1 flex flex-col gap-20 py-12 md:py-20">
+        <Section background="muted" padding="md">
+          <Container>
+            <PageHeader
+              label="Research Blog"
+              title="Peptide science, made readable."
+              description="Field-tested articles on peptide research, laboratory handling, and quality assurance — written for researchers, by researchers."
+              align="center"
+              className="mb-12 md:mb-16"
+            />
 
-          {posts.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground">
-              New articles coming soon.
-            </p>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              {posts.map((post) => (
-                <Link
-                  key={post.slug}
-                  href={`/blog/${post.slug}`}
-                  className="group flex flex-col overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
-                >
-                  {post.featuredImage && (
-                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100">
-                      <Image
-                        src={post.featuredImage}
-                        alt={post.title}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                        unoptimized={post.featuredImage.includes("supabase")}
-                      />
-                    </div>
-                  )}
-                  <div className="flex flex-1 flex-col gap-4 p-6 md:p-8">
-                    {post.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {post.tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                          >
-                            {tag}
-                          </span>
-                        ))}
+            {posts.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground">
+                New articles coming soon.
+              </p>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2">
+                {posts.map((post) => (
+                  <Link
+                    key={post.slug}
+                    href={`/blog/${post.slug}`}
+                    className="group flex flex-col overflow-hidden rounded-3xl bg-card text-card-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
+                  >
+                    {post.featuredImage && (
+                      <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
+                        <Image
+                          src={post.featuredImage}
+                          alt={post.title}
+                          fill
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          unoptimized={post.featuredImage.includes("supabase")}
+                        />
                       </div>
                     )}
-                    <h2 className="text-xl font-semibold leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary md:text-2xl">
-                      {post.title}
-                    </h2>
-                    <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
-                      {post.description}
-                    </p>
-                    <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-muted-foreground">
-                      <time dateTime={post.publishedAt ?? undefined}>
-                        {formatDate(post.publishedAt)}
-                      </time>
-                      <span aria-hidden="true">&middot;</span>
-                      <span>{post.readMinutes} min read</span>
+                    <div className="flex flex-1 flex-col gap-4 p-6 md:p-8">
+                      {post.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {post.tags.slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="default" size="md">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      <h2 className="text-xl font-semibold leading-snug tracking-tight text-foreground transition-colors group-hover:text-primary md:text-2xl">
+                        {post.title}
+                      </h2>
+                      <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+                        {post.description}
+                      </p>
+                      <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-muted-foreground">
+                        <time dateTime={post.publishedAt ?? undefined}>
+                          {formatDate(post.publishedAt)}
+                        </time>
+                        <span aria-hidden="true">&middot;</span>
+                        <span>{post.readMinutes} min read</span>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </Container>
+        </Section>
       </main>
       <Footer />
     </div>

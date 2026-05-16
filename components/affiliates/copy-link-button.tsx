@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import { Copy, Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function CopyLinkButton({ value, label = "Copy" }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false)
@@ -17,22 +18,18 @@ export function CopyLinkButton({ value, label = "Copy" }: { value: string; label
   }, [value])
 
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95"
-    >
+    <Button type="button" size="sm" onClick={handleCopy} className="shrink-0">
       {copied ? (
         <>
-          <Check className="h-3.5 w-3.5" />
+          <Check />
           Copied
         </>
       ) : (
         <>
-          <Copy className="h-3.5 w-3.5" />
+          <Copy />
           {label}
         </>
       )}
-    </button>
+    </Button>
   )
 }

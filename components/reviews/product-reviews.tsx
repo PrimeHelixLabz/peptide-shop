@@ -4,6 +4,10 @@ import { useState, useCallback } from "react"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useRouter } from "next/navigation"
 import { ShieldCheck, MessageSquarePlus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/common/badge"
+import { FormInput } from "@/components/common/form-input"
+import { FormTextarea } from "@/components/common/form-textarea"
 import { StarRating } from "./star-rating"
 import { StarInput } from "./star-input"
 import type { ProductReview, ProductRatingSummary } from "@/lib/db/reviews"
@@ -115,9 +119,9 @@ export function ProductReviews({
     <section
       id="reviews"
       aria-labelledby="reviews-heading"
-      className="overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)]"
+      className="overflow-hidden rounded-3xl bg-card text-card-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)]"
     >
-      <div className="border-b border-gray-100 p-8">
+      <div className="border-b border-border/50 p-8">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
             <h2
@@ -131,14 +135,10 @@ export function ProductReviews({
             </p>
           </div>
           {!showForm && (
-            <button
-              type="button"
-              onClick={handleStartReview}
-              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95"
-            >
-              <MessageSquarePlus className="h-4 w-4" />
+            <Button type="button" onClick={handleStartReview}>
+              <MessageSquarePlus />
               Write a review
-            </button>
+            </Button>
           )}
         </div>
 
@@ -164,7 +164,7 @@ export function ProductReviews({
                     <span className="w-6 text-muted-foreground">
                       {star}★
                     </span>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-amber-400 transition-all duration-500"
                         style={{ width: `${percent}%` }}
@@ -190,12 +190,12 @@ export function ProductReviews({
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="border-b border-gray-100 bg-gray-50 p-8"
+          className="border-b border-border/50 bg-muted p-8"
           aria-labelledby="review-form-heading"
         >
           <h3
             id="review-form-heading"
-            className="mb-4 text-lg font-semibold text-foreground"
+            className="mb-2 text-lg font-semibold text-foreground"
           >
             Share your experience
           </h3>
@@ -205,90 +205,74 @@ export function ProductReviews({
           </p>
 
           <div className="flex flex-col gap-5">
-            <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <div className="flex flex-col gap-2">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 Your rating
               </label>
-              <StarInput value={rating} onChange={setRating} disabled={submitting} />
-            </div>
-
-            <div>
-              <label
-                htmlFor="review-title"
-                className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
-              >
-                Title
-              </label>
-              <input
-                id="review-title"
-                type="text"
-                required
-                maxLength={120}
-                placeholder="A short summary"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+              <StarInput
+                value={rating}
+                onChange={setRating}
                 disabled={submitting}
-                className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-foreground placeholder:text-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="review-body"
-                className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
-              >
-                Your review
-              </label>
-              <textarea
-                id="review-body"
-                required
-                rows={5}
-                maxLength={4000}
-                placeholder="What did you find useful? Anything other researchers should know?"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                disabled={submitting}
-                className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
-              />
-            </div>
+            <FormInput
+              label="Title"
+              required
+              maxLength={120}
+              placeholder="A short summary"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={submitting}
+            />
+
+            <FormTextarea
+              label="Your review"
+              required
+              rows={5}
+              maxLength={4000}
+              placeholder="What did you find useful? Anything other researchers should know?"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              disabled={submitting}
+            />
 
             {submitError && (
-              <p className="text-xs text-red-600">{submitError}</p>
+              <p className="text-xs text-destructive">{submitError}</p>
             )}
 
             <div className="flex flex-wrap items-center gap-3">
-              <button
+              <Button
                 type="submit"
                 disabled={submitting || rating === 0}
-                className="inline-flex items-center justify-center rounded-2xl bg-primary px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? "Submitting…" : "Submit review"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
                   setShowForm(false)
                   setSubmitError("")
                 }}
                 disabled={submitting}
-                className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-medium text-foreground transition-all duration-200 hover:bg-gray-100 active:scale-95 disabled:opacity-60 border border-gray-200"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         </form>
       )}
 
       {submitSuccess && !showForm && (
-        <div className="border-b border-gray-100 bg-green-50 px-8 py-4 text-sm text-green-800">
+        <div className="border-b border-border/50 bg-success/10 px-8 py-4 text-sm text-success">
           Thanks &mdash; your review is now live.
         </div>
       )}
 
       {/* List */}
       {reviews.length > 0 && (
-        <ul className="divide-y divide-gray-100">
+        <ul className="divide-y divide-border/50">
           {reviews.map((review) => (
             <li key={review.id} className="p-8">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -308,13 +292,10 @@ export function ProductReviews({
                       {formatDate(review.createdAt)}
                     </time>
                     {review.isVerifiedPurchase && (
-                      <>
-                        <span aria-hidden="true">&middot;</span>
-                        <span className="inline-flex items-center gap-1 text-emerald-700">
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Verified buyer
-                        </span>
-                      </>
+                      <Badge variant="success" size="sm" className="ml-1 normal-case tracking-normal">
+                        <ShieldCheck className="mr-1 h-3 w-3" />
+                        Verified buyer
+                      </Badge>
                     )}
                   </div>
                 </div>

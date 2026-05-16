@@ -12,6 +12,7 @@ import {
   FolderTree,
   Users,
   FileText,
+  Handshake,
 } from "lucide-react"
 
 const navItems = [
@@ -21,6 +22,7 @@ const navItems = [
   { label: "Blog", href: "/admin/blog", icon: FileText },
   { label: "Orders", href: "/admin/orders", icon: ClipboardList },
   { label: "Customers", href: "/admin/customers", icon: Users },
+  { label: "Affiliates", href: "/admin/affiliates", icon: Handshake },
 ]
 
 interface AdminSidebarProps {

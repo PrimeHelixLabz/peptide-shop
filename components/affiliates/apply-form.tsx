@@ -3,8 +3,20 @@
 import { useState, useCallback } from "react"
 import Link from "next/link"
 import { CheckCircle2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { FormInput } from "@/components/common/form-input"
+import { FormTextarea } from "@/components/common/form-textarea"
+import { FormSelect } from "@/components/common/form-select"
 
 type PayoutMethod = "paypal" | "wise" | "crypto" | "ach" | "other"
+
+const PAYOUT_OPTIONS: { value: PayoutMethod; label: string }[] = [
+  { value: "paypal", label: "PayPal" },
+  { value: "wise", label: "Wise (transferwise)" },
+  { value: "crypto", label: "Crypto (USDC/USDT)" },
+  { value: "ach", label: "ACH (US bank)" },
+  { value: "other", label: "Other" },
+]
 
 export function AffiliateApplyForm({
   defaultName,
@@ -63,10 +75,10 @@ export function AffiliateApplyForm({
 
   if (success) {
     return (
-      <div className="rounded-3xl bg-white p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)] md:p-12">
+      <div className="rounded-3xl bg-card text-card-foreground p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] md:p-12">
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle2 className="h-7 w-7 text-green-600" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
+            <CheckCircle2 className="h-7 w-7 text-success" />
           </div>
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">
             Application received
@@ -76,12 +88,9 @@ export function AffiliateApplyForm({
             get an email at <strong className="text-foreground">{defaultEmail}</strong>{" "}
             once you&rsquo;re approved, with your unique referral link.
           </p>
-          <Link
-            href="/affiliates/dashboard"
-            className="mt-2 inline-flex items-center justify-center rounded-2xl bg-primary px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95"
-          >
-            View your status
-          </Link>
+          <Button asChild className="mt-2">
+            <Link href="/affiliates/dashboard">View your status</Link>
+          </Button>
         </div>
       </div>
     )
@@ -90,109 +99,52 @@ export function AffiliateApplyForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-6 rounded-3xl bg-white p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)] md:p-10"
+      className="flex flex-col gap-6 rounded-3xl bg-card text-card-foreground p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] md:p-10"
     >
-      <div>
-        <label
-          htmlFor="apply-name"
-          className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
-        >
-          Your name or brand
-        </label>
-        <input
-          id="apply-name"
-          type="text"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          disabled={submitting}
-          className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-foreground placeholder:text-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
-        />
-      </div>
+      <FormInput
+        label="Your name or brand"
+        required
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        disabled={submitting}
+      />
 
-      <div>
-        <label
-          htmlFor="apply-website"
-          className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
-        >
-          Where will you promote? (URL)
-        </label>
-        <input
-          id="apply-website"
-          type="url"
-          placeholder="https://your-channel.com"
-          value={website}
-          onChange={(e) => setWebsite(e.target.value)}
-          disabled={submitting}
-          className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-foreground placeholder:text-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
-        />
-        <p className="mt-2 text-xs text-muted-foreground">
-          YouTube channel, podcast, blog, newsletter, forum profile &mdash;
-          whatever&rsquo;s most representative.
-        </p>
-      </div>
+      <FormInput
+        label="Where will you promote? (URL)"
+        type="url"
+        placeholder="https://your-channel.com"
+        value={website}
+        onChange={(e) => setWebsite(e.target.value)}
+        disabled={submitting}
+        helperText="YouTube channel, podcast, blog, newsletter, forum profile — whatever's most representative."
+      />
 
-      <div>
-        <label
-          htmlFor="apply-audience"
-          className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
-        >
-          Tell us about your audience
-        </label>
-        <textarea
-          id="apply-audience"
-          rows={4}
-          placeholder="Approximate size, niche, why your audience would be interested in research peptides…"
-          value={audience}
-          onChange={(e) => setAudience(e.target.value)}
-          disabled={submitting}
-          className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
-        />
-      </div>
+      <FormTextarea
+        label="Tell us about your audience"
+        rows={4}
+        placeholder="Approximate size, niche, why your audience would be interested in research peptides…"
+        value={audience}
+        onChange={(e) => setAudience(e.target.value)}
+        disabled={submitting}
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <label
-            htmlFor="apply-payout-method"
-            className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            Preferred payout method
-          </label>
-          <select
-            id="apply-payout-method"
-            value={payoutMethod}
-            onChange={(e) => setPayoutMethod(e.target.value as PayoutMethod)}
-            disabled={submitting}
-            className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-foreground focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
-          >
-            <option value="paypal">PayPal</option>
-            <option value="wise">Wise (transferwise)</option>
-            <option value="crypto">Crypto (USDC/USDT)</option>
-            <option value="ach">ACH (US bank)</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
+        <FormSelect
+          label="Preferred payout method"
+          options={PAYOUT_OPTIONS}
+          value={payoutMethod}
+          onChange={(e) => setPayoutMethod(e.target.value as PayoutMethod)}
+          disabled={submitting}
+        />
 
-        <div>
-          <label
-            htmlFor="apply-payout-details"
-            className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            Payout handle / address
-          </label>
-          <input
-            id="apply-payout-details"
-            type="text"
-            placeholder="e.g. paypal@example.com"
-            value={payoutDetails}
-            onChange={(e) => setPayoutDetails(e.target.value)}
-            disabled={submitting}
-            className="block w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-foreground placeholder:text-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:opacity-60"
-          />
-          <p className="mt-2 text-xs text-muted-foreground">
-            You can update this later from your dashboard.
-          </p>
-        </div>
+        <FormInput
+          label="Payout handle / address"
+          placeholder="e.g. paypal@example.com"
+          value={payoutDetails}
+          onChange={(e) => setPayoutDetails(e.target.value)}
+          disabled={submitting}
+          helperText="You can update this later from your dashboard."
+        />
       </div>
 
       {/* Honeypot */}
@@ -207,15 +159,11 @@ export function AffiliateApplyForm({
         aria-hidden="true"
       />
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
-      <button
-        type="submit"
-        disabled={submitting || !name.trim()}
-        className="inline-flex items-center justify-center rounded-2xl bg-primary px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-      >
+      <Button type="submit" disabled={submitting || !name.trim()}>
         {submitting ? "Submitting…" : "Submit application"}
-      </button>
+      </Button>
 
       <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
         By applying you agree to follow our promotion guidelines (no Google/Meta/TikTok ads,

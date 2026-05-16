@@ -227,6 +227,191 @@ export async function getAffiliateByUserId(
   return rowToAffiliate(data as unknown as AffiliateRow)
 }
 
+export interface AffiliateWithStats extends Affiliate {
+  conversionsCount: number
+  totalEarnings: number
+  pendingEarnings: number
+  payableEarnings: number
+  paidEarnings: number
+}
+
+/**
+ * Admin-only: returns every affiliate row with rolled-up conversion stats.
+ * Aggregated in two queries (affiliates + conversions) rather than per-row
+ * to avoid an N+1.
+ */
+export async function getAllAffiliatesWithStatsAsAdmin(): Promise<
+  AffiliateWithStats[]
+> {
+  const supabase = createAdminClient()
+
+  const [{ data: affiliatesData, error: affiliatesError }, { data: conversionsData, error: conversionsError }] =
+    await Promise.all([
+      supabase
+        .from("affiliates")
+        .select(
+          "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
+        )
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("affiliate_conversions")
+        .select("affiliate_id, status, commission_amount"),
+    ])
+
+  if (affiliatesError) {
+    console.error("getAllAffiliatesWithStatsAsAdmin: affiliates query failed", affiliatesError)
+    return []
+  }
+  if (conversionsError) {
+    console.error("getAllAffiliatesWithStatsAsAdmin: conversions query failed", conversionsError)
+    // Continue — affiliate list is more important than stats.
+  }
+
+  type ConvAggRow = {
+    affiliate_id: string
+    status: ConversionStatus
+    commission_amount: number | string
+  }
+  const grouped = new Map<
+    string,
+    {
+      conversionsCount: number
+      totalEarnings: number
+      pendingEarnings: number
+      payableEarnings: number
+      paidEarnings: number
+    }
+  >()
+
+  for (const row of (conversionsData as unknown as ConvAggRow[]) || []) {
+    const acc = grouped.get(row.affiliate_id) || {
+      conversionsCount: 0,
+      totalEarnings: 0,
+      pendingEarnings: 0,
+      payableEarnings: 0,
+      paidEarnings: 0,
+    }
+    acc.conversionsCount += 1
+    if (row.status !== "reversed") {
+      const amount = Number(row.commission_amount)
+      acc.totalEarnings += amount
+      if (row.status === "pending") acc.pendingEarnings += amount
+      if (row.status === "payable") acc.payableEarnings += amount
+      if (row.status === "paid") acc.paidEarnings += amount
+    }
+    grouped.set(row.affiliate_id, acc)
+  }
+
+  return ((affiliatesData as unknown as AffiliateRow[]) || []).map((row) => {
+    const aff = rowToAffiliate(row)
+    const stats = grouped.get(aff.id) || {
+      conversionsCount: 0,
+      totalEarnings: 0,
+      pendingEarnings: 0,
+      payableEarnings: 0,
+      paidEarnings: 0,
+    }
+    return {
+      ...aff,
+      conversionsCount: stats.conversionsCount,
+      totalEarnings: roundCurrency(stats.totalEarnings),
+      pendingEarnings: roundCurrency(stats.pendingEarnings),
+      payableEarnings: roundCurrency(stats.payableEarnings),
+      paidEarnings: roundCurrency(stats.paidEarnings),
+    }
+  })
+}
+
+export async function getAffiliateByIdAsAdmin(
+  id: string
+): Promise<Affiliate | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("affiliates")
+    .select(
+      "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
+    )
+    .eq("id", id)
+    .maybeSingle()
+  if (error) {
+    console.error("getAffiliateByIdAsAdmin failed:", error)
+    return null
+  }
+  if (!data) return null
+  return rowToAffiliate(data as unknown as AffiliateRow)
+}
+
+export interface AffiliateAdminUpdate {
+  status?: AffiliateStatus
+  commissionRate?: number
+  notes?: string
+  payoutMethod?: string | null
+  payoutDetails?: string | null
+}
+
+/**
+ * Admin update: status transitions auto-stamp approved_at, and approving an
+ * affiliate also generates their referral code so it's ready before they
+ * next log in.
+ */
+export async function updateAffiliateAsAdmin(
+  id: string,
+  update: AffiliateAdminUpdate
+): Promise<Affiliate | null> {
+  const supabase = createAdminClient()
+
+  const before = await getAffiliateByIdAsAdmin(id)
+  if (!before) return null
+
+  const patch: Record<string, unknown> = {}
+  if (update.status !== undefined) {
+    patch.status = update.status
+    if (update.status === "approved" && !before.approvedAt) {
+      patch.approved_at = new Date().toISOString()
+    }
+  }
+  if (update.commissionRate !== undefined) {
+    patch.commission_rate = update.commissionRate
+  }
+  if (update.notes !== undefined) patch.notes = update.notes
+  if (update.payoutMethod !== undefined) patch.payout_method = update.payoutMethod
+  if (update.payoutDetails !== undefined) patch.payout_details = update.payoutDetails
+
+  if (Object.keys(patch).length === 0) return before
+
+  const { data, error } = await supabase
+    .from("affiliates")
+    .update(patch)
+    .eq("id", id)
+    .select(
+      "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
+    )
+    .single()
+
+  if (error) {
+    console.error("updateAffiliateAsAdmin failed:", error)
+    throw error
+  }
+  const after = rowToAffiliate(data as unknown as AffiliateRow)
+
+  // Mint a referral code the first time an affiliate is approved. The
+  // dashboard does the same on-load, but doing it here means the code
+  // exists the moment status flips — useful for any admin tooling that
+  // wants to surface or share the link immediately.
+  if (
+    before.status !== "approved" &&
+    after.status === "approved"
+  ) {
+    try {
+      await ensureCodeForAffiliate(after.id, after.name)
+    } catch (err) {
+      console.error("Failed to mint referral code after approval:", err)
+    }
+  }
+
+  return after
+}
+
 export async function getAffiliateStats(
   affiliateId: string
 ): Promise<AffiliateStats> {

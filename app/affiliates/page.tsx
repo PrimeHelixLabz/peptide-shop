@@ -2,7 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { Section, Container } from "@/components/layout"
+import { Section, Container, PageHeader } from "@/components/layout"
+import { Button } from "@/components/ui/button"
 import { Coins, Megaphone, ShieldCheck, BarChart3 } from "lucide-react"
 
 export const metadata: Metadata = {
@@ -41,6 +42,29 @@ const PERKS = [
   },
 ]
 
+const HOW_IT_WORKS = [
+  {
+    step: "1",
+    title: "Apply",
+    body: "Tell us about your audience and where you'll be promoting. We review every application individually.",
+  },
+  {
+    step: "2",
+    title: "Get your link",
+    body: "Once approved, we mint a unique referral code. Append it to any product or shop URL — e.g. primehelixlabz.com/shop?ref=YOURCODE.",
+  },
+  {
+    step: "3",
+    title: "Drive traffic",
+    body: "Share the link in your videos, articles, newsletters, or forum posts. The cookie sticks for 90 days.",
+  },
+  {
+    step: "4",
+    title: "Get paid",
+    body: "Track conversions and earnings in your dashboard. We pay out monthly once your earned commissions clear the return window.",
+  },
+]
+
 const FAQS = [
   {
     q: "Who is this for?",
@@ -71,34 +95,22 @@ export default function AffiliatesLandingPage() {
       <main className="flex-1 flex flex-col gap-16 py-12 md:gap-24 md:py-20">
         {/* Hero */}
         <Section background="muted" padding="md">
-          <Container>
-            <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
-              <span className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
-                Partner Program
-              </span>
-              <h1 className="text-4xl font-semibold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl text-balance">
-                Earn 10% on every research-peptide order you send our way.
-              </h1>
-              <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-                The PrimeHelix Labz Affiliate Program pays commission on real,
-                paid orders &mdash; tracked through a 90-day cookie and a
-                verified-purchase model that protects both sides.
-              </p>
+          <Container size="sm">
+            <PageHeader
+              label="Partner Program"
+              title="Earn 10% on every research-peptide order you send our way."
+              description="The PrimeHelix Labz Affiliate Program pays commission on real, paid orders — tracked through a 90-day cookie and a verified-purchase model that protects both sides."
+              align="center"
+            >
               <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                <Link
-                  href="/affiliates/apply"
-                  className="inline-flex items-center justify-center rounded-2xl bg-primary px-6 py-3 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95 min-h-[48px]"
-                >
-                  Apply now
-                </Link>
-                <Link
-                  href="/affiliates/dashboard"
-                  className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-medium text-foreground transition-all duration-200 hover:bg-gray-100 active:scale-95 min-h-[48px] border border-gray-200"
-                >
-                  Affiliate sign in
-                </Link>
+                <Button asChild size="lg">
+                  <Link href="/affiliates/apply">Apply now</Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/affiliates/dashboard">Affiliate sign in</Link>
+                </Button>
               </div>
-            </div>
+            </PageHeader>
           </Container>
         </Section>
 
@@ -111,9 +123,9 @@ export default function AffiliatesLandingPage() {
                 return (
                   <article
                     key={perk.title}
-                    className="flex flex-col gap-3 rounded-3xl bg-white p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)]"
+                    className="flex flex-col gap-3 rounded-3xl bg-card text-card-foreground p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)]"
                   >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-foreground text-background">
                       <Icon className="h-5 w-5" />
                     </div>
                     <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
@@ -131,107 +143,77 @@ export default function AffiliatesLandingPage() {
 
         {/* How it works */}
         <Section background="muted" padding="md">
-          <Container>
-            <div className="mx-auto max-w-3xl">
-              <h2 className="mb-8 text-center text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                How it works
-              </h2>
-              <ol className="space-y-5">
-                {[
-                  {
-                    step: "1",
-                    title: "Apply",
-                    body: "Tell us about your audience and where you'll be promoting. We review every application individually.",
-                  },
-                  {
-                    step: "2",
-                    title: "Get your link",
-                    body: "Once approved, we mint a unique referral code. Append it to any product or shop URL — e.g. primehelixlabz.com/shop?ref=YOURCODE.",
-                  },
-                  {
-                    step: "3",
-                    title: "Drive traffic",
-                    body: "Share the link in your videos, articles, newsletters, or forum posts. The cookie sticks for 90 days.",
-                  },
-                  {
-                    step: "4",
-                    title: "Get paid",
-                    body: "Track conversions and earnings in your dashboard. We pay out monthly once your earned commissions clear the return window.",
-                  },
-                ].map((item) => (
-                  <li
-                    key={item.step}
-                    className="flex gap-5 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.04)]"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                      {item.step}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="text-base font-semibold text-foreground md:text-lg">
-                        {item.title}
-                      </h3>
-                      <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
-                        {item.body}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
+          <Container size="sm">
+            <h2 className="mb-8 text-center text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+              How it works
+            </h2>
+            <ol className="space-y-5">
+              {HOW_IT_WORKS.map((item) => (
+                <li
+                  key={item.step}
+                  className="flex gap-5 rounded-3xl bg-card text-card-foreground p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)]"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background">
+                    {item.step}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-base font-semibold text-foreground md:text-lg">
+                      {item.title}
+                    </h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+                      {item.body}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </Container>
         </Section>
 
         {/* FAQ */}
         <Section background="muted" padding="md">
-          <Container>
-            <div className="mx-auto max-w-3xl">
-              <h2 className="mb-8 text-center text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                Common questions
-              </h2>
-              <div className="overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
-                {FAQS.map((faq, i) => (
-                  <details
-                    key={faq.q}
-                    className={`group ${
-                      i > 0 ? "border-t border-gray-100" : ""
-                    }`}
-                  >
-                    <summary className="flex cursor-pointer items-center justify-between gap-4 px-6 py-5 text-sm font-semibold text-foreground transition-colors hover:bg-gray-50 md:px-8">
-                      {faq.q}
-                      <span
-                        aria-hidden="true"
-                        className="text-xl text-muted-foreground transition-transform group-open:rotate-45"
-                      >
-                        +
-                      </span>
-                    </summary>
-                    <p className="px-6 pb-6 text-sm leading-relaxed text-muted-foreground md:px-8 md:pb-8 md:text-base">
-                      {faq.a}
-                    </p>
-                  </details>
-                ))}
-              </div>
+          <Container size="sm">
+            <h2 className="mb-8 text-center text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+              Common questions
+            </h2>
+            <div className="overflow-hidden rounded-3xl bg-card text-card-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
+              {FAQS.map((faq, i) => (
+                <details
+                  key={faq.q}
+                  className={`group ${i > 0 ? "border-t border-border/50" : ""}`}
+                >
+                  <summary className="flex cursor-pointer items-center justify-between gap-4 px-6 py-5 text-sm font-semibold text-foreground transition-colors hover:bg-accent md:px-8">
+                    {faq.q}
+                    <span
+                      aria-hidden="true"
+                      className="text-xl text-muted-foreground transition-transform group-open:rotate-45"
+                    >
+                      +
+                    </span>
+                  </summary>
+                  <p className="px-6 pb-6 text-sm leading-relaxed text-muted-foreground md:px-8 md:pb-8 md:text-base">
+                    {faq.a}
+                  </p>
+                </details>
+              ))}
             </div>
           </Container>
         </Section>
 
         {/* CTA */}
         <Section background="muted" padding="md">
-          <Container>
-            <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 rounded-3xl bg-slate-900 p-10 text-center text-white md:p-14">
+          <Container size="sm">
+            <div className="mx-auto flex flex-col items-center gap-5 rounded-3xl bg-foreground p-10 text-center text-background md:p-14">
               <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
                 Ready to start earning?
               </h2>
-              <p className="text-sm leading-relaxed text-slate-300 md:text-base">
+              <p className="text-sm leading-relaxed opacity-80 md:text-base">
                 Two minutes to apply. We review every submission within
                 2 business days.
               </p>
-              <Link
-                href="/affiliates/apply"
-                className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-medium text-slate-900 transition-all duration-200 hover:bg-gray-100 active:scale-95 min-h-[48px]"
-              >
-                Apply to the program
-              </Link>
+              <Button asChild variant="secondary" size="lg">
+                <Link href="/affiliates/apply">Apply to the program</Link>
+              </Button>
             </div>
           </Container>
         </Section>

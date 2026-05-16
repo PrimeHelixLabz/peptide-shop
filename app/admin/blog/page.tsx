@@ -1,8 +1,18 @@
 import Link from "next/link"
 import { Plus, FileText, Pencil } from "lucide-react"
 import { getAllPostsAsAdmin } from "@/lib/blog/db"
+import { AdminCard } from "@/components/common/admin-card"
+import { Button } from "@/components/ui/button"
+import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
+import { EmptyState } from "@/components/common/empty-state"
+import type { BlogPostStatus } from "@/lib/blog/types"
 
 export const dynamic = "force-dynamic"
+
+const STATUS_VARIANT: Record<BlogPostStatus, StatusVariant> = {
+  draft: "warning",
+  published: "success",
+}
 
 function formatDate(iso: string | null) {
   if (!iso) return "—"
@@ -18,63 +28,67 @@ export default async function AdminBlogListPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
-      {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             Blog
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create and manage research articles. Published posts go live at
-            <code className="ml-1 text-foreground">/blog/&lt;slug&gt;</code>.
+            Create and manage research articles. Published posts go live at{" "}
+            <code className="text-foreground">/blog/&lt;slug&gt;</code>.
           </p>
         </div>
-        <Link
-          href="/admin/blog/new"
-          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95"
-        >
-          <Plus className="h-4 w-4" />
-          New post
-        </Link>
+        <Button asChild>
+          <Link href="/admin/blog/new">
+            <Plus />
+            New post
+          </Link>
+        </Button>
       </div>
 
-      {/* List */}
       {posts.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-16 text-center shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:bg-gray-900">
-          <FileText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No posts yet.</p>
-          <Link
-            href="/admin/blog/new"
-            className="mt-2 inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:brightness-110 active:scale-95"
-          >
-            <Plus className="h-4 w-4" />
-            Write your first post
-          </Link>
-        </div>
+        <AdminCard flush>
+          <EmptyState
+            icon={FileText}
+            title="No posts yet"
+            description="Draft your first research article. You can save it as a draft and publish whenever you're ready."
+            action={{ label: "Write your first post", href: "/admin/blog/new" }}
+          />
+        </AdminCard>
       ) : (
-        <div className="overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:bg-gray-900">
+        <AdminCard flush>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-gray-50 text-xs font-medium uppercase tracking-wider text-muted-foreground dark:bg-gray-800">
-                <tr>
-                  <th className="px-6 py-3">Title</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Published</th>
-                  <th className="px-6 py-3">Last edited</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border/50">
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Title
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="hidden px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">
+                    Published
+                  </th>
+                  <th className="hidden px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">
+                    Last edited
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 text-foreground dark:divide-gray-800">
+              <tbody>
                 {posts.map((post) => (
                   <tr
                     key={post.id}
-                    className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    className="border-b border-border/50 transition-colors last:border-0 hover:bg-accent"
                   >
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <Link
                           href={`/admin/blog/${post.id}/edit`}
-                          className="font-medium text-foreground hover:text-primary"
+                          className="text-sm font-medium text-foreground hover:text-primary"
                         >
                           {post.title}
                         </Link>
@@ -84,37 +98,30 @@ export default async function AdminBlogListPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          post.status === "published"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
+                      <StatusBadge variant={STATUS_VARIANT[post.status]}>
                         {post.status}
-                      </span>
+                      </StatusBadge>
                     </td>
-                    <td className="px-6 py-4 text-muted-foreground">
+                    <td className="hidden px-6 py-4 text-sm text-muted-foreground md:table-cell">
                       {formatDate(post.publishedAt)}
                     </td>
-                    <td className="px-6 py-4 text-muted-foreground">
+                    <td className="hidden px-6 py-4 text-sm text-muted-foreground md:table-cell">
                       {formatDate(post.updatedAt)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Link
-                        href={`/admin/blog/${post.id}/edit`}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-gray-50"
-                      >
-                        <Pencil className="h-3 w-3" />
-                        Edit
-                      </Link>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/admin/blog/${post.id}/edit`}>
+                          <Pencil />
+                          Edit
+                        </Link>
+                      </Button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </AdminCard>
       )}
     </div>
   )

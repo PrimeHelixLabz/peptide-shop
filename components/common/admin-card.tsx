@@ -11,10 +11,16 @@ interface AdminCardProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string
   headerActions?: React.ReactNode
   footer?: React.ReactNode
+  /**
+   * Drop the inner `p-6` wrapper so flush content (tables, full-bleed lists,
+   * components that manage their own padding) can sit edge-to-edge inside the
+   * card. Default false — padded.
+   */
+  flush?: boolean
 }
 
 const AdminCard = React.forwardRef<HTMLDivElement, AdminCardProps>(
-  ({ className, title, headerActions, footer, children, ...props }, ref) => {
+  ({ className, title, headerActions, footer, flush = false, children, ...props }, ref) => {
     return (
       <div
         ref={ref}
@@ -36,7 +42,7 @@ const AdminCard = React.forwardRef<HTMLDivElement, AdminCardProps>(
             </div>
           </div>
         )}
-        <div className="p-6">{children}</div>
+        {flush ? children : <div className="p-6">{children}</div>}
         {footer && (
           <div className="border-t border-border/50 px-6 py-5">{footer}</div>
         )}
