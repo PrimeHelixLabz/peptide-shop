@@ -1257,6 +1257,7 @@ export async function getOrderById(id: string): Promise<Order | null> {
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -1289,6 +1290,7 @@ export async function getOrderByNumber(orderNumber: string): Promise<Order | nul
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -1321,6 +1323,7 @@ export async function createOrder(
       payment_method: order.paymentMethod,
       payment_status: order.paymentStatus,
       tracking_number: order.trackingNumber,
+      tracking_carrier: order.trackingCarrier ?? null,
       notes: order.notes,
       affiliate_code: order.affiliateCode ?? null,
     })
@@ -1345,6 +1348,7 @@ export async function createOrder(
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     affiliateCode: data.affiliate_code ?? null,
     createdAt: data.created_at,
@@ -1363,6 +1367,7 @@ export async function updateOrder(
   if (updates.paymentStatus !== undefined) updateData.payment_status = updates.paymentStatus
   if (updates.paymentMethod !== undefined) updateData.payment_method = updates.paymentMethod
   if (updates.trackingNumber !== undefined) updateData.tracking_number = updates.trackingNumber
+  if (updates.trackingCarrier !== undefined) updateData.tracking_carrier = updates.trackingCarrier
 
   console.log("Updating order", id)
   console.log("Update data", updateData)
@@ -1395,6 +1400,7 @@ export async function updateOrder(
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -1418,6 +1424,7 @@ export async function updateOrderAsAdmin(
   if (updates.status !== undefined) updateData.status = updates.status
   if (updates.paymentStatus !== undefined) updateData.payment_status = updates.paymentStatus
   if (updates.trackingNumber !== undefined) updateData.tracking_number = updates.trackingNumber
+  if (updates.trackingCarrier !== undefined) updateData.tracking_carrier = updates.trackingCarrier
   if (updates.providerPaymentId !== undefined) updateData.provider_payment_id = updates.providerPaymentId
   if (updates.providerMetadata !== undefined) updateData.provider_metadata = updates.providerMetadata
 
@@ -1449,6 +1456,7 @@ export async function updateOrderAsAdmin(
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -1491,6 +1499,7 @@ export async function getOrderByIdAsAdmin(id: string): Promise<Order | null> {
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -1527,6 +1536,7 @@ export async function getOrderByNumberAsAdmin(orderNumber: string): Promise<Orde
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -1604,6 +1614,7 @@ export async function createOrderAsAdmin(
       payment_method: order.paymentMethod,
       payment_status: order.paymentStatus,
       tracking_number: order.trackingNumber,
+      tracking_carrier: order.trackingCarrier ?? null,
       notes: order.notes,
       affiliate_code: order.affiliateCode ?? null,
     })
@@ -1628,6 +1639,7 @@ export async function createOrderAsAdmin(
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     affiliateCode: data.affiliate_code ?? null,
     createdAt: data.created_at,
@@ -1702,7 +1714,9 @@ export async function createLinkMoneyOrderAsAdmin(
       payment_method: order.paymentMethod,
       payment_status: order.paymentStatus,
       tracking_number: order.trackingNumber,
+      tracking_carrier: order.trackingCarrier ?? null,
       notes: order.notes,
+      affiliate_code: order.affiliateCode ?? null,
       provider: "link_money",
       provider_payment_id: order.providerPaymentId ?? null,
       provider_customer_id: order.providerCustomerId ?? null,
@@ -1729,6 +1743,7 @@ export async function createLinkMoneyOrderAsAdmin(
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -1817,6 +1832,7 @@ export async function createCentryOSOrderAsAdmin(
       payment_method: order.paymentMethod,
       payment_status: order.paymentStatus,
       tracking_number: order.trackingNumber,
+      tracking_carrier: order.trackingCarrier ?? null,
       notes: order.notes,
       affiliate_code: order.affiliateCode ?? null,
       provider: "centryos",
@@ -1845,6 +1861,7 @@ export async function createCentryOSOrderAsAdmin(
     paymentMethod: data.payment_method,
     paymentStatus: data.payment_status,
     trackingNumber: data.tracking_number,
+    trackingCarrier: data.tracking_carrier ?? null,
     notes: data.notes,
     createdAt: data.created_at,
     updatedAt: data.updated_at,

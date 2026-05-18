@@ -41,6 +41,16 @@ export function AgeVerification() {
     setIsVerified(true)
     setIsOpen(false)
 
+    // Set a server-readable cookie so checkout APIs can enforce age
+    // verification for guests (auth users also get this for free — see
+    // lib/age-verification.ts for the precedence rules).
+    const maxAge = 60 * 60 * 24 * 90
+    const secure =
+      typeof window !== "undefined" && window.location.protocol === "https:"
+        ? "; Secure"
+        : ""
+    document.cookie = `phl_age_verified=1; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`
+
     // If a user is logged in, persist verification to their profile in the database
     if (user) {
       ;(async () => {

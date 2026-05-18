@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { sendContactFormEmail } from "@/lib/email"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
@@ -17,6 +18,14 @@ const contactSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  // 5 contact submissions / hour / IP — blocks spammers, easy for real users.
+  const limited = await enforceRateLimit(request, {
+    key: "contact:submit",
+    limit: 5,
+    windowSec: 60 * 60,
+  })
+  if (limited) return limited
+
   if (!process.env.RESEND_API_KEY) {
     console.error("RESEND_API_KEY is not configured")
     return NextResponse.json(

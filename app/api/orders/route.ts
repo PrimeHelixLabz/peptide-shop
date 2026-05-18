@@ -12,6 +12,7 @@ import { z } from "zod"
 import type { Order, OrderItem, Address } from "@/lib/db/schema"
 import { getServiceFeeRate } from "@/lib/order-constants"
 import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
+import { assertAgeVerified } from "@/lib/age-verification"
 
 const createOrderSchema = z.object({
   cartItems: z.array(z.object({
@@ -64,6 +65,15 @@ export const GET = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
 export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
   try {
     const userId = req.user!.id
+
+    const ageCheck = await assertAgeVerified(req, userId)
+    if (!ageCheck.ok) {
+      return NextResponse.json(
+        { error: ageCheck.reason, requiresAgeVerification: true },
+        { status: 403 }
+      )
+    }
+
     const body = await req.json()
     const { cartItems, shippingAddress, billingAddress, paymentMethod, notes } =
       createOrderSchema.parse(body)

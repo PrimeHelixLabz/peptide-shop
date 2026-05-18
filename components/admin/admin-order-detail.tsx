@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Package, CheckCircle2, Loader2, Banknote, Trash2 } from "lucide-react"
+import { ArrowLeft, Package, CheckCircle2, Loader2, Banknote, Trash2, ExternalLink } from "lucide-react"
 import { toast } from "sonner"
 import type { AdminOrder } from "./admin-orders-table"
 import type { Order } from "@/lib/db/schema"
@@ -12,6 +12,7 @@ import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { format } from "date-fns"
 import { formatPaymentMethod } from "@/lib/format-payment-method"
 import { FormSelect } from "@/components/common/form-select"
+import { FormInput } from "@/components/common/form-input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  CARRIER_OPTIONS,
+  buildTrackingUrl,
+  isCarrierKey,
+  type CarrierKey,
+} from "@/lib/shipping/carriers"
 
 /* ------------------------------------------------------------------ */
 /*  Badge styles (same as orders table)                                */
@@ -73,6 +80,8 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
   const [error, setError] = useState("")
   const [customerName, setCustomerName] = useState<string>("")
   const [shippingStatus, setShippingStatus] = useState<AdminOrder["shippingStatus"]>("Processing")
+  const [trackingNumber, setTrackingNumber] = useState("")
+  const [trackingCarrier, setTrackingCarrier] = useState<CarrierKey | "">("")
   const [fulfilled, setFulfilled] = useState(false)
   const [saving, setSaving] = useState(false)
   const [cashDialogOpen, setCashDialogOpen] = useState(false)
@@ -92,6 +101,12 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
         setOrder(data.order)
         if (data.customerName) setCustomerName(data.customerName)
         setShippingStatus(mapShippingStatus(data.order.status))
+        setTrackingNumber(data.order.trackingNumber ?? "")
+        setTrackingCarrier(
+          isCarrierKey(data.order.trackingCarrier)
+            ? data.order.trackingCarrier
+            : ""
+        )
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load order")
       } finally {
@@ -172,38 +187,68 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
   }
 
   const handleStatusUpdate = async () => {
+    const statusMap: Record<string, string> = {
+      "Processing": "processing",
+      "Shipped": "shipped",
+      "Delivered": "delivered",
+    }
+
+    const normalizedTracking = trackingNumber.trim()
+    const normalizedCarrier = trackingCarrier || null
+
+    // Transitioning INTO shipped requires both tracking number and carrier —
+    // otherwise the customer email goes out with nothing actionable in it.
+    if (
+      shippingStatus === "Shipped" &&
+      order?.status !== "shipped" &&
+      (!normalizedTracking || !normalizedCarrier)
+    ) {
+      toast.error("Add a tracking number and carrier before marking as shipped.")
+      return
+    }
+
     setSaving(true)
     try {
-      const statusMap: Record<string, string> = {
-        "Processing": "processing",
-        "Shipped": "shipped",
-        "Delivered": "delivered",
-      }
-
       const response = await fetch(`/api/orders/${orderId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: statusMap[shippingStatus],
+          trackingNumber: normalizedTracking,
+          trackingCarrier: normalizedCarrier,
         }),
       })
 
+      const data = await response.json().catch(() => ({}))
+
       if (!response.ok) {
-        throw new Error("Failed to update order")
+        toast.error(data?.error || "Failed to update order")
+        return
       }
 
-      const data = await response.json()
       setOrder(data.order)
       setShippingStatus(mapShippingStatus(data.order.status))
+      setTrackingNumber(data.order.trackingNumber ?? "")
+      setTrackingCarrier(
+        isCarrierKey(data.order.trackingCarrier)
+          ? data.order.trackingCarrier
+          : ""
+      )
 
-      if (shippingStatus === "Delivered") {
+      if (shippingStatus === "Shipped" && order?.status !== "shipped") {
+        toast.success("Marked as shipped — confirmation email sent to the customer.")
+      } else if (shippingStatus === "Delivered" && order?.status !== "delivered") {
+        toast.success("Marked as delivered — review request email sent to the customer.")
         setFulfilled(true)
+      } else if (shippingStatus === "Delivered") {
+        toast.success("Marked as delivered.")
+        setFulfilled(true)
+      } else {
+        toast.success("Order updated.")
       }
     } catch (err) {
       console.error("Error updating order:", err)
-      alert("Failed to update order status")
+      toast.error("Failed to update order status")
     } finally {
       setSaving(false)
     }
@@ -447,6 +492,56 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   wrapperClassName="w-full"
                   aria-label="Update shipping status"
                 />
+              </div>
+
+              {/* Tracking */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Tracking
+                </span>
+                <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
+                  <FormInput
+                    placeholder="Tracking number"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    aria-label="Tracking number"
+                  />
+                  <FormSelect
+                    value={trackingCarrier}
+                    onChange={(e) =>
+                      setTrackingCarrier(
+                        e.target.value === ""
+                          ? ""
+                          : (e.target.value as CarrierKey)
+                      )
+                    }
+                    options={[
+                      { value: "", label: "Carrier" },
+                      ...CARRIER_OPTIONS,
+                    ]}
+                    wrapperClassName="w-full"
+                    aria-label="Carrier"
+                  />
+                </div>
+                {(() => {
+                  const url = buildTrackingUrl(trackingCarrier, trackingNumber)
+                  if (!url) return null
+                  return (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex w-fit items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      Preview tracking link
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )
+                })()}
+                <p className="text-[11px] text-muted-foreground">
+                  Required when marking the order as <strong>Shipped</strong>.
+                  The customer gets a confirmation email with the tracking link.
+                </p>
               </div>
             </div>
           </div>

@@ -16,6 +16,8 @@ import {
   setSessionKey,
 } from "@/lib/link-money/payment-service"
 import { sendCustomerOrderPlacedEmail } from "@/lib/email"
+import { assertAgeVerified } from "@/lib/age-verification"
+import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
 
 const sessionRequestSchema = z.object({
   cartItems: z.array(
@@ -53,6 +55,15 @@ export const POST = requireAuthMiddleware(
   async (req: AuthenticatedRequest) => {
     try {
       const userId = req.user!.id
+
+      const ageCheck = await assertAgeVerified(req, userId)
+      if (!ageCheck.ok) {
+        return NextResponse.json(
+          { error: ageCheck.reason, requiresAgeVerification: true },
+          { status: 403 }
+        )
+      }
+
       const body = await req.json()
       const { cartItems, shippingAddress, billingAddress, notes, shippingMethod } =
         sessionRequestSchema.parse(body)
@@ -140,6 +151,7 @@ export const POST = requireAuthMiddleware(
         billingAddress: billingAddress || shippingAddress,
         paymentMethod: "link_money",
         notes,
+        affiliateCode: getAffiliateCodeFromRequest(req),
       })
 
       // ── Create payment row BEFORE hitting Link Money. ──

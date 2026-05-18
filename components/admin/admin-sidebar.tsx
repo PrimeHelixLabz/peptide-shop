@@ -13,6 +13,8 @@ import {
   Users,
   FileText,
   Handshake,
+  Star,
+  Mail,
 } from "lucide-react"
 
 const navItems = [
@@ -21,8 +23,10 @@ const navItems = [
   { label: "Categories", href: "/admin/categories", icon: FolderTree },
   { label: "Blog", href: "/admin/blog", icon: FileText },
   { label: "Orders", href: "/admin/orders", icon: ClipboardList },
+  { label: "Reviews", href: "/admin/reviews", icon: Star },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Affiliates", href: "/admin/affiliates", icon: Handshake },
+  { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
 ]
 
 interface AdminSidebarProps {

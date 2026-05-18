@@ -6,6 +6,7 @@ import type { OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
 import { getServiceFeeRate, SHIPPING_CARRIER_LABEL, getShippingCost } from "@/lib/order-constants"
 import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
+import { assertAgeVerified } from "@/lib/age-verification"
 
 const createStripeCheckoutSchema = z.object({
   cartItems: z.array(
@@ -43,6 +44,15 @@ export const POST = requireAuthMiddleware(
   async (req: AuthenticatedRequest) => {
     try {
       const userId = req.user!.id
+
+      const ageCheck = await assertAgeVerified(req, userId)
+      if (!ageCheck.ok) {
+        return NextResponse.json(
+          { error: ageCheck.reason, requiresAgeVerification: true },
+          { status: 403 }
+        )
+      }
+
       const body = await req.json()
       const { cartItems, shippingAddress, billingAddress, notes, shippingMethod } =
         createStripeCheckoutSchema.parse(body)

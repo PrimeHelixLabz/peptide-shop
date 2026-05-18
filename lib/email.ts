@@ -1,6 +1,9 @@
 import { Resend } from "resend"
 import type { Order } from "@/lib/db/schema"
 import { formatPaymentMethod } from "@/lib/format-payment-method"
+import { buildUnsubscribeUrl } from "@/lib/newsletter/unsubscribe-token"
+import { buildTrackingUrl, carrierLabel } from "@/lib/shipping/carriers"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -222,6 +225,12 @@ function buildCustomerEmailShell(params: {
   bannerHeadline: string
   bannerSubline: string
   intro: string
+  /**
+   * Optional block-level HTML inserted between the intro paragraph and the
+   * order items table. Must be valid block-level HTML (no inline-into-<p>
+   * nesting) since it's rendered outside the intro paragraph wrapper.
+   */
+  bodyExtra?: string
   order: Order
 }): string {
   const { order } = params
@@ -247,6 +256,7 @@ function buildCustomerEmailShell(params: {
             </div>
 
             <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.6;">${params.intro}</p>
+            ${params.bodyExtra ?? ""}
 
             <!-- Order Items -->
             <h3 style="margin: 24px 0 8px; color: #374151; font-size: 14px; text-transform: uppercase;">Order Summary</h3>
@@ -354,8 +364,11 @@ const WELCOME_ARTICLES: WelcomeArticle[] = [
   },
 ]
 
+const SITE_ORIGIN = "https://primehelixlabz.com"
+
 export async function sendNewsletterWelcomeEmail(toEmail: string): Promise<void> {
   const safeEmail = escapeHtml(toEmail.trim())
+  const unsubscribeUrl = buildUnsubscribeUrl(toEmail.trim(), SITE_ORIGIN)
 
   const articleCards = WELCOME_ARTICLES.map(
     (a) => `
@@ -417,6 +430,7 @@ export async function sendNewsletterWelcomeEmail(toEmail: string): Promise<void>
             <p style="margin: 0 0 6px; color: #6b7280; font-size: 12px;">
               You received this because you subscribed at primehelixlabz.com
               with the email <strong>${safeEmail}</strong>.
+              <a href="${unsubscribeUrl}" style="color: #1e293b; text-decoration: underline;">Unsubscribe</a>.
             </p>
             <p style="margin: 0 0 6px; color: #9ca3af; font-size: 11px;">
               PrimeHelix Labz &middot; 20403 N Lake Pleasant RD, Suite 117, Peoria, AZ 85382
@@ -436,10 +450,339 @@ export async function sendNewsletterWelcomeEmail(toEmail: string): Promise<void>
     replyTo: SUPPORT_EMAIL,
     subject: "Your peptide research guide is here",
     html,
+    // RFC 8058 List-Unsubscribe headers — Gmail/Outlook surface a native
+    // "Unsubscribe" button when these are present. Both header and one-click
+    // POST URL are required for the one-click flow.
+    headers: {
+      "List-Unsubscribe": `<${unsubscribeUrl}>, <mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
   })
 
   if (error) {
     console.error("Failed to send newsletter welcome email:", error)
+    throw new Error(error.message)
+  }
+}
+
+export async function sendShippingConfirmationEmail(order: Order): Promise<void> {
+  const to = getCustomerEmail(order)
+  if (!to) {
+    console.warn(
+      `No customer email for order ${order.orderNumber}; skipping shipping email`
+    )
+    return
+  }
+
+  const trackingNumber = order.trackingNumber?.trim() || ""
+  const carrierKey = order.trackingCarrier?.trim() || ""
+  const trackingUrl = buildTrackingUrl(carrierKey, trackingNumber)
+  const carrierName = carrierLabel(carrierKey)
+
+  // Tracking banner: when we have a real URL, render a CTA button; when we
+  // only have a number but no carrier (or "other"), render bare text.
+  const trackingBlock = trackingNumber
+    ? trackingUrl
+      ? `
+        <div style="margin: 20px 0; padding: 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; text-align: center;">
+          <p style="margin: 0 0 6px; color: #14532d; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+            ${escapeHtml(carrierName)} tracking
+          </p>
+          <p style="margin: 0 0 14px; color: #065f46; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; font-weight: 600; word-break: break-all;">
+            ${escapeHtml(trackingNumber)}
+          </p>
+          <a href="${trackingUrl}" style="display: inline-block; background-color: #065f46; color: #ffffff; text-decoration: none; padding: 11px 22px; border-radius: 10px; font-weight: 500; font-size: 14px;">
+            Track shipment
+          </a>
+        </div>`
+      : `
+        <div style="margin: 20px 0; padding: 16px 20px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px;">
+          <p style="margin: 0 0 4px; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+            ${escapeHtml(carrierName)} tracking number
+          </p>
+          <p style="margin: 0; color: #111827; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 16px; font-weight: 600; word-break: break-all;">
+            ${escapeHtml(trackingNumber)}
+          </p>
+        </div>`
+    : ""
+
+  const html = buildCustomerEmailShell({
+    headerColor: "#065f46",
+    headerTitle: "Your order is on the way",
+    bannerColor: "#ecfdf5",
+    bannerBorder: "#a7f3d0",
+    bannerTextDark: "#065f46",
+    bannerTextLight: "#047857",
+    bannerHeadline: `Order #${order.orderNumber} shipped`,
+    bannerSubline: trackingNumber
+      ? `Carrier: ${carrierName}`
+      : "Tracking details will follow shortly.",
+    intro: trackingNumber
+      ? "Good news — your order is in transit. Use the tracking number below to follow its progress."
+      : "Good news — your order is in transit. We're confirming the carrier details and will update you shortly.",
+    bodyExtra: trackingBlock,
+    order,
+  })
+
+  try {
+    await resend.emails.send({
+      from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+      to: [to],
+      replyTo: SUPPORT_EMAIL,
+      subject: `Order #${order.orderNumber} shipped${trackingNumber ? ` — tracking ${trackingNumber}` : ""}`,
+      html,
+    })
+    console.log(`Shipping confirmation email sent for order ${order.orderNumber}`)
+  } catch (error) {
+    console.error("Failed to send shipping confirmation email:", error)
+  }
+}
+
+/**
+ * Bulk-lookup of product slugs by id, used to build deep links from emails
+ * back to individual product pages. Returns a Map keyed by productId — items
+ * whose product no longer exists are simply absent from the map so callers
+ * can skip them gracefully.
+ */
+async function fetchProductSlugs(
+  productIds: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>()
+  if (productIds.length === 0) return result
+  const unique = Array.from(new Set(productIds))
+  try {
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, slug")
+      .in("id", unique)
+    if (error || !data) return result
+    for (const row of data as unknown as { id: string; slug: string }[]) {
+      if (row.slug) result.set(row.id, row.slug)
+    }
+  } catch (err) {
+    console.error("fetchProductSlugs failed:", err)
+  }
+  return result
+}
+
+/**
+ * Post-delivery review request. Fires once when an order transitions into
+ * 'delivered' status. Each purchased product gets its own "Leave a review"
+ * CTA that deep-links to the product page's reviews section. Items whose
+ * product was deleted between purchase and now are silently omitted.
+ *
+ * The verified-purchase constraint in /api/reviews matches against the
+ * user's paid orders, so any link in this email will succeed at submit
+ * time — the customer can't accidentally get blocked by the gate.
+ */
+export async function sendCustomerReviewRequestEmail(order: Order): Promise<void> {
+  const to = getCustomerEmail(order)
+  if (!to) {
+    console.warn(
+      `No customer email for order ${order.orderNumber}; skipping review request`
+    )
+    return
+  }
+  if (!order.items?.length) return
+
+  const slugMap = await fetchProductSlugs(order.items.map((i) => i.productId))
+  // Dedupe by productId — if the customer bought two variants of the same
+  // product we only need to ask for one review.
+  const seen = new Set<string>()
+  const reviewableItems = order.items.filter((item) => {
+    if (seen.has(item.productId)) return false
+    if (!slugMap.has(item.productId)) return false
+    seen.add(item.productId)
+    return true
+  })
+  if (reviewableItems.length === 0) {
+    console.warn(
+      `Order ${order.orderNumber} has no reviewable items (all products missing); skipping review request`
+    )
+    return
+  }
+
+  const itemCards = reviewableItems
+    .map((item) => {
+      const slug = slugMap.get(item.productId)!
+      const url = `${SITE_ORIGIN}/shop/${slug}#reviews`
+      // Strip the "(SKU)" suffix the order pipeline adds to productName so
+      // the email reads like the product page title rather than a SKU-tagged
+      // line item.
+      const cleanName = item.productName.replace(/\s*\([^)]+\)\s*$/, "")
+      return `
+        <div style="display: block; margin: 12px 0; padding: 16px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;">
+          <p style="margin: 0 0 12px; font-weight: 600; color: #1e293b; font-size: 15px;">${escapeHtml(cleanName)}</p>
+          <a href="${url}" style="display: inline-block; background-color: #1e293b; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 10px; font-weight: 500; font-size: 13px;">
+            Leave a review
+          </a>
+        </div>`
+    })
+    .join("")
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <div style="background-color: #1e293b; padding: 28px 24px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 22px; letter-spacing: 0.02em;">How was your order?</h1>
+            <p style="margin: 8px 0 0; color: #cbd5e1; font-size: 13px;">PrimeHelix Labz</p>
+          </div>
+
+          <div style="padding: 28px 24px;">
+            <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.65;">
+              Thanks for your recent order. If you&rsquo;ve had a chance to work
+              with what you received, other researchers would benefit from
+              hearing about it. Reviews from verified buyers like you are the
+              #1 trust signal new buyers use to evaluate research-peptide
+              suppliers.
+            </p>
+
+            <p style="margin: 0 0 8px; color: #374151; font-size: 14px; font-weight: 600;">
+              Order #${order.orderNumber}
+            </p>
+            ${itemCards}
+
+            <p style="margin: 24px 0 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Reviews are tied to your verified purchase so we never publish
+              anonymous or bot reviews. You can edit or remove anything you
+              post at any time.
+            </p>
+            <p style="margin: 16px 0 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Questions or issues with the order? Reply to this email or reach
+              <a href="mailto:${SUPPORT_EMAIL}" style="color: #1e293b;">${SUPPORT_EMAIL}</a>.
+            </p>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 6px; color: #9ca3af; font-size: 11px;">
+              PrimeHelix Labz &middot; 20403 N Lake Pleasant RD, Suite 117, Peoria, AZ 85382
+            </p>
+            <p style="margin: 0; color: #9ca3af; font-size: 11px;">
+              All products are sold strictly for research purposes only. Not for human consumption.
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>`
+
+  try {
+    await resend.emails.send({
+      from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+      to: [to],
+      replyTo: SUPPORT_EMAIL,
+      subject: `How was your order from PrimeHelix Labz?`,
+      html,
+    })
+    console.log(`Review request email sent for order ${order.orderNumber}`)
+  } catch (error) {
+    console.error("Failed to send review request email:", error)
+  }
+}
+
+export async function sendAffiliateApprovedEmail(params: {
+  toEmail: string
+  name: string
+  code: string
+  commissionRatePercent: number
+}): Promise<void> {
+  const safeName = escapeHtml(params.name)
+  const safeCode = escapeHtml(params.code)
+  const ratePct = Math.round(params.commissionRatePercent)
+  const referralUrl = `${SITE_ORIGIN}/?ref=${encodeURIComponent(params.code)}`
+  const shopReferralUrl = `${SITE_ORIGIN}/shop?ref=${encodeURIComponent(params.code)}`
+  const dashboardUrl = `${SITE_ORIGIN}/affiliates/dashboard`
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <div style="background-color: #065f46; padding: 28px 24px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 22px; letter-spacing: 0.02em;">You're in</h1>
+            <p style="margin: 8px 0 0; color: #a7f3d0; font-size: 13px;">PrimeHelix Labz Affiliate Program</p>
+          </div>
+
+          <div style="padding: 28px 24px;">
+            <p style="margin: 0 0 16px; color: #111827; font-size: 16px; line-height: 1.6;">
+              Hi ${safeName},
+            </p>
+            <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.65;">
+              Your application is approved. You can start earning
+              <strong>${ratePct}%</strong> on every paid order placed through your
+              referral link, with a 90-day attribution window.
+            </p>
+
+            <div style="margin: 24px 0; padding: 16px 18px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;">
+              <p style="margin: 0 0 8px; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+                Your referral code
+              </p>
+              <p style="margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 22px; font-weight: 600; color: #1e293b;">
+                ${safeCode}
+              </p>
+            </div>
+
+            <p style="margin: 16px 0 8px; color: #374151; font-size: 14px;">
+              <strong>Quick share links:</strong>
+            </p>
+            <ul style="margin: 0 0 20px; padding-left: 18px; color: #4b5563; font-size: 14px; line-height: 1.6;">
+              <li><a href="${referralUrl}" style="color: #1e293b;">${referralUrl}</a></li>
+              <li><a href="${shopReferralUrl}" style="color: #1e293b;">${shopReferralUrl}</a></li>
+            </ul>
+
+            <p style="margin: 0 0 20px; color: #374151; font-size: 14px; line-height: 1.6;">
+              Track conversions, see earnings, and copy share-ready links from
+              your dashboard:
+            </p>
+            <p style="margin: 0 0 24px;">
+              <a href="${dashboardUrl}" style="display: inline-block; background-color: #1e293b; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 12px; font-weight: 500; font-size: 14px;">
+                Open dashboard
+              </a>
+            </p>
+
+            <p style="margin: 24px 0 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Reminder of the rules: no Google/Meta/TikTok paid ads (those
+              platforms ban this niche), no medical or dosing claims, no
+              coupon-site spam. Stick to your audience and you'll be fine.
+            </p>
+            <p style="margin: 16px 0 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Questions? Reply to this email or reach
+              <a href="mailto:${SUPPORT_EMAIL}" style="color: #1e293b;">${SUPPORT_EMAIL}</a>.
+            </p>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 6px; color: #9ca3af; font-size: 11px;">
+              PrimeHelix Labz &middot; 20403 N Lake Pleasant RD, Suite 117, Peoria, AZ 85382
+            </p>
+            <p style="margin: 0; color: #9ca3af; font-size: 11px;">
+              All products are sold strictly for research purposes only. Not for human consumption.
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>`
+
+  const { error } = await resend.emails.send({
+    from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+    to: [params.toEmail.trim()],
+    replyTo: SUPPORT_EMAIL,
+    subject: "You're approved — your PrimeHelix Labz affiliate code is ready",
+    html,
+  })
+
+  if (error) {
+    console.error("Failed to send affiliate approval email:", error)
     throw new Error(error.message)
   }
 }

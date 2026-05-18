@@ -10,6 +10,7 @@ import {
   type SortOption,
 } from "@/lib/db/supabase"
 import { requireAdminMiddleware, optionalAuthMiddleware } from "@/lib/auth/middleware"
+import { getProductRatingSummaries } from "@/lib/db/reviews"
 import { z } from "zod"
 
 const variantInputSchema = z.object({
@@ -92,8 +93,18 @@ export const GET = optionalAuthMiddleware(async (req) => {
       total = await getProductsCount()
     }
 
-    return NextResponse.json({ 
-      products,
+    // Attach review aggregates so product cards (shop grid + load-more) can
+    // render stars without per-card client fetches.
+    const summaries = await getProductRatingSummaries(
+      products.map((p) => p.id)
+    )
+    const productsWithRatings = products.map((p) => ({
+      ...p,
+      ratingSummary: summaries.get(p.id),
+    }))
+
+    return NextResponse.json({
+      products: productsWithRatings,
       ...(total !== undefined && { total, hasMore: offset !== undefined && limit !== undefined ? (offset + limit) < total : undefined })
     })
   } catch (error) {

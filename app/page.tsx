@@ -4,13 +4,12 @@ import { ProductsSection } from "@/components/products-section"
 import { BenefitsSection } from "@/components/benefits-section"
 import { TrustSection } from "@/components/trust-section"
 import { Footer } from "@/components/footer"
-import { AgeVerification } from "@/components/age-verification"
+// AgeVerification now mounted globally in app/layout.tsx — every page is gated.
 // import { VacationNotice } from "@/components/vacation-notice"
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-[#f6f6f7]">
-      <AgeVerification />
       <Header />
       <main className="flex-1 flex flex-col gap-20 py-12 md:py-20">
         {/* <VacationNotice /> */}

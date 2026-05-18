@@ -3,6 +3,7 @@ import { createHash } from "crypto"
 import { z } from "zod"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendNewsletterWelcomeEmail } from "@/lib/email"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 const subscribeSchema = z.object({
   email: z.string().trim().email("Please enter a valid email").max(320),
@@ -24,6 +25,15 @@ function getClientIp(req: NextRequest): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  // 5 subscribe attempts / hour / IP — generous enough for honest typos,
+  // tight enough that mass list-poisoning takes effort.
+  const limited = await enforceRateLimit(request, {
+    key: "newsletter:subscribe",
+    limit: 5,
+    windowSec: 60 * 60,
+  })
+  if (limited) return limited
+
   if (!process.env.RESEND_API_KEY) {
     console.error("RESEND_API_KEY is not configured")
     return NextResponse.json(

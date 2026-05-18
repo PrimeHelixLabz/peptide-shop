@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { NextRequest } from "next/server"
+import { sendAffiliateApprovedEmail } from "@/lib/email"
 
 export const REF_COOKIE_NAME = "phl_ref"
 export const REF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 90 // 90 days
@@ -394,16 +395,25 @@ export async function updateAffiliateAsAdmin(
   }
   const after = rowToAffiliate(data as unknown as AffiliateRow)
 
-  // Mint a referral code the first time an affiliate is approved. The
-  // dashboard does the same on-load, but doing it here means the code
-  // exists the moment status flips — useful for any admin tooling that
-  // wants to surface or share the link immediately.
+  // Mint a referral code + notify the affiliate the first time they're
+  // approved. The dashboard ensures the code on-load as a safety net, but
+  // doing it here means the welcome email can include the code directly.
   if (
     before.status !== "approved" &&
     after.status === "approved"
   ) {
     try {
-      await ensureCodeForAffiliate(after.id, after.name)
+      const code = await ensureCodeForAffiliate(after.id, after.name)
+      // Best-effort: don't fail the admin's approve action if email
+      // delivery hiccups.
+      sendAffiliateApprovedEmail({
+        toEmail: after.email,
+        name: after.name,
+        code: code.code,
+        commissionRatePercent: after.commissionRate * 100,
+      }).catch((err) =>
+        console.error("Failed to send affiliate approval email:", err)
+      )
     } catch (err) {
       console.error("Failed to mint referral code after approval:", err)
     }

@@ -1,4 +1,7 @@
 import { createPublicClient } from "@/lib/supabase/public"
+import { createAdminClient } from "@/lib/supabase/admin"
+
+export type ReviewStatus = "pending" | "published" | "hidden"
 
 export interface ProductReview {
   id: string
@@ -9,6 +12,14 @@ export interface ProductReview {
   body: string
   isVerifiedPurchase: boolean
   createdAt: string
+}
+
+export interface AdminReview extends ProductReview {
+  customerEmail: string
+  status: ReviewStatus
+  updatedAt: string
+  productName: string | null
+  productSlug: string | null
 }
 
 export interface ProductRatingSummary {
@@ -164,4 +175,98 @@ function emptySummary(productId: string): ProductRatingSummary {
     average: 0,
     distribution: [0, 0, 0, 0, 0],
   }
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Admin-side helpers — service-role only.
+ *  Used by /admin/reviews moderation UI.
+ * ────────────────────────────────────────────────────────────── */
+
+interface AdminReviewRow {
+  id: string
+  product_id: string
+  customer_name: string
+  customer_email: string
+  rating: number
+  title: string
+  body: string
+  is_verified_purchase: boolean
+  status: ReviewStatus
+  created_at: string
+  updated_at: string
+  products: { name: string | null; slug: string | null } | null
+}
+
+function rowToAdminReview(row: AdminReviewRow): AdminReview {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    customerName: row.customer_name,
+    customerEmail: row.customer_email,
+    rating: row.rating,
+    title: row.title,
+    body: row.body,
+    isVerifiedPurchase: row.is_verified_purchase,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    productName: row.products?.name ?? null,
+    productSlug: row.products?.slug ?? null,
+  }
+}
+
+export async function getAllReviewsAsAdmin(options?: {
+  status?: ReviewStatus
+}): Promise<AdminReview[]> {
+  const supabase = createAdminClient()
+  // Inner-joined products so we can render the product name + link without
+  // an N+1. Reviews with an orphaned product_id (FK is ON DELETE CASCADE)
+  // shouldn't exist in practice.
+  let query = supabase
+    .from("product_reviews")
+    .select(
+      "id, product_id, customer_name, customer_email, rating, title, body, is_verified_purchase, status, created_at, updated_at, products(name, slug)"
+    )
+    .order("created_at", { ascending: false })
+
+  if (options?.status) {
+    query = query.eq("status", options.status)
+  }
+
+  const { data, error } = await query
+  if (error) {
+    console.error("getAllReviewsAsAdmin failed:", error)
+    return []
+  }
+  return ((data as unknown as AdminReviewRow[]) || []).map(rowToAdminReview)
+}
+
+export async function setReviewStatusAsAdmin(
+  id: string,
+  status: ReviewStatus
+): Promise<AdminReview | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("product_reviews")
+    .update({ status })
+    .eq("id", id)
+    .select(
+      "id, product_id, customer_name, customer_email, rating, title, body, is_verified_purchase, status, created_at, updated_at, products(name, slug)"
+    )
+    .single()
+  if (error) {
+    console.error("setReviewStatusAsAdmin failed:", error)
+    return null
+  }
+  return rowToAdminReview(data as unknown as AdminReviewRow)
+}
+
+export async function deleteReviewAsAdmin(id: string): Promise<boolean> {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from("product_reviews").delete().eq("id", id)
+  if (error) {
+    console.error("deleteReviewAsAdmin failed:", error)
+    return false
+  }
+  return true
 }

@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { updateSession } from "@/lib/supabase/middleware"
+// Side-effect import: runs env validation on cold start. Throws with a
+// grouped error message if anything required is missing or a payment
+// provider is half-configured.
+import "@/lib/env"
 
 const REF_COOKIE_NAME = "phl_ref"
 const REF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 90 // 90 days

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 const applySchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
@@ -14,6 +15,15 @@ const applySchema = z.object({
 })
 
 export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
+  // 3 apply attempts / day / user — the user_id uniqueness already caps
+  // legitimate use to one, but this throttles the API surface.
+  const limited = await enforceRateLimit(req, {
+    key: "affiliates:apply",
+    limit: 3,
+    windowSec: 60 * 60 * 24,
+  })
+  if (limited) return limited
+
   let parsed: z.infer<typeof applySchema>
   try {
     const body = await req.json()

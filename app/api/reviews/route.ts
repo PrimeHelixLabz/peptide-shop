@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { z } from "zod"
 import { requireAuthMiddleware, optionalAuthMiddleware } from "@/lib/auth/middleware"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getProductReviews } from "@/lib/db/reviews"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 const createReviewSchema = z.object({
   productId: z.string().uuid("Invalid product"),
@@ -30,6 +31,16 @@ export const GET = optionalAuthMiddleware(async (req) => {
 })
 
 export const POST = requireAuthMiddleware(async (req) => {
+  // 10 review submissions / day / user — the unique constraint already caps
+  // legitimate use to one-per-product, but this throttles the API surface
+  // independently of the DB constraint.
+  const limited = await enforceRateLimit(req, {
+    key: "reviews:create",
+    limit: 10,
+    windowSec: 60 * 60 * 24,
+  })
+  if (limited) return limited
+
   let parsed: z.infer<typeof createReviewSchema>
   try {
     const body = await req.json()

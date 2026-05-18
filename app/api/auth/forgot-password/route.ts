@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
+import { enforceRateLimit } from "@/lib/rate-limit"
 
 const forgotPasswordSchema = z.object({
   email: z.string().email(),
 })
 
 export async function POST(request: NextRequest) {
+  // 3 reset requests / hour / IP — limits enumeration + spam.
+  const limited = await enforceRateLimit(request, {
+    key: "auth:forgot-password",
+    limit: 3,
+    windowSec: 60 * 60,
+  })
+  if (limited) return limited
+
   try {
     const body = await request.json()
     const { email } = forgotPasswordSchema.parse(body)

@@ -19,6 +19,7 @@ import {
 } from "@/lib/centryos/payment-service"
 import { sendCustomerOrderPlacedEmail } from "@/lib/email"
 import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
+import { assertAgeVerified } from "@/lib/age-verification"
 
 const createLinkSchema = z.object({
   cartItems: z.array(
@@ -63,6 +64,14 @@ export const POST = requireAuthMiddleware(
   async (req: AuthenticatedRequest) => {
     const userId = req.user!.id
     let createdOrderId: string | null = null
+
+    const ageCheck = await assertAgeVerified(req, userId)
+    if (!ageCheck.ok) {
+      return NextResponse.json(
+        { error: ageCheck.reason, requiresAgeVerification: true },
+        { status: 403 }
+      )
+    }
 
     try {
       const body = await req.json()

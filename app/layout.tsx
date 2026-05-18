@@ -5,6 +5,7 @@ import { WishlistProvider } from '@/lib/wishlist-context'
 import { AuthProvider } from '@/lib/auth/auth-context'
 import { Toaster } from '@/components/ui/sonner'
 import { NewsletterPopup } from '@/components/newsletter-popup'
+import { AgeVerification } from '@/components/age-verification'
 
 import './globals.css'
 
@@ -93,6 +94,10 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
+              {/* Age verification renders modally for unverified visitors
+                  on any public page — direct-link landings on /shop or
+                  /checkout don't bypass it. */}
+              <AgeVerification />
               {children}
               <NewsletterPopup />
               <Toaster />

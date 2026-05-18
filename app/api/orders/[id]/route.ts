@@ -13,12 +13,27 @@ import {
 } from "@/lib/db/supabase"
 import { ORDER_STATUSES, PAYMENT_STATUSES } from "@/lib/db/schema"
 import { z } from "zod"
+import { isCarrierKey } from "@/lib/shipping/carriers"
+import {
+  sendShippingConfirmationEmail,
+  sendCustomerReviewRequestEmail,
+} from "@/lib/email"
 
 const updateOrderSchema = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
   paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
   paymentMethod: z.enum(["stripe", "link_money", "cash"]).optional(),
-  trackingNumber: z.string().optional(),
+  trackingNumber: z.string().trim().max(100).optional(),
+  // null clears, undefined leaves unchanged, string sets.
+  trackingCarrier: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(
+      (v) => v === null || v === undefined || v === "" || isCarrierKey(v),
+      { message: "Invalid carrier" }
+    )
+    .transform((v) => (v === "" ? null : v)),
 })
 
 // Check if the identifier is an order number (starts with "ORD-") or an order ID (UUID)
@@ -187,6 +202,7 @@ export async function PUT(
         if (data.paymentStatus !== undefined) rollback.paymentStatus = order.paymentStatus
         if (data.status !== undefined) rollback.status = order.status
         if (data.trackingNumber !== undefined) rollback.trackingNumber = order.trackingNumber
+        if (data.trackingCarrier !== undefined) rollback.trackingCarrier = order.trackingCarrier
         if (data.paymentMethod !== undefined) rollback.paymentMethod = order.paymentMethod
         await updateOrder(order.id, rollback)
 
@@ -207,6 +223,24 @@ export async function PUT(
           { status: 409 }
         )
       }
+    }
+
+    // Status-transition side effects. Best-effort + async: a Resend failure
+    // must not poison the admin action, and the response shouldn't wait on
+    // SMTP latency.
+    const justShipped =
+      data.status === "shipped" && order.status !== "shipped"
+    if (justShipped) {
+      sendShippingConfirmationEmail(updatedOrder).catch((err) =>
+        console.error("Failed to send shipping confirmation:", err)
+      )
+    }
+    const justDelivered =
+      data.status === "delivered" && order.status !== "delivered"
+    if (justDelivered) {
+      sendCustomerReviewRequestEmail(updatedOrder).catch((err) =>
+        console.error("Failed to send review request:", err)
+      )
     }
 
     return NextResponse.json({ order: updatedOrder })

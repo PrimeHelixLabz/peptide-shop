@@ -151,6 +151,12 @@ export interface Order {
   paymentMethod: string
   paymentStatus: PaymentStatus
   trackingNumber?: string
+  /**
+   * Shipping carrier paired with `trackingNumber`. One of the keys in
+   * `lib/shipping/carriers.ts`. Optional; when null the customer-facing
+   * email shows a bare number with no carrier link.
+   */
+  trackingCarrier?: string | null
   notes?: string
   /**
    * Captured affiliate referral code. Set at order creation from the phl_ref
