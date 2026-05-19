@@ -213,19 +213,245 @@ export async function getAffiliateByUserId(
 ): Promise<Affiliate | null> {
   const supabase = createAdminClient()
   const { data, error } = await supabase
-    .from("affiliates")
-    .select(
-      "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
-    )
-    .eq("user_id", userId)
-    .maybeSingle()
-
+  .from("affiliates")
+  .select(
+    "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
+  )
+  .eq("user_id", userId)
+  .maybeSingle()
+  
   if (error) {
     console.error("getAffiliateByUserId failed:", error)
     return null
   }
+  console.log(data)
   if (!data) return null
   return rowToAffiliate(data as unknown as AffiliateRow)
+}
+
+export async function getAffiliateByEmail(
+  email: string
+): Promise<Affiliate | null> {
+  if (!email) return null
+  const supabase = createAdminClient()
+  // affiliates.email is CITEXT (migration 034) so this is case-insensitive
+  // without needing ilike.
+  const { data, error } = await supabase
+    .from("affiliates")
+    .select(
+      "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
+    )
+    .eq("email", email.trim().toLowerCase())
+    .maybeSingle()
+
+  if (error) {
+    console.error("getAffiliateByEmail failed:", error)
+    return null
+  }
+  if (!data) return null
+  return rowToAffiliate(data as unknown as AffiliateRow)
+}
+
+async function linkAffiliateToUser(
+  affiliateId: string,
+  userId: string
+): Promise<void> {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("affiliates")
+    .update({ user_id: userId })
+    .eq("id", affiliateId)
+  if (error) {
+    console.error("linkAffiliateToUser failed:", error)
+    throw error
+  }
+}
+
+/**
+ * Resolves the user id for a given email by looking it up in profiles
+ * (which is FK-bound to auth.users.id). Returns null when no profile
+ * exists for that email — caller should surface a clear error so the
+ * admin knows the partner needs to register first.
+ */
+async function findUserIdByEmail(email: string): Promise<string | null> {
+  if (!email) return null
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .ilike("email", email.trim())
+    .maybeSingle()
+  if (error) {
+    console.error("findUserIdByEmail failed:", error)
+    return null
+  }
+  return (data as { id: string } | null)?.id ?? null
+}
+
+export type LinkAffiliateByEmailResult =
+  | { ok: true; affiliate: Affiliate }
+  | { ok: false; reason: "user-not-found" | "already-linked-to-other" | "affiliate-not-found" }
+
+/**
+ * Admin escape-hatch: link an existing affiliate row to a user account by
+ * the user's login email. Used when an affiliate was created/approved
+ * manually in the Supabase dashboard without `user_id` being set, leaving
+ * the partner stuck on the "Not an affiliate yet" screen.
+ *
+ * Refuses to overwrite a non-null `user_id` belonging to a different user
+ * — admin must explicitly unlink first if they really want to repoint.
+ */
+export async function linkAffiliateToUserByEmailAsAdmin(
+  affiliateId: string,
+  email: string
+): Promise<LinkAffiliateByEmailResult> {
+  const affiliate = await getAffiliateByIdAsAdmin(affiliateId)
+  if (!affiliate) return { ok: false, reason: "affiliate-not-found" }
+
+  const userId = await findUserIdByEmail(email)
+  if (!userId) return { ok: false, reason: "user-not-found" }
+
+  if (affiliate.userId && affiliate.userId !== userId) {
+    return { ok: false, reason: "already-linked-to-other" }
+  }
+
+  if (affiliate.userId === userId) {
+    return { ok: true, affiliate }
+  }
+
+  await linkAffiliateToUser(affiliateId, userId)
+  return { ok: true, affiliate: { ...affiliate, userId } }
+}
+
+/**
+ * Clears `user_id` on an affiliate row. Used when the row was created with
+ * the wrong owner (e.g. the admin tested the apply flow while signed in as
+ * themselves, so the row got their user_id instead of the actual partner's).
+ * After unlinking, admin can re-link to the correct email.
+ *
+ * Conversions stay attached — those are FK'd to the affiliate row, not the
+ * user. Existing commissions belong to whoever the row belongs to going
+ * forward, which is usually what you want.
+ */
+export async function unlinkAffiliateFromUserAsAdmin(
+  affiliateId: string
+): Promise<Affiliate | null> {
+  const affiliate = await getAffiliateByIdAsAdmin(affiliateId)
+  if (!affiliate) return null
+  if (!affiliate.userId) return affiliate // already unlinked — idempotent
+
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("affiliates")
+    .update({ user_id: null })
+    .eq("id", affiliateId)
+  if (error) {
+    console.error("unlinkAffiliateFromUserAsAdmin failed:", error)
+    throw error
+  }
+  return { ...affiliate, userId: null }
+}
+
+export interface OrderAttribution {
+  code: string
+  affiliateId: string
+  affiliateName: string
+  commissionAmount: number
+  commissionRate: number
+  status: ConversionStatus
+  createdAt: string
+}
+
+/**
+ * Returns the affiliate attribution for a given order id, if one exists.
+ * Joins on the affiliate so the caller can render the partner's name
+ * without a second lookup. Returns null when the order has no
+ * affiliate_code OR the order was attributed but the conversion trigger
+ * hasn't fired yet (e.g. order is still pending payment).
+ */
+export async function getOrderAttributionAsAdmin(
+  orderId: string
+): Promise<OrderAttribution | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("affiliate_conversions")
+    .select(
+      "code, affiliate_id, commission_amount, commission_rate, status, created_at, affiliates!inner(name)"
+    )
+    .eq("order_id", orderId)
+    .maybeSingle()
+
+  if (error) {
+    console.error("getOrderAttributionAsAdmin failed:", error)
+    return null
+  }
+  if (!data) return null
+
+  type Row = {
+    code: string
+    affiliate_id: string
+    commission_amount: number | string
+    commission_rate: number | string
+    status: ConversionStatus
+    created_at: string
+    affiliates: { name: string } | null
+  }
+  const row = data as unknown as Row
+  return {
+    code: row.code,
+    affiliateId: row.affiliate_id,
+    affiliateName: row.affiliates?.name ?? "Unknown",
+    commissionAmount: Number(row.commission_amount),
+    commissionRate: Number(row.commission_rate),
+    status: row.status,
+    createdAt: row.created_at,
+  }
+}
+
+export type AffiliateLookupResult =
+  | { kind: "found"; affiliate: Affiliate }
+  | { kind: "belongs-to-different-account"; affiliate: Affiliate }
+  | { kind: "none" }
+
+/**
+ * Resolves the affiliate record for the currently-signed-in user, with two
+ * fallbacks beyond the basic `user_id` match:
+ *
+ *   1. If no user_id match, look up by email (CITEXT, case-insensitive).
+ *   2. If the email-matched row has user_id = NULL — common when an admin
+ *      created the row manually in the Supabase dashboard — backfill the
+ *      current user.id so the next visit is O(1).
+ *
+ * Returns `belongs-to-different-account` when the email match has a
+ * non-null user_id that isn't us; never leaks another user's data to
+ * the wrong session.
+ */
+export async function resolveAffiliateForUser(
+  userId: string,
+  email: string
+): Promise<AffiliateLookupResult> {
+  const byUserId = await getAffiliateByUserId(userId)
+  if (byUserId) return { kind: "found", affiliate: byUserId }
+
+  const byEmail = await getAffiliateByEmail(email)
+  if (!byEmail) return { kind: "none" }
+
+  if (byEmail.userId && byEmail.userId !== userId) {
+    return { kind: "belongs-to-different-account", affiliate: byEmail }
+  }
+
+  if (!byEmail.userId) {
+    // Best-effort backfill. If it fails (transient DB), still surface the
+    // affiliate so the user isn't locked out.
+    try {
+      await linkAffiliateToUser(byEmail.id, userId)
+    } catch (err) {
+      console.error("affiliate backfill failed (continuing):", err)
+    }
+    return { kind: "found", affiliate: { ...byEmail, userId } }
+  }
+
+  return { kind: "found", affiliate: byEmail }
 }
 
 export interface AffiliateWithStats extends Affiliate {

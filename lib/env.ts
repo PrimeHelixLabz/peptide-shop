@@ -81,6 +81,11 @@ const clientSchema = z.object({
   NEXT_PUBLIC_SITE_URL: optionalNonEmpty,
   NEXT_PUBLIC_API_URL: optionalNonEmpty,
   NEXT_PUBLIC_SENTRY_DSN: optionalNonEmpty,
+  // Trustpilot — both optional. When unset, widgets render nothing (no
+  // broken badges in dev). The business unit id is found in your
+  // Trustpilot business dashboard under Integrations → TrustBox.
+  NEXT_PUBLIC_TRUSTPILOT_BUSINESS_UNIT_ID: optionalNonEmpty,
+  NEXT_PUBLIC_TRUSTPILOT_DOMAIN: optionalNonEmpty,
 })
 
 /* ────────────────────────────────────────────────────────────────
@@ -181,10 +186,21 @@ function validateServer(): z.infer<typeof serverSchema> {
 
 function validateClient(): z.infer<typeof clientSchema> {
   if (cachedClient) return cachedClient
-  // On the client, only NEXT_PUBLIC_* values are present.
-  const parsed = clientSchema.safeParse(
-    typeof process !== "undefined" ? process.env : {}
-  )
+  // Each NEXT_PUBLIC_* must be referenced literally so Next.js's webpack
+  // plugin inlines the value into the client bundle. Passing `process.env`
+  // as a whole object on the client yields {} — the static replacement
+  // only triggers on explicit property reads.
+  const parsed = clientSchema.safeParse({
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    NEXT_PUBLIC_TRUSTPILOT_BUSINESS_UNIT_ID:
+      process.env.NEXT_PUBLIC_TRUSTPILOT_BUSINESS_UNIT_ID,
+    NEXT_PUBLIC_TRUSTPILOT_DOMAIN: process.env.NEXT_PUBLIC_TRUSTPILOT_DOMAIN,
+  })
   if (!parsed.success) {
     const issues = parsed.error.errors
       .map((e) => `  - ${e.path.join(".")}: ${e.message}`)

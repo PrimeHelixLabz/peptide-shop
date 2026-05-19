@@ -9,7 +9,7 @@ import { StatusBadge, type StatusVariant } from "@/components/common/status-badg
 import { CopyLinkButton } from "@/components/affiliates/copy-link-button"
 import { getCurrentUser } from "@/lib/auth/supabase-auth"
 import {
-  getAffiliateByUserId,
+  resolveAffiliateForUser,
   getAffiliateStats,
   ensureCodeForAffiliate,
   type ConversionStatus,
@@ -122,7 +122,44 @@ export default async function AffiliateDashboardPage() {
     )
   }
 
-  const affiliate = await getAffiliateByUserId(user.id)
+  const lookup = await resolveAffiliateForUser(user.id, user.email)
+
+  // An affiliate row exists for this email but is linked to a different
+  // login. Don't expose that person's data — point to support.
+  if (lookup.kind === "belongs-to-different-account") {
+    return (
+      <div className="flex min-h-screen flex-col bg-[#f6f6f7]">
+        <Header />
+        <main className="flex-1 py-12 md:py-20">
+          <Section background="muted" padding="md">
+            <Container>
+              <PromptCard
+                title="Different account"
+                description={
+                  <>
+                    An affiliate account exists for{" "}
+                    <strong className="text-foreground">{user.email}</strong>,
+                    but it&rsquo;s linked to a different sign-in. If this is
+                    you, sign in with the original account, or email{" "}
+                    <a
+                      href="mailto:support@primehelixlabz.com"
+                      className="underline"
+                    >
+                      support@primehelixlabz.com
+                    </a>{" "}
+                    so we can re-link it.
+                  </>
+                }
+              />
+            </Container>
+          </Section>
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
+  const affiliate = lookup.kind === "found" ? lookup.affiliate : null
 
   // Not yet an affiliate — invite them to apply.
   if (!affiliate) {

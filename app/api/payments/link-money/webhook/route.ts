@@ -14,7 +14,6 @@ import { applyWebhook } from "@/lib/link-money/payment-service"
 import type { LinkMoneyWebhookBody } from "@/lib/link-money/payment-types"
 import {
   logWebhook,
-  notifyWebhookReceived,
   type WebhookLogEntry,
 } from "@/lib/link-money/webhook-log"
 import { reserveWebhookEvent } from "@/lib/payments/webhook-dedupe"
@@ -79,10 +78,7 @@ export async function POST(req: NextRequest) {
   ) => {
     const entry = baseEntry({ ...entryOverrides, statusCode, error })
     after(async () => {
-      await Promise.allSettled([
-        logWebhook(entry),
-        notifyWebhookReceived(entry),
-      ])
+      await logWebhook(entry)
     })
     return NextResponse.json(responseBody, { status: statusCode })
   }

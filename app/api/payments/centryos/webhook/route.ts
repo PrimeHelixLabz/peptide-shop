@@ -17,8 +17,6 @@ import type { CentryOSWebhookBody } from "@/lib/centryos/payment-types"
 import {
   logWebhook,
   logProcessingTrace,
-  notifyProcessingComplete,
-  notifyWebhookReceived,
   type CentryOSWebhookLogEntry,
   type ProcessingLogContext,
   type ProcessingOutcome,
@@ -66,10 +64,7 @@ export async function POST(req: NextRequest) {
   ) => {
     const entry = baseEntry({ ...entryOverrides, statusCode, error })
     after(async () => {
-      await Promise.allSettled([
-        logWebhook(entry),
-        notifyWebhookReceived(entry),
-      ])
+      await logWebhook(entry)
     })
     return NextResponse.json(responseBody, { status: statusCode })
   }
@@ -235,10 +230,7 @@ export async function POST(req: NextRequest) {
       error: topError,
     }
 
-    await Promise.allSettled([
-      logProcessingTrace(trace, ctx),
-      notifyProcessingComplete(trace, ctx),
-    ])
+    await logProcessingTrace(trace, ctx)
   })
 
   return finish(

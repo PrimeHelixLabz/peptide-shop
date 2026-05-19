@@ -1,4 +1,5 @@
 import { ShieldCheck, Lock, Truck } from "lucide-react"
+import { TrustpilotWidget } from "@/components/trustpilot/trustpilot-widget"
 
 const trustItems = [
   {
@@ -52,6 +53,11 @@ export function TrustSection() {
               </p>
             </div>
           ))}
+        </div>
+
+        {/* Trustpilot carousel — auto-hidden until env var is configured. */}
+        <div className="mt-12 md:mt-16">
+          <TrustpilotWidget variant="carousel" stars="4,5" />
         </div>
       </Container>
     </Section>

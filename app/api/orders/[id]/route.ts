@@ -18,6 +18,7 @@ import {
   sendShippingConfirmationEmail,
   sendCustomerReviewRequestEmail,
 } from "@/lib/email"
+import { getOrderAttributionAsAdmin } from "@/lib/affiliates"
 
 const updateOrderSchema = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
@@ -91,7 +92,14 @@ export async function GET(
           }
         }
 
-        return NextResponse.json({ order, customerName })
+        // Affiliate attribution — only shown to admins. Null when the order
+        // wasn't attributed OR when payment hasn't cleared yet (the
+        // conversion trigger fires on payment_status='paid').
+        const attribution = order.affiliateCode
+          ? await getOrderAttributionAsAdmin(order.id)
+          : null
+
+        return NextResponse.json({ order, customerName, attribution })
       }
 
       // Authenticated users can see their own orders (RLS handles this)

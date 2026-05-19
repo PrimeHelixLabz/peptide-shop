@@ -29,6 +29,9 @@ import {
   isCarrierKey,
   type CarrierKey,
 } from "@/lib/shipping/carriers"
+import type { OrderAttribution } from "@/lib/affiliates"
+import { Handshake } from "lucide-react"
+import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 
 /* ------------------------------------------------------------------ */
 /*  Badge styles (same as orders table)                                */
@@ -76,6 +79,7 @@ const mapShippingStatus = (status: string): AdminOrder["shippingStatus"] => {
 export function AdminOrderDetail({ orderId }: { orderId: string }) {
   const router = useRouter()
   const [order, setOrder] = useState<Order | null>(null)
+  const [attribution, setAttribution] = useState<OrderAttribution | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [customerName, setCustomerName] = useState<string>("")
@@ -100,6 +104,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
         const data = await response.json()
         setOrder(data.order)
         if (data.customerName) setCustomerName(data.customerName)
+        setAttribution(data.attribution ?? null)
         setShippingStatus(mapShippingStatus(data.order.status))
         setTrackingNumber(data.order.trackingNumber ?? "")
         setTrackingCarrier(
@@ -545,6 +550,82 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
               </div>
             </div>
           </div>
+
+          {/* Attribution card — shown when this order came in via an
+              affiliate referral cookie. Conversion details only appear
+              after payment clears (the conversion trigger fires on
+              orders.payment_status='paid'). */}
+          {(order.affiliateCode || attribution) && (
+            <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">
+              <div className="border-b border-border/50 px-6 py-5">
+                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground">
+                  <Handshake className="h-4 w-4 text-primary" />
+                  Affiliate Attribution
+                </h2>
+              </div>
+              <div className="flex flex-col gap-4 p-6">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Referral code
+                  </span>
+                  <span className="font-mono text-sm font-semibold text-foreground">
+                    {order.affiliateCode}
+                  </span>
+                </div>
+                {attribution ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Partner
+                      </span>
+                      <Link
+                        href="/admin/affiliates"
+                        className="text-sm font-medium text-foreground hover:underline"
+                      >
+                        {attribution.affiliateName}
+                      </Link>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Commission
+                      </span>
+                      <span className="text-sm text-foreground">
+                        ${attribution.commissionAmount.toFixed(2)}{" "}
+                        <span className="text-muted-foreground">
+                          ({(attribution.commissionRate * 100).toFixed(0)}%)
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Payout status
+                      </span>
+                      <div>
+                        <StatusBadge
+                          variant={
+                            ({
+                              pending: "warning",
+                              payable: "info",
+                              paid: "success",
+                              reversed: "neutral",
+                            }[attribution.status] ?? "neutral") as StatusVariant
+                          }
+                        >
+                          {attribution.status}
+                        </StatusBadge>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Commission will be recorded once this order&rsquo;s payment
+                    clears. Until then the referral is captured but no payout
+                    is owed.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Actions card */}
           <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden">

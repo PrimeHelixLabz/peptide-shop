@@ -149,6 +149,32 @@ export function AdminAffiliatesTable({ affiliates: initial }: Props) {
     [patch]
   )
 
+  const handleLinkUser = useCallback(
+    (id: string, email: string) => {
+      const trimmed = email.trim()
+      if (!trimmed) {
+        toast.error("Enter the partner's login email")
+        return
+      }
+      patch(id, { linkToUserEmail: trimmed }, "Linked to user account")
+    },
+    [patch]
+  )
+
+  const handleUnlinkUser = useCallback(
+    (id: string) => {
+      if (
+        !confirm(
+          "Unlink this affiliate from the current login? You can re-link to a different account afterwards. Conversions stay attached."
+        )
+      ) {
+        return
+      }
+      patch(id, { unlinkUser: true }, "Unlinked from user account")
+    },
+    [patch]
+  )
+
   if (affiliates.length === 0) {
     return (
       <AdminCard flush>
@@ -235,6 +261,8 @@ export function AdminAffiliatesTable({ affiliates: initial }: Props) {
                       onRateBlur={(raw) =>
                         handleRateBlur(a.id, a.commissionRate, raw)
                       }
+                      onLinkUser={(email) => handleLinkUser(a.id, email)}
+                      onUnlinkUser={() => handleUnlinkUser(a.id)}
                     />
                   )
                 })}
@@ -254,6 +282,8 @@ interface RowProps {
   onToggle: () => void
   onStatusChange: (status: AffiliateStatus) => void
   onRateBlur: (raw: string) => void
+  onLinkUser: (email: string) => void
+  onUnlinkUser: () => void
 }
 
 function Row({
@@ -263,10 +293,13 @@ function Row({
   onToggle,
   onStatusChange,
   onRateBlur,
+  onLinkUser,
+  onUnlinkUser,
 }: RowProps) {
   const [rateDraft, setRateDraft] = useState(
     (a.commissionRate * 100).toString()
   )
+  const [linkEmail, setLinkEmail] = useState(a.email ?? "")
 
   return (
     <>
@@ -422,6 +455,74 @@ function Row({
                 >
                   Reactivate
                 </Button>
+              )}
+            </div>
+
+            {/* Account link — escape hatch when an affiliate row exists
+                without user_id (e.g. created manually in Supabase). Partner
+                gets stuck on "Not an affiliate yet" until this is set. */}
+            <div className="mt-6 flex flex-col gap-2 rounded-2xl border border-border/50 bg-background p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Login account link
+                </p>
+                {a.userId ? (
+                  <StatusBadge variant="success">Linked</StatusBadge>
+                ) : (
+                  <StatusBadge variant="warning">Not linked</StatusBadge>
+                )}
+              </div>
+              {a.userId ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Linked to{" "}
+                    <strong className="text-foreground">{a.email}</strong>.
+                    That partner can sign in and see this dashboard. If the
+                    wrong account ended up on this row, unlink it and re-link
+                    to the correct email. Conversions stay attached either way.
+                  </p>
+                  <div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={onUnlinkUser}
+                      disabled={isUpdating}
+                    >
+                      Unlink account
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    This affiliate has no login linked, so the partner sees
+                    &ldquo;Not an affiliate yet&rdquo; on their dashboard.
+                    Enter the email of their registered user account to link.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex-1 min-w-[200px]">
+                      <FormInput
+                        type="email"
+                        placeholder="partner@example.com"
+                        value={linkEmail}
+                        onChange={(e) => setLinkEmail(e.target.value)}
+                        disabled={isUpdating}
+                        aria-label={`Login email for ${a.name}`}
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => onLinkUser(linkEmail)}
+                      disabled={isUpdating || !linkEmail.trim()}
+                    >
+                      Link account
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    The partner must have already registered at{" "}
+                    <code className="font-mono">/signup</code> with this email.
+                  </p>
+                </>
               )}
             </div>
           </td>

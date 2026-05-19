@@ -3,6 +3,7 @@ import { z } from "zod"
 import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/middleware"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { enforceRateLimit } from "@/lib/rate-limit"
+import { resolveAffiliateForUser } from "@/lib/affiliates"
 
 const applySchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
@@ -45,19 +46,36 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
 
   const userId = req.user!.id
   const userEmail = req.user!.email
-  const supabase = createAdminClient()
 
-  // If the user already has an affiliate row, return it (idempotent).
-  const { data: existing } = await supabase
-    .from("affiliates")
-    .select("id, status")
-    .eq("user_id", userId)
-    .maybeSingle()
+  // Idempotent application check. resolveAffiliateForUser does the heavy
+  // lifting:
+  //  - user_id match → "found", treat as already applied
+  //  - email match with NULL user_id (e.g. admin manually created the row)
+  //    → backfills user_id and returns "found"
+  //  - email match with a different user_id → "belongs-to-different-account",
+  //    blocked here for security
+  //  - none → fall through to INSERT
+  const lookup = await resolveAffiliateForUser(userId, userEmail)
 
-  if (existing) {
-    return NextResponse.json({ ok: true, alreadyApplied: true, status: (existing as { status: string }).status })
+  if (lookup.kind === "belongs-to-different-account") {
+    return NextResponse.json(
+      {
+        error:
+          "This email is already associated with an existing affiliate account under a different login. Sign in with the original account, or contact support to re-link.",
+      },
+      { status: 409 }
+    )
   }
 
+  if (lookup.kind === "found") {
+    return NextResponse.json({
+      ok: true,
+      alreadyApplied: true,
+      status: lookup.affiliate.status,
+    })
+  }
+
+  const supabase = createAdminClient()
   const { error: insertError } = await supabase
     .from("affiliates")
     .insert({
@@ -72,16 +90,10 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
     })
 
   if (insertError) {
-    // 23505 is unique_violation — could happen if email is already registered
-    // under a different user (e.g., the partner had two accounts).
+    // 23505 is unique_violation — a tiny race window between the resolver
+    // and the INSERT could theoretically hit this; treat as "already in".
     if ((insertError as { code?: string }).code === "23505") {
-      return NextResponse.json(
-        {
-          error:
-            "This email is already associated with an existing affiliate account. Sign in with the correct account.",
-        },
-        { status: 409 }
-      )
+      return NextResponse.json({ ok: true, alreadyApplied: true })
     }
     console.error("affiliate apply insert failed:", insertError)
     return NextResponse.json(
