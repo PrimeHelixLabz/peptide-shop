@@ -224,7 +224,6 @@ export async function getAffiliateByUserId(
     console.error("getAffiliateByUserId failed:", error)
     return null
   }
-  console.log(data)
   if (!data) return null
   return rowToAffiliate(data as unknown as AffiliateRow)
 }
