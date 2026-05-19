@@ -2,6 +2,7 @@
 
 import { useState, useCallback, type FormEvent } from "react"
 import { Send, CheckCircle } from "lucide-react"
+import { Select } from "@/components/common/select"
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle")
@@ -17,6 +18,12 @@ export function ContactForm() {
     const email = String(fd.get("email") ?? "").trim()
     const subject = String(fd.get("subject") ?? "")
     const message = String(fd.get("message") ?? "").trim()
+
+    if (!subject) {
+      setStatus("idle")
+      setError("Please pick a subject so we can route your message.")
+      return
+    }
 
     try {
       const res = await fetch("/api/contact", {
@@ -111,31 +118,21 @@ export function ContactForm() {
       </div>
 
       {/* Subject */}
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="contact-subject"
-          className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-        >
-          Subject
-        </label>
-        <select
-          id="contact-subject"
-          name="subject"
-          required
-          defaultValue=""
-          className="appearance-none rounded-xl border-0 bg-gray-50 px-6 py-4 text-sm text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
-        >
-          <option value="" disabled>
-            Select a topic
-          </option>
-          <option value="order">Order Inquiry</option>
-          <option value="product">Product Question</option>
-          <option value="shipping">Shipping Issue</option>
-          <option value="order-issue">Order Issue (non-return)</option>
-          <option value="wholesale">Wholesale &amp; Bulk Orders</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
+      <Select
+        id="contact-subject"
+        name="subject"
+        label="Subject"
+        placeholder="Select a topic"
+        defaultValue=""
+        options={[
+          { value: "order", label: "Order Inquiry" },
+          { value: "product", label: "Product Question" },
+          { value: "shipping", label: "Shipping Issue" },
+          { value: "order-issue", label: "Order Issue (non-return)" },
+          { value: "wholesale", label: "Wholesale & Bulk Orders" },
+          { value: "other", label: "Other" },
+        ]}
+      />
 
       {/* Message */}
       <div className="flex flex-col gap-2">

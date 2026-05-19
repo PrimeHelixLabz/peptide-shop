@@ -56,6 +56,7 @@ export interface AffiliateConversion {
   commissionAmount: number
   status: ConversionStatus
   paidAt: string | null
+  payoutReference: string | null
   createdAt: string
 }
 
@@ -102,6 +103,7 @@ interface ConversionRow {
   commission_amount: number | string
   status: ConversionStatus
   paid_at: string | null
+  payout_reference: string | null
   created_at: string
 }
 
@@ -144,6 +146,7 @@ function rowToConversion(row: ConversionRow): AffiliateConversion {
     commissionAmount: Number(row.commission_amount),
     status: row.status,
     paidAt: row.paid_at,
+    payoutReference: row.payout_reference,
     createdAt: row.created_at,
   }
 }
@@ -647,6 +650,117 @@ export async function updateAffiliateAsAdmin(
   return after
 }
 
+export interface AffiliatePayoutSelfUpdate {
+  payoutMethod: string | null
+  payoutDetails: string | null
+}
+
+/**
+ * Self-service payout edit. Scoped to the caller's own affiliate row via
+ * user_id — never lets one partner edit another. Returns null if no
+ * affiliate row exists for this user.
+ */
+export async function updateOwnPayoutDetails(
+  userId: string,
+  update: AffiliatePayoutSelfUpdate
+): Promise<Affiliate | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("affiliates")
+    .update({
+      payout_method: update.payoutMethod,
+      payout_details: update.payoutDetails,
+    })
+    .eq("user_id", userId)
+    .select(
+      "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
+    )
+    .maybeSingle()
+
+  if (error) {
+    console.error("updateOwnPayoutDetails failed:", error)
+    throw error
+  }
+  if (!data) return null
+  return rowToAffiliate(data as unknown as AffiliateRow)
+}
+
+/**
+ * Admin-only: returns every conversion for an affiliate that hasn't been
+ * settled yet (status `pending` or `payable`). Reversed and already-paid
+ * rows are excluded since they're not actionable in the Mark-as-paid flow.
+ */
+export async function getUnpaidConversionsForAffiliateAsAdmin(
+  affiliateId: string
+): Promise<AffiliateConversion[]> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("affiliate_conversions")
+    .select(
+      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, paid_at, payout_reference, created_at"
+    )
+    .eq("affiliate_id", affiliateId)
+    .in("status", ["pending", "payable"])
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    console.error("getUnpaidConversionsForAffiliateAsAdmin failed:", error)
+    return []
+  }
+  return ((data as unknown as ConversionRow[]) || []).map(rowToConversion)
+}
+
+export interface MarkAsPaidResult {
+  paidCount: number
+  paidAmount: number
+}
+
+/**
+ * Admin-only: flips the given conversions to status `paid`, stamping
+ * `paid_at` and an optional `payout_reference` (tx hash, PayPal ID, etc.).
+ *
+ * Scoped to a single affiliate so a stray ID from another partner can't
+ * be flipped by accident — the UPDATE filters on both `id IN (…)` AND
+ * `affiliate_id = …`, and refuses anything already `paid`/`reversed` so
+ * the operation is idempotent.
+ */
+export async function markConversionsAsPaidAsAdmin(
+  affiliateId: string,
+  conversionIds: string[],
+  reference: string | null
+): Promise<MarkAsPaidResult> {
+  if (conversionIds.length === 0) {
+    return { paidCount: 0, paidAmount: 0 }
+  }
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("affiliate_conversions")
+    .update({
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      payout_reference: reference,
+    })
+    .eq("affiliate_id", affiliateId)
+    .in("id", conversionIds)
+    .in("status", ["pending", "payable"])
+    .select("commission_amount")
+
+  if (error) {
+    console.error("markConversionsAsPaidAsAdmin failed:", error)
+    throw error
+  }
+
+  const rows = (data as unknown as { commission_amount: number | string }[]) || []
+  const paidAmount = rows.reduce(
+    (sum, row) => sum + Number(row.commission_amount),
+    0
+  )
+  return {
+    paidCount: rows.length,
+    paidAmount: roundCurrency(paidAmount),
+  }
+}
+
 export async function getAffiliateStats(
   affiliateId: string
 ): Promise<AffiliateStats> {
@@ -654,7 +768,7 @@ export async function getAffiliateStats(
   const { data, error } = await supabase
     .from("affiliate_conversions")
     .select(
-      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, paid_at, created_at"
+      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, paid_at, payout_reference, created_at"
     )
     .eq("affiliate_id", affiliateId)
     .order("created_at", { ascending: false })

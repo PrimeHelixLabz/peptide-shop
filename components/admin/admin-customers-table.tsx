@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { Pagination } from "./pagination"
 import { FormInput } from "@/components/common/form-input"
-import { FormSelect } from "@/components/common/form-select"
+import { Select } from "@/components/common/select"
 import { StatCard, type StatCardData } from "./stat-card"
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
 import { usePersistentTableState } from "@/hooks/usePersistentTableState"
@@ -307,12 +307,12 @@ export function AdminCustomersTable({ onSelectCustomer }: AdminCustomersTablePro
             {filtered.length} {filtered.length === 1 ? "customer" : "customers"}
             {filtered.length !== customers.length && ` of ${customers.length}`}
           </span>
-          <FormSelect
+          <Select
             value={activityFilter}
-            onChange={(e) =>
+            onChange={(value) =>
               setTableState((prev) => ({
                 ...prev,
-                activityFilter: e.target.value as ActivityFilter,
+                activityFilter: value as ActivityFilter,
               }))
             }
             options={activityFilterOptions}

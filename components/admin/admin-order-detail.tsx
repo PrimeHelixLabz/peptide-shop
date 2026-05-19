@@ -11,7 +11,7 @@ import type { Order } from "@/lib/db/schema"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { format } from "date-fns"
 import { formatPaymentMethod } from "@/lib/format-payment-method"
-import { FormSelect } from "@/components/common/form-select"
+import { Select } from "@/components/common/select"
 import { FormInput } from "@/components/common/form-input"
 import {
   AlertDialog,
@@ -486,12 +486,10 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Shipping Status
                 </span>
-                <FormSelect
+                <Select
                   value={shippingStatus}
-                  onChange={(e) =>
-                    setShippingStatus(
-                      e.target.value as AdminOrder["shippingStatus"]
-                    )
+                  onChange={(value) =>
+                    setShippingStatus(value as AdminOrder["shippingStatus"])
                   }
                   options={shippingOptions.map((opt) => ({ value: opt, label: opt }))}
                   wrapperClassName="w-full"
@@ -511,13 +509,11 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                     onChange={(e) => setTrackingNumber(e.target.value)}
                     aria-label="Tracking number"
                   />
-                  <FormSelect
+                  <Select
                     value={trackingCarrier}
-                    onChange={(e) =>
+                    onChange={(value) =>
                       setTrackingCarrier(
-                        e.target.value === ""
-                          ? ""
-                          : (e.target.value as CarrierKey)
+                        value === "" ? "" : (value as CarrierKey)
                       )
                     }
                     options={[

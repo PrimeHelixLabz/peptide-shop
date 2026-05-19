@@ -1,16 +1,17 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FormInput } from "@/components/common/form-input"
-import { FormSelect } from "@/components/common/form-select"
+import { Select } from "@/components/common/select"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { AdminCard } from "@/components/common/admin-card"
 import { EmptyState } from "@/components/common/empty-state"
 import { Users } from "lucide-react"
 import type {
+  AffiliateConversion,
   AffiliateStatus,
   AffiliateWithStats,
 } from "@/lib/affiliates"
@@ -36,6 +37,10 @@ const FILTER_OPTIONS = [
 
 function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`
+}
+
+function roundCurrency(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 function formatDate(iso: string): string {
@@ -169,6 +174,35 @@ export function AdminAffiliatesTable({ affiliates: initial }: Props) {
     [patch]
   )
 
+  // After the row records a payout, deduct from whichever bucket(s) the
+  // marked conversions came from and add to paidEarnings. Avoids a
+  // round-trip refetch just to update three numbers.
+  const handlePayoutRecorded = useCallback(
+    (
+      id: string,
+      delta: { pendingDelta: number; payableDelta: number }
+    ) => {
+      const totalPaid = delta.pendingDelta + delta.payableDelta
+      setAffiliates((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                pendingEarnings: roundCurrency(
+                  a.pendingEarnings - delta.pendingDelta
+                ),
+                payableEarnings: roundCurrency(
+                  a.payableEarnings - delta.payableDelta
+                ),
+                paidEarnings: roundCurrency(a.paidEarnings + totalPaid),
+              }
+            : a
+        )
+      )
+    },
+    []
+  )
+
   if (affiliates.length === 0) {
     return (
       <AdminCard flush>
@@ -199,10 +233,10 @@ export function AdminAffiliatesTable({ affiliates: initial }: Props) {
             <strong className="text-foreground">{counts.suspended}</strong> suspended
           </span>
         </div>
-        <FormSelect
+        <Select
           options={FILTER_OPTIONS}
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          onChange={(value) => setStatusFilter(value as StatusFilter)}
           aria-label="Filter affiliates by status"
         />
       </div>
@@ -257,6 +291,9 @@ export function AdminAffiliatesTable({ affiliates: initial }: Props) {
                       }
                       onLinkUser={(email) => handleLinkUser(a.id, email)}
                       onUnlinkUser={() => handleUnlinkUser(a.id)}
+                      onPayoutRecorded={(delta) =>
+                        handlePayoutRecorded(a.id, delta)
+                      }
                     />
                   )
                 })}
@@ -278,6 +315,10 @@ interface RowProps {
   onRateBlur: (raw: string) => void
   onLinkUser: (email: string) => void
   onUnlinkUser: () => void
+  onPayoutRecorded: (delta: {
+    pendingDelta: number
+    payableDelta: number
+  }) => void
 }
 
 function Row({
@@ -289,16 +330,121 @@ function Row({
   onRateBlur,
   onLinkUser,
   onUnlinkUser,
+  onPayoutRecorded,
 }: RowProps) {
   const [rateDraft, setRateDraft] = useState(
     (a.commissionRate * 100).toString()
   )
   const [linkEmail, setLinkEmail] = useState(a.email ?? "")
 
+  // Mark-as-paid panel state. Lazy-loaded the first time the row is
+  // expanded so we don't fan out N+1 fetches across the whole table.
+  const [unpaid, setUnpaid] = useState<AffiliateConversion[] | null>(null)
+  const [loadingUnpaid, setLoadingUnpaid] = useState(false)
+  const [payoutReference, setPayoutReference] = useState("")
+  const [markingPaid, setMarkingPaid] = useState(false)
+
+  const loadUnpaid = useCallback(async () => {
+    setLoadingUnpaid(true)
+    try {
+      const res = await fetch(
+        `/api/admin/affiliates/${a.id}/conversions`,
+        { cache: "no-store" }
+      )
+      const data = (await res.json().catch(() => ({}))) as {
+        conversions?: AffiliateConversion[]
+        error?: string
+      }
+      if (!res.ok) {
+        toast.error(data.error || "Could not load conversions")
+        setUnpaid([])
+        return
+      }
+      setUnpaid(data.conversions || [])
+    } catch (err) {
+      console.error(err)
+      toast.error("Network error loading conversions")
+      setUnpaid([])
+    } finally {
+      setLoadingUnpaid(false)
+    }
+  }, [a.id])
+
+  useEffect(() => {
+    if (isOpen && unpaid === null && !loadingUnpaid) {
+      loadUnpaid()
+    }
+  }, [isOpen, unpaid, loadingUnpaid, loadUnpaid])
+
+  const unpaidTotals = useMemo(() => {
+    const rows = unpaid ?? []
+    let pendingDelta = 0
+    let payableDelta = 0
+    for (const c of rows) {
+      if (c.status === "pending") pendingDelta += c.commissionAmount
+      else if (c.status === "payable") payableDelta += c.commissionAmount
+    }
+    return {
+      count: rows.length,
+      pendingDelta,
+      payableDelta,
+      total: pendingDelta + payableDelta,
+    }
+  }, [unpaid])
+
+  const handleMarkPaid = useCallback(async () => {
+    if (!unpaid || unpaid.length === 0 || markingPaid) return
+    const ids = unpaid.map((c) => c.id)
+    setMarkingPaid(true)
+    try {
+      const res = await fetch(`/api/admin/affiliates/${a.id}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversionIds: ids,
+          reference: payoutReference.trim() || undefined,
+        }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        paidCount?: number
+        paidAmount?: number
+        error?: string
+      }
+      if (!res.ok) {
+        toast.error(data.error || "Could not mark as paid")
+        return
+      }
+      toast.success(
+        `Marked ${data.paidCount ?? ids.length} ${
+          (data.paidCount ?? ids.length) === 1 ? "conversion" : "conversions"
+        } as paid`
+      )
+      onPayoutRecorded({
+        pendingDelta: unpaidTotals.pendingDelta,
+        payableDelta: unpaidTotals.payableDelta,
+      })
+      setUnpaid([])
+      setPayoutReference("")
+    } catch (err) {
+      console.error(err)
+      toast.error("Network error")
+    } finally {
+      setMarkingPaid(false)
+    }
+  }, [
+    a.id,
+    unpaid,
+    unpaidTotals.pendingDelta,
+    unpaidTotals.payableDelta,
+    payoutReference,
+    markingPaid,
+    onPayoutRecorded,
+  ])
+
   return (
     <>
       <tr className="border-b border-border/50 transition-colors hover:bg-accent">
-        <td className="px-6 py-4 align-top">
+        <td className="px-6 py-4 align-middle">
           <button
             type="button"
             onClick={onToggle}
@@ -313,24 +459,24 @@ function Row({
             )}
           </button>
         </td>
-        <td className="px-6 py-4 align-top">
+        <td className="px-6 py-4 align-middle">
           <div className="flex flex-col">
             <span className="text-sm font-medium text-foreground">{a.name}</span>
             <span className="text-xs text-muted-foreground">{a.email}</span>
           </div>
         </td>
-        <td className="px-6 py-4 align-top">
+        <td className="px-6 py-4 align-middle">
           <StatusBadge variant={STATUS_VARIANT[a.status]}>
             {a.status}
           </StatusBadge>
         </td>
-        <td className="hidden px-6 py-4 text-right align-top text-sm md:table-cell">
+        <td className="hidden px-6 py-4 text-right align-middle text-sm md:table-cell">
           {a.conversionsCount}
         </td>
-        <td className="hidden px-6 py-4 text-right align-top text-sm font-medium md:table-cell">
+        <td className="hidden px-6 py-4 text-right align-middle text-sm font-medium md:table-cell">
           {formatCurrency(a.totalEarnings)}
         </td>
-        <td className="hidden px-6 py-4 text-right align-top lg:table-cell">
+        <td className="hidden px-6 py-4 text-right align-middle lg:table-cell">
           <div className="ml-auto w-24">
             <FormInput
               type="number"
@@ -347,7 +493,7 @@ function Row({
             />
           </div>
         </td>
-        <td className="hidden px-6 py-4 text-right align-top text-sm text-muted-foreground lg:table-cell">
+        <td className="hidden px-6 py-4 text-right align-middle text-sm text-muted-foreground lg:table-cell">
           {formatDate(a.createdAt)}
         </td>
       </tr>
@@ -506,6 +652,111 @@ function Row({
                     The partner must have already registered at{" "}
                     <code className="font-mono">/signup</code> with this email.
                   </p>
+                </>
+              )}
+            </div>
+
+            {/* Mark conversions as paid — admin records the payout
+                they've already sent off-platform (crypto tx, PayPal, etc.)
+                and stamps `paid_at` + `payout_reference` on the matching
+                conversions. Partners see the paid status + reference on
+                their dashboard. */}
+            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border/50 bg-background p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Mark conversions as paid
+                </p>
+                {unpaid && unpaid.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {unpaidTotals.count}{" "}
+                    {unpaidTotals.count === 1 ? "conversion" : "conversions"}
+                    {" · "}
+                    <strong className="text-foreground">
+                      {formatCurrency(unpaidTotals.total)}
+                    </strong>{" "}
+                    owed
+                  </span>
+                )}
+              </div>
+
+              {loadingUnpaid && unpaid === null ? (
+                <p className="text-xs text-muted-foreground">
+                  Loading conversions…
+                </p>
+              ) : !unpaid || unpaid.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nothing to settle. All conversions are paid or reversed.
+                </p>
+              ) : (
+                <>
+                  <div className="overflow-hidden rounded-xl border border-border/50">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2">Order date</th>
+                          <th className="px-3 py-2 text-right">Order total</th>
+                          <th className="px-3 py-2 text-right">Commission</th>
+                          <th className="px-3 py-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {unpaid.map((c) => (
+                          <tr
+                            key={c.id}
+                            className="border-t border-border/40 last:border-b-0"
+                          >
+                            <td className="px-3 py-2 text-muted-foreground">
+                              {formatDate(c.createdAt)}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {formatCurrency(c.orderTotal)}
+                            </td>
+                            <td className="px-3 py-2 text-right font-medium">
+                              {formatCurrency(c.commissionAmount)}
+                            </td>
+                            <td className="px-3 py-2">
+                              <StatusBadge
+                                variant={
+                                  c.status === "payable" ? "info" : "warning"
+                                }
+                              >
+                                {c.status}
+                              </StatusBadge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <FormInput
+                      label="Payout reference (optional)"
+                      placeholder="Tx hash, PayPal ID, Wise ID…"
+                      value={payoutReference}
+                      onChange={(e) => setPayoutReference(e.target.value)}
+                      disabled={markingPaid}
+                      maxLength={200}
+                      helperText="Partner sees the last few characters so they can match it against their wallet."
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleMarkPaid}
+                        disabled={markingPaid || unpaid.length === 0}
+                      >
+                        {markingPaid
+                          ? "Recording…"
+                          : `Mark ${unpaidTotals.count === 1 ? "conversion" : "all"} as paid`}
+                      </Button>
+                      <span className="text-[11px] text-muted-foreground">
+                        Send the {formatCurrency(unpaidTotals.total)} payout
+                        first, then click to record it. This can&rsquo;t be
+                        undone from the UI &mdash; only fix manually in
+                        Supabase.
+                      </span>
+                    </div>
+                  </div>
                 </>
               )}
             </div>

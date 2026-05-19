@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Select } from "@/components/common/select"
 
 interface PaginationProps {
   currentPage: number
@@ -76,17 +77,16 @@ export function Pagination({
       {onItemsPerPageChange && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Show</span>
-          <select
-            value={itemsPerPage}
-            onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-            className="h-9 rounded-lg border border-border bg-white dark:bg-gray-900 px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            {itemsPerPageOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={String(itemsPerPage)}
+            onChange={(value) => onItemsPerPageChange(Number(value))}
+            options={itemsPerPageOptions.map((option) => ({
+              value: String(option),
+              label: String(option),
+            }))}
+            triggerClassName="h-9 min-w-[5rem]"
+            aria-label="Items per page"
+          />
           <span className="text-sm text-muted-foreground">per page</span>
         </div>
       )}

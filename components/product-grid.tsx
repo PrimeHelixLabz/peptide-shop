@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { ProductCard } from "@/components/product-card"
 import type { ProductDetail } from "@/lib/products"
-import { SelectBox } from "@/components/common/select-box"
 
 interface ProductGridProps {
   initialProducts: ProductDetail[]
@@ -313,16 +312,6 @@ export function ProductGrid({ initialProducts, initialCategories }: ProductGridP
             </button>
           ))}
         </div>
-        {/* Sort Dropdown */}
-        {/* <SelectBox
-          options={sortOptions}
-          value={sortBy}
-          onChange={(value) => {
-            setSortBy(value as SortOption)
-            setCategoryChanged(true) // Trigger reload
-          }}
-          align="right"
-        /> */}
       </div>
 
       {/* Results Count */}

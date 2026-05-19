@@ -6,7 +6,7 @@ import { CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FormInput } from "@/components/common/form-input"
 import { FormTextarea } from "@/components/common/form-textarea"
-import { FormSelect } from "@/components/common/form-select"
+import { Select } from "@/components/common/select"
 
 type PayoutMethod = "paypal" | "wise" | "crypto" | "ach" | "other"
 
@@ -129,11 +129,11 @@ export function AffiliateApplyForm({
       />
 
       <div className="grid gap-6 md:grid-cols-2">
-        <FormSelect
+        <Select
           label="Preferred payout method"
           options={PAYOUT_OPTIONS}
           value={payoutMethod}
-          onChange={(e) => setPayoutMethod(e.target.value as PayoutMethod)}
+          onChange={(value) => setPayoutMethod(value as PayoutMethod)}
           disabled={submitting}
         />
 

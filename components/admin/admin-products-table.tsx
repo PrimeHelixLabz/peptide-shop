@@ -10,7 +10,7 @@ import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { Pagination } from "./pagination"
 import { Button } from "@/components/ui/button"
 import { FormInput } from "@/components/common/form-input"
-import { FormSelect } from "@/components/common/form-select"
+import { Select } from "@/components/common/select"
 import { StatusBadge } from "@/components/common/status-badge"
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
 import { usePersistentTableState } from "@/hooks/usePersistentTableState"
@@ -285,12 +285,12 @@ export function AdminProductsTable({
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <FormSelect
+        <Select
           value={archivedFilter}
-          onChange={(e) =>
+          onChange={(value) =>
             setTableState((prev) => ({
               ...prev,
-              archivedFilter: e.target.value as ArchivedFilter,
+              archivedFilter: value as ArchivedFilter,
             }))
           }
           options={[
@@ -301,12 +301,12 @@ export function AdminProductsTable({
           aria-label="Filter by archived status"
         />
 
-        <FormSelect
+        <Select
           value={statusFilter}
-          onChange={(e) =>
+          onChange={(value) =>
             setTableState((prev) => ({
               ...prev,
-              statusFilter: e.target.value as StatusFilter,
+              statusFilter: value as StatusFilter,
             }))
           }
           options={[
@@ -317,12 +317,12 @@ export function AdminProductsTable({
           aria-label="Filter by status"
         />
 
-        <FormSelect
+        <Select
           value={categoryFilter}
-          onChange={(e) =>
+          onChange={(value) =>
             setTableState((prev) => ({
               ...prev,
-              categoryFilter: e.target.value,
+              categoryFilter: value,
             }))
           }
           options={categories.map((cat) => ({

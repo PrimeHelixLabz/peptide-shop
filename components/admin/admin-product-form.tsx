@@ -13,7 +13,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AdminCard } from "@/components/common/admin-card"
-import { FormInput, FormTextarea, FormSelect, RichTextEditor } from "@/components/common"
+import { FormInput, FormTextarea, RichTextEditor } from "@/components/common"
+import { Select } from "@/components/common/select"
 import { cn } from "@/lib/utils"
 import { isStorageUrl } from "@/lib/storage/supabase-storage"
 
@@ -1375,10 +1376,10 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               </div>
 
               {/* Category */}
-              <FormSelect
+              <Select
                 label="Category"
                 value={form.categoryId}
-                onChange={(e) => updateField("categoryId", e.target.value)}
+                onChange={(value) => updateField("categoryId", value)}
                 required
                 disabled={loadingCategories}
                 options={[

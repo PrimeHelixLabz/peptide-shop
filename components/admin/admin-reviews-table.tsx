@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { AdminCard } from "@/components/common/admin-card"
 import { Button } from "@/components/ui/button"
-import { FormSelect } from "@/components/common/form-select"
+import { Select } from "@/components/common/select"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { EmptyState } from "@/components/common/empty-state"
 import {
@@ -185,10 +185,10 @@ export function AdminReviewsTable({ reviews: initial }: Props) {
             <strong className="text-foreground">{counts.hidden}</strong> hidden
           </span>
         </div>
-        <FormSelect
+        <Select
           options={FILTER_OPTIONS}
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          onChange={(value) => setStatusFilter(value as StatusFilter)}
           aria-label="Filter reviews by status"
         />
       </div>

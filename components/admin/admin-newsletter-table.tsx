@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Download, Mail } from "lucide-react"
 import { AdminCard } from "@/components/common/admin-card"
 import { Button } from "@/components/ui/button"
-import { FormSelect } from "@/components/common/form-select"
+import { Select } from "@/components/common/select"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { EmptyState } from "@/components/common/empty-state"
 import type { NewsletterSubscriber, SubscriberStatus } from "@/lib/db/newsletter"
@@ -91,10 +91,10 @@ export function AdminNewsletterTable({ subscribers }: Props) {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <FormSelect
+          <Select
             options={FILTER_OPTIONS}
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            onChange={(value) => setStatusFilter(value as StatusFilter)}
             aria-label="Filter subscribers by status"
           />
           <Button asChild variant="outline" size="sm">

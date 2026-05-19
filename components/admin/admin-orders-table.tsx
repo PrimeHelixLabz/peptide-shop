@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Search, Eye, Plus } from "lucide-react"
 import { Pagination } from "./pagination"
 import { FormInput } from "@/components/common/form-input"
-import { FormSelect } from "@/components/common/form-select"
+import { Select } from "@/components/common/select"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
 import { usePersistentTableState } from "@/hooks/usePersistentTableState"
@@ -192,23 +192,23 @@ export function AdminOrdersTable() {
             {filtered.length} {filtered.length === 1 ? 'order' : 'orders'}
             {filtered.length !== orders.length && ` of ${orders.length}`}
           </span>
-          <FormSelect
+          <Select
             value={paymentFilter}
-            onChange={(e) =>
+            onChange={(value) =>
               setTableState((prev) => ({
                 ...prev,
-                paymentFilter: e.target.value as PaymentFilter,
+                paymentFilter: value as PaymentFilter,
               }))
             }
             options={paymentFilterOptions}
             aria-label="Filter by payment status"
           />
-          <FormSelect
+          <Select
             value={shippingFilter}
-            onChange={(e) =>
+            onChange={(value) =>
               setTableState((prev) => ({
                 ...prev,
-                shippingFilter: e.target.value as ShippingFilter,
+                shippingFilter: value as ShippingFilter,
               }))
             }
             options={shippingFilterOptions}

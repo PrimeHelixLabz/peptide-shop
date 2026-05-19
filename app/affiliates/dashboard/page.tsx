@@ -7,6 +7,7 @@ import { AdminCard } from "@/components/common/admin-card"
 import { Button } from "@/components/ui/button"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { CopyLinkButton } from "@/components/affiliates/copy-link-button"
+import { PayoutDetailsForm } from "@/components/affiliates/payout-details-form"
 import { getCurrentUser } from "@/lib/auth/supabase-auth"
 import {
   resolveAffiliateForUser,
@@ -324,7 +325,7 @@ export default async function AffiliateDashboardPage() {
 
               {/* Recent conversions */}
               <AdminCard title="Recent conversions" flush>
-                <div className="border-b border-border/50 px-6 pb-5 text-sm text-muted-foreground md:px-8">
+                <div className="border-b border-border/50 px-6 py-5 text-sm text-muted-foreground md:px-8">
                   Showing the {Math.min(stats.recentConversions.length, 25)}{" "}
                   most recent attributed orders.
                 </div>
@@ -375,11 +376,35 @@ export default async function AffiliateDashboardPage() {
                               {formatCurrency(c.commissionAmount)}
                             </td>
                             <td className="px-6 py-4">
-                              <StatusBadge
-                                variant={CONVERSION_STATUS_VARIANT[c.status]}
-                              >
-                                {c.status}
-                              </StatusBadge>
+                              <div className="flex flex-col gap-1">
+                                <StatusBadge
+                                  variant={CONVERSION_STATUS_VARIANT[c.status]}
+                                >
+                                  {c.status}
+                                </StatusBadge>
+                                {c.status === "paid" &&
+                                  c.payoutReference &&
+                                  (() => {
+                                    const ref = c.payoutReference
+                                    const snippet =
+                                      ref.length > 10
+                                        ? `…${ref.slice(-6)}`
+                                        : ref
+                                    return (
+                                      <span
+                                        className="font-mono text-[11px] text-muted-foreground"
+                                        title={ref}
+                                      >
+                                        Ref: {snippet}
+                                      </span>
+                                    )
+                                  })()}
+                                {c.status === "paid" && c.paidAt && (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {formatDate(c.paidAt)}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -391,38 +416,10 @@ export default async function AffiliateDashboardPage() {
 
               {/* Payout info */}
               <AdminCard title="Payout details">
-                <dl className="grid gap-4 text-sm md:grid-cols-2">
-                  <div>
-                    <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Method
-                    </dt>
-                    <dd className="mt-1 text-foreground">
-                      {affiliate.payoutMethod || (
-                        <span className="text-muted-foreground">Not set</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Handle
-                    </dt>
-                    <dd className="mt-1 text-foreground">
-                      {affiliate.payoutDetails || (
-                        <span className="text-muted-foreground">Not set</span>
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-                <p className="mt-4 text-xs text-muted-foreground">
-                  To update your payout details, email{" "}
-                  <a
-                    href="mailto:support@primehelixlabz.com"
-                    className="underline"
-                  >
-                    support@primehelixlabz.com
-                  </a>
-                  .
-                </p>
+                <PayoutDetailsForm
+                  initialMethod={affiliate.payoutMethod}
+                  initialDetails={affiliate.payoutDetails}
+                />
               </AdminCard>
             </div>
           </Container>
