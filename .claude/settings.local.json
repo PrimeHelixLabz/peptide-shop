@@ -25,7 +25,13 @@
       "Bash(pnpm install *)",
       "PowerShell($pnpmCmd = \\(Get-Command pnpm -ErrorAction SilentlyContinue\\); if \\($null -eq $pnpmCmd\\) { \"pnpm not on PATH\" } else { $pnpmCmd.Source })",
       "PowerShell($npmCmd = \\(Get-Command npm -ErrorAction SilentlyContinue\\); if \\($null -eq $npmCmd\\) { \"npm not on PATH\" } else { $npmCmd.Source })",
-      "Bash(pnpm --version)"
+      "Bash(pnpm --version)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(findstr /R \"admin\")"
+    ],
+    "additionalDirectories": [
+      "D:\\Work\\Brandon\\peptide"
     ]
   }
 }
