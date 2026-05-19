@@ -17,7 +17,7 @@ import {
 } from "@/lib/link-money/payment-service"
 import { sendCustomerOrderPlacedEmail } from "@/lib/email"
 import { assertAgeVerified } from "@/lib/age-verification"
-import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
+import { resolveOrderAffiliateCode } from "@/lib/affiliates"
 
 const sessionRequestSchema = z.object({
   cartItems: z.array(
@@ -49,6 +49,7 @@ const sessionRequestSchema = z.object({
     .optional(),
   notes: z.string().optional(),
   shippingMethod: z.enum(["ship", "local-pickup"]).default("ship"),
+  affiliateCode: z.string().trim().max(32).optional(),
 })
 
 export const POST = requireAuthMiddleware(
@@ -65,8 +66,14 @@ export const POST = requireAuthMiddleware(
       }
 
       const body = await req.json()
-      const { cartItems, shippingAddress, billingAddress, notes, shippingMethod } =
-        sessionRequestSchema.parse(body)
+      const {
+        cartItems,
+        shippingAddress,
+        billingAddress,
+        notes,
+        shippingMethod,
+        affiliateCode: enteredAffiliateCode,
+      } = sessionRequestSchema.parse(body)
 
       if (cartItems.length === 0) {
         return NextResponse.json({ error: "Cart is empty" }, { status: 400 })
@@ -151,7 +158,7 @@ export const POST = requireAuthMiddleware(
         billingAddress: billingAddress || shippingAddress,
         paymentMethod: "link_money",
         notes,
-        affiliateCode: getAffiliateCodeFromRequest(req),
+        affiliateCode: await resolveOrderAffiliateCode(req, enteredAffiliateCode),
       })
 
       // ── Create payment row BEFORE hitting Link Money. ──

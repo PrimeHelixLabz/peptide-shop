@@ -18,7 +18,7 @@ import {
   createPaymentLink,
 } from "@/lib/centryos/payment-service"
 import { sendCustomerOrderPlacedEmail } from "@/lib/email"
-import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
+import { resolveOrderAffiliateCode } from "@/lib/affiliates"
 import { assertAgeVerified } from "@/lib/age-verification"
 
 const createLinkSchema = z.object({
@@ -51,6 +51,7 @@ const createLinkSchema = z.object({
     .optional(),
   notes: z.string().optional(),
   shippingMethod: z.enum(["ship", "local-pickup"]).default("ship"),
+  affiliateCode: z.string().trim().max(32).optional(),
 })
 
 /**
@@ -81,6 +82,7 @@ export const POST = requireAuthMiddleware(
         billingAddress,
         notes,
         shippingMethod,
+        affiliateCode: enteredAffiliateCode,
       } = createLinkSchema.parse(body)
 
       if (cartItems.length === 0) {
@@ -169,7 +171,7 @@ export const POST = requireAuthMiddleware(
         billingAddress: billingAddress || shippingAddress,
         paymentMethod: "centryos",
         notes,
-        affiliateCode: getAffiliateCodeFromRequest(req),
+        affiliateCode: await resolveOrderAffiliateCode(req, enteredAffiliateCode),
       })
 
       // ── Create payment row BEFORE calling CentryOS so the webhook can

@@ -5,7 +5,7 @@ import { getProductById, getVariantById, createPendingCheckoutAsAdmin } from "@/
 import type { OrderItem } from "@/lib/db/schema"
 import { stripe } from "@/lib/stripe"
 import { getServiceFeeRate, SHIPPING_CARRIER_LABEL, getShippingCost } from "@/lib/order-constants"
-import { getAffiliateCodeFromRequest } from "@/lib/affiliates"
+import { resolveOrderAffiliateCode } from "@/lib/affiliates"
 import { assertAgeVerified } from "@/lib/age-verification"
 
 const createStripeCheckoutSchema = z.object({
@@ -38,6 +38,7 @@ const createStripeCheckoutSchema = z.object({
     .optional(),
   notes: z.string().optional(),
   shippingMethod: z.enum(["ship", "local-pickup"]).default("ship"),
+  affiliateCode: z.string().trim().max(32).optional(),
 }).passthrough()
 
 export const POST = requireAuthMiddleware(
@@ -54,8 +55,14 @@ export const POST = requireAuthMiddleware(
       }
 
       const body = await req.json()
-      const { cartItems, shippingAddress, billingAddress, notes, shippingMethod } =
-        createStripeCheckoutSchema.parse(body)
+      const {
+        cartItems,
+        shippingAddress,
+        billingAddress,
+        notes,
+        shippingMethod,
+        affiliateCode: enteredAffiliateCode,
+      } = createStripeCheckoutSchema.parse(body)
 
       if (cartItems.length === 0) {
         return NextResponse.json({ error: "Cart is empty" }, { status: 400 })
@@ -210,7 +217,7 @@ export const POST = requireAuthMiddleware(
         shippingAddress,
         billingAddress: billingAddress || shippingAddress,
         notes,
-        affiliateCode: getAffiliateCodeFromRequest(req),
+        affiliateCode: await resolveOrderAffiliateCode(req, enteredAffiliateCode),
       }
 
       const session = await stripe.checkout.sessions.create({

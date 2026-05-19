@@ -26,6 +26,9 @@ export interface LinkMoneyCheckoutData {
   }
   notes?: string
   shippingMethod: "ship" | "local-pickup"
+  /** Manually-entered affiliate code (client-validated). When absent the
+   *  server falls back to the phl_ref cookie. */
+  affiliateCode?: string
 }
 
 interface LinkMoneyButtonProps {

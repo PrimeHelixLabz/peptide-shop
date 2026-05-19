@@ -815,6 +815,27 @@ function roundCurrency(value: number): number {
 }
 
 /**
+ * Resolves the affiliate code to attribute a new order to. The entered
+ * code from the checkout form takes precedence over the cookie (customer
+ * intent at checkout wins). When the entered code fails validation —
+ * stale, malformed, or just-suspended — falls back to the cookie value
+ * rather than erroring, so a partner-side state change can't break the
+ * customer's checkout. Returns null when neither source yields a valid
+ * code; the order is recorded without attribution.
+ */
+export async function resolveOrderAffiliateCode(
+  req: NextRequest,
+  enteredCode: string | undefined | null
+): Promise<string | null> {
+  const cookieCode = getAffiliateCodeFromRequest(req)
+  if (!enteredCode) return cookieCode
+  const normalized = enteredCode.trim().toUpperCase()
+  if (!/^[A-Z0-9]{4,32}$/.test(normalized)) return cookieCode
+  if (await isValidActiveCode(normalized)) return normalized
+  return cookieCode
+}
+
+/**
  * Validates that a code corresponds to an approved affiliate's active code.
  * Used for click-time sanity checks; the conversion trigger enforces this
  * authoritatively at order-paid time.

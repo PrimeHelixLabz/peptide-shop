@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useCallback, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth/auth-context"
@@ -15,6 +15,7 @@ import { Loader2, Lock, Truck, MapPin, ArrowLeft } from "lucide-react"
 import { OrderSummary, type ShippingMethod } from "@/components/order-summary"
 import { LinkMoneyButton, type LinkMoneyCheckoutData } from "@/components/link-money-button"
 import { CentryOSButton, type CentryOSCheckoutData } from "@/components/centryos-button"
+import { AffiliateCodeField } from "@/components/affiliates/affiliate-code-field"
 import {
   getServiceFeeRate,
   getShippingCost,
@@ -54,6 +55,10 @@ export function CheckoutForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("ship")
+  const [affiliateCode, setAffiliateCode] = useState("")
+  const handleAffiliateCodeChange = useCallback((code: string) => {
+    setAffiliateCode(code)
+  }, [])
   const submittingRef = useRef(false)
   
   const {
@@ -101,6 +106,7 @@ export function CheckoutForm() {
           },
       notes: data.notes,
       shippingMethod,
+      affiliateCode: affiliateCode || undefined,
     }
   }
 
@@ -501,6 +507,14 @@ export function CheckoutForm() {
               className="w-full min-h-[100px] rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Special instructions or notes..."
             />
+          </div>
+
+          {/* Affiliate code (manual entry). Auto-expands when a referral
+              cookie is already present so the customer can see attribution
+              was applied; otherwise renders as a small "Have an affiliate
+              code?" toggle to avoid cluttering checkout. */}
+          <div>
+            <AffiliateCodeField onChange={handleAffiliateCodeChange} />
           </div>
 
           {/* Error Message */}
