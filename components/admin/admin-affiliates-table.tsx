@@ -25,12 +25,6 @@ const STATUS_VARIANT: Record<AffiliateStatus, StatusVariant> = {
   suspended: "neutral",
 }
 
-const STATUS_OPTIONS = [
-  { value: "pending", label: "Pending" },
-  { value: "approved", label: "Approved" },
-  { value: "suspended", label: "Suspended" },
-]
-
 type StatusFilter = "all" | AffiliateStatus
 
 const FILTER_OPTIONS = [
@@ -326,19 +320,9 @@ function Row({
           </div>
         </td>
         <td className="px-6 py-4 align-top">
-          <div className="flex flex-col gap-2">
-            <StatusBadge variant={STATUS_VARIANT[a.status]}>
-              {a.status}
-            </StatusBadge>
-            <FormSelect
-              options={STATUS_OPTIONS}
-              value={a.status}
-              onChange={(e) => onStatusChange(e.target.value as AffiliateStatus)}
-              disabled={isUpdating}
-              wrapperClassName="w-32"
-              aria-label={`Change status for ${a.name}`}
-            />
-          </div>
+          <StatusBadge variant={STATUS_VARIANT[a.status]}>
+            {a.status}
+          </StatusBadge>
         </td>
         <td className="hidden px-6 py-4 text-right align-top text-sm md:table-cell">
           {a.conversionsCount}
