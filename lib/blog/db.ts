@@ -79,6 +79,37 @@ export async function getPublishedPosts(): Promise<BlogPostSummary[]> {
   return ((data as unknown as BlogPostRow[]) || []).map(rowToSummary)
 }
 
+/**
+ * Paginated public reads. Returns a page of published posts plus the
+ * total count so the index page can render Prev/Next without a second
+ * round trip. `page` is 1-indexed; out-of-range pages return an empty
+ * array (the index page should redirect or clamp before calling).
+ */
+export async function getPublishedPostsPaged(
+  page: number,
+  pageSize: number
+): Promise<{ posts: BlogPostSummary[]; total: number }> {
+  const supabase = createPublicClient()
+  const safePage = Math.max(1, Math.floor(page))
+  const safePageSize = Math.max(1, Math.min(50, Math.floor(pageSize)))
+  const from = (safePage - 1) * safePageSize
+  const to = from + safePageSize - 1
+
+  const { data, error, count } = await supabase
+    .from("blog_posts")
+    .select(POST_SELECT, { count: "exact" })
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .range(from, to)
+
+  if (error) {
+    console.error("getPublishedPostsPaged failed:", error)
+    return { posts: [], total: 0 }
+  }
+  const posts = ((data as unknown as BlogPostRow[]) || []).map(rowToSummary)
+  return { posts, total: count ?? 0 }
+}
+
 /** Public read: single published post by slug. */
 export async function getPublishedPostBySlug(
   slug: string
