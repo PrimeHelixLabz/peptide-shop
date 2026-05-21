@@ -7,6 +7,8 @@ import { CheckCircle2, Package, Truck, ArrowRight, Mail, AlertCircle } from "luc
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { TrustpilotLink } from "@/components/trustpilot/trustpilot-link"
+import { publicEnv } from "@/lib/env"
 import type { Order } from "@/lib/db/schema"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
 import { useCart } from "@/lib/cart-context"
@@ -267,6 +269,22 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
           </div>
         </div>
       </div>
+
+      {/* Trustpilot review CTA — plain link, since the embeddable review
+          collector requires a paid Trustpilot plan. Shown only on paid
+          orders and only when Trustpilot is configured. */}
+      {order.paymentStatus === "paid" && publicEnv.NEXT_PUBLIC_TRUSTPILOT_DOMAIN && (
+        <div className="mt-8 rounded-3xl bg-white p-6 text-center shadow-[0_10px_30px_rgba(0,0,0,0.05)] md:p-8">
+          <h2 className="text-lg font-semibold md:text-xl">Help other researchers</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Reviews from verified buyers are the #1 signal new buyers use to
+            evaluate research-peptide suppliers. It takes a minute.
+          </p>
+          <div className="mt-4 flex justify-center">
+            <TrustpilotLink mode="write" appearance="button" />
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">

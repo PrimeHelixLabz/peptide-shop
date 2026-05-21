@@ -1,5 +1,6 @@
 import { ShieldCheck, Lock, Truck } from "lucide-react"
-import { TrustpilotWidget } from "@/components/trustpilot/trustpilot-widget"
+import { TrustpilotLink } from "@/components/trustpilot/trustpilot-link"
+import { publicEnv } from "@/lib/env"
 
 const trustItems = [
   {
@@ -27,6 +28,8 @@ import { Container } from "@/components/layout/container"
 import { SectionHeader } from "@/components/layout/section-header"
 
 export function TrustSection() {
+  const trustpilotEnabled = !!publicEnv.NEXT_PUBLIC_TRUSTPILOT_DOMAIN
+
   return (
     <Section id="trust" background="muted" padding="md">
       <Container>
@@ -55,10 +58,27 @@ export function TrustSection() {
           ))}
         </div>
 
-        {/* Trustpilot carousel — auto-hidden until env var is configured. */}
-        <div className="mt-12 md:mt-16">
-          <TrustpilotWidget variant="carousel" stars="4,5" />
-        </div>
+        {/* Trustpilot CTA card. Uses plain HTML links because embedded
+            TrustBox widgets require a paid Trustpilot plan. Hidden when
+            NEXT_PUBLIC_TRUSTPILOT_DOMAIN is unset so dev environments
+            don't ship an orphaned card. */}
+        {trustpilotEnabled && (
+          <div className="mt-12 flex flex-col items-center gap-6 rounded-3xl bg-white p-6 text-center shadow-[0_10px_30px_rgba(0,0,0,0.05)] md:mt-16 md:flex-row md:items-center md:justify-between md:gap-8 md:p-8 md:text-left lg:p-10">
+            <div className="flex flex-col gap-2">
+              <h3 className="text-lg font-semibold text-foreground md:text-xl">
+                Trusted by the research community
+              </h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Read independent reviews on Trustpilot, or share your own
+                experience to help other researchers.
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-3 sm:flex-row md:shrink-0">
+              <TrustpilotLink mode="read" />
+              <TrustpilotLink mode="write" appearance="button" />
+            </div>
+          </div>
+        )}
       </Container>
     </Section>
   )

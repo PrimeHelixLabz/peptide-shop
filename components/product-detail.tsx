@@ -8,7 +8,6 @@ import { Minus, Plus, ShoppingCart, Check, FlaskConical, Shield, Truck, ChevronL
 import type { ProductDetail } from "@/lib/products"
 import type { ProductRatingSummary } from "@/lib/db/reviews"
 import { ReviewSummary } from "@/components/reviews/review-summary"
-import { TrustpilotWidget } from "@/components/trustpilot/trustpilot-widget"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { useAuth } from "@/lib/auth/auth-context"
@@ -336,9 +335,6 @@ export function ProductDetailView({
                   <span className="text-muted-foreground">&middot; Read reviews</span>
                 </a>
               )}
-              {/* Trustpilot micro-combo line — third-party signal alongside
-                  our own verified-purchase reviews. No-ops when env unset. */}
-              <TrustpilotWidget variant="micro-combo" className="mt-1" />
             </div>
             <button
               onClick={() => {

@@ -1,6 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
-import { TrustpilotWidget } from "@/components/trustpilot/trustpilot-widget"
+import { TrustpilotLink } from "@/components/trustpilot/trustpilot-link"
 
 const policyLinks = [
   { label: "Privacy Policy", href: "/privacy-policy" },
@@ -56,8 +56,10 @@ export function Footer() {
                 +1 (602) 633-4729
               </a>
             </address>
-            {/* Trustpilot mini badge — no-ops until env var is set. */}
-            <TrustpilotWidget variant="mini" />
+            {/* Plain Trustpilot link — embedded widgets require a paid
+                Trustpilot plan; this works on the free tier. Hidden when
+                NEXT_PUBLIC_TRUSTPILOT_DOMAIN is unset. */}
+            <TrustpilotLink mode="read" />
           </div>
 
           {/* Navigation Column */}

@@ -6,7 +6,6 @@ import { AuthProvider } from '@/lib/auth/auth-context'
 import { Toaster } from '@/components/ui/sonner'
 import { NewsletterPopup } from '@/components/newsletter-popup'
 import { AgeVerification } from '@/components/age-verification'
-import { TrustpilotScript } from '@/components/trustpilot/trustpilot-script'
 
 import './globals.css'
 
@@ -105,8 +104,6 @@ export default function RootLayout({
             </WishlistProvider>
           </CartProvider>
         </AuthProvider>
-        {/* Trustpilot bootstrap — lazy-loaded, no-op when env unset. */}
-        <TrustpilotScript />
       </body>
     </html>
   )
