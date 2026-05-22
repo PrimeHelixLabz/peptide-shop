@@ -18,6 +18,10 @@ import {
 import { sendCustomerOrderPlacedEmail } from "@/lib/email"
 import { assertAgeVerified } from "@/lib/age-verification"
 import { resolveOrderAffiliateCode } from "@/lib/affiliates"
+import {
+  applyDiscountForCheckout,
+  releaseDiscountReservation,
+} from "@/lib/discounts/checkout"
 
 const sessionRequestSchema = z.object({
   cartItems: z.array(
@@ -50,6 +54,7 @@ const sessionRequestSchema = z.object({
   notes: z.string().optional(),
   shippingMethod: z.enum(["ship", "local-pickup"]).default("ship"),
   affiliateCode: z.string().trim().max(32).optional(),
+  discountCode: z.string().trim().max(40).optional(),
 })
 
 export const POST = requireAuthMiddleware(
@@ -73,6 +78,7 @@ export const POST = requireAuthMiddleware(
         notes,
         shippingMethod,
         affiliateCode: enteredAffiliateCode,
+        discountCode: enteredDiscountCode,
       } = sessionRequestSchema.parse(body)
 
       if (cartItems.length === 0) {
@@ -131,9 +137,22 @@ export const POST = requireAuthMiddleware(
         })
       }
 
-      const shipping = getShippingCost(subtotal, shippingMethod)
-      const serviceFee = subtotal * getServiceFeeRate("link_money")
-      const total = subtotal + shipping + serviceFee
+      // ── Apply discount code (validates + atomically reserves). ──
+      const discountResult = await applyDiscountForCheckout({
+        inputCode: enteredDiscountCode,
+        subtotal,
+        userId,
+        email: shippingAddress.email,
+      })
+      if (!discountResult.ok) {
+        return NextResponse.json({ error: discountResult.error }, { status: 400 })
+      }
+      const discount = discountResult.discount
+      const discountedSubtotal = Math.max(0, subtotal - (discount?.amount ?? 0))
+
+      const shipping = getShippingCost(discountedSubtotal, shippingMethod)
+      const serviceFee = discountedSubtotal * getServiceFeeRate("link_money")
+      const total = discountedSubtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()
         .toString(36)
@@ -142,24 +161,34 @@ export const POST = requireAuthMiddleware(
 
       // ── Create order row first so the payments FK (order_id) resolves. ──
       const orderId = crypto.randomUUID()
-      const createdOrder = await createLinkMoneyOrderAsAdmin({
-        id: orderId,
-        userId,
-        email: shippingAddress.email,
-        orderNumber,
-        status: "pending",
-        paymentStatus: "pending",
-        items: orderItems,
-        subtotal,
-        shipping,
-        serviceFee,
-        total,
-        shippingAddress,
-        billingAddress: billingAddress || shippingAddress,
-        paymentMethod: "link_money",
-        notes,
-        affiliateCode: await resolveOrderAffiliateCode(req, enteredAffiliateCode),
-      })
+      let createdOrder
+      try {
+        createdOrder = await createLinkMoneyOrderAsAdmin({
+          id: orderId,
+          userId,
+          email: shippingAddress.email,
+          orderNumber,
+          status: "pending",
+          paymentStatus: "pending",
+          items: orderItems,
+          subtotal,
+          shipping,
+          serviceFee,
+          total,
+          shippingAddress,
+          billingAddress: billingAddress || shippingAddress,
+          paymentMethod: "link_money",
+          notes,
+          affiliateCode: await resolveOrderAffiliateCode(req, enteredAffiliateCode),
+          discountCodeId: discount?.codeId ?? null,
+          discountCode: discount?.code ?? null,
+          discountAmount: discount?.amount ?? 0,
+        })
+      } catch (insertError) {
+        // Order insert failed AFTER we reserved the discount slot — give it back.
+        await releaseDiscountReservation(discount?.codeId)
+        throw insertError
+      }
 
       // ── Create payment row BEFORE hitting Link Money. ──
       // orderNumber doubles as client_reference_id so the webhook can
@@ -218,6 +247,7 @@ export const POST = requireAuthMiddleware(
           status: lmResponse.status,
           body: errorBody,
         })
+        await releaseDiscountReservation(discount?.codeId)
         return NextResponse.json(
           { error: "Failed to create Link Money session" },
           { status: 502 }
@@ -233,6 +263,7 @@ export const POST = requireAuthMiddleware(
 
       if (!result.sessionUrl) {
         console.error("Link Money returned no sessionUrl:", lmData)
+        await releaseDiscountReservation(discount?.codeId)
         return NextResponse.json(
           { error: "Invalid Link Money session response" },
           { status: 502 }

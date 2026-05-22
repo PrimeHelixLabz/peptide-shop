@@ -50,7 +50,14 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 
 export function CheckoutForm() {
   const router = useRouter()
-  const { items, subtotal, totalItems, loading: cartLoading } = useCart()
+  const {
+    items,
+    subtotal,
+    totalItems,
+    loading: cartLoading,
+    appliedDiscount,
+    discountAmount,
+  } = useCart()
   const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -107,6 +114,7 @@ export function CheckoutForm() {
       notes: data.notes,
       shippingMethod,
       affiliateCode: affiliateCode || undefined,
+      discountCode: appliedDiscount?.code,
     }
   }
 
@@ -121,9 +129,10 @@ export function CheckoutForm() {
   // Mirror OrderSummary's math so the Pay button can display the total
   // the customer will be charged. Server-side routes recompute from the
   // same helpers, so this is display-only — never load-bearing for trust.
-  const shippingCost = getShippingCost(subtotal, shippingMethod)
-  const checkoutServiceFee = subtotal * getServiceFeeRate(paymentMethod)
-  const checkoutTotal = subtotal + shippingCost + checkoutServiceFee
+  const discountedSubtotal = Math.max(0, subtotal - discountAmount)
+  const shippingCost = getShippingCost(discountedSubtotal, shippingMethod)
+  const checkoutServiceFee = discountedSubtotal * getServiceFeeRate(paymentMethod)
+  const checkoutTotal = discountedSubtotal + shippingCost + checkoutServiceFee
   const totalLabel = `$${checkoutTotal.toFixed(2)}`
 
   const formReady =

@@ -29,6 +29,9 @@ export interface LinkMoneyCheckoutData {
   /** Manually-entered affiliate code (client-validated). When absent the
    *  server falls back to the phl_ref cookie. */
   affiliateCode?: string
+  /** Applied discount code (already validated client-side). Server re-validates
+   *  and reserves a redemption slot atomically. */
+  discountCode?: string
 }
 
 interface LinkMoneyButtonProps {

@@ -15,6 +15,7 @@ import {
   Handshake,
   Star,
   Mail,
+  Tag,
 } from "lucide-react"
 
 const navItems = [
@@ -26,6 +27,7 @@ const navItems = [
   { label: "Reviews", href: "/admin/reviews", icon: Star },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Affiliates", href: "/admin/affiliates", icon: Handshake },
+  { label: "Discounts", href: "/admin/discounts", icon: Tag },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
 ]
 

@@ -28,21 +28,30 @@ export function OrderSummary({
   shippingMethod = "ship",
   paymentMethod,
 }: OrderSummaryProps) {
-  const { subtotal, totalItems } = useCart()
+  const { subtotal, totalItems, discountAmount, appliedDiscount } = useCart()
 
-  const shipping = getShippingCost(subtotal, shippingMethod)
+  // Discount is subtracted from the subtotal before shipping + fees are
+  // computed against the discounted base. That matches Stripe's coupon
+  // behavior and the order-creation routes server-side.
+  const discountedSubtotal = Math.max(0, subtotal - discountAmount)
+  const shipping = getShippingCost(discountedSubtotal, shippingMethod)
   const shippingLabel = shippingMethod === "local-pickup" ? "Local Pickup" : SHIPPING_CARRIER_LABEL
   const serviceFeeRate = getServiceFeeRate(paymentMethod)
-  const serviceFee = subtotal * serviceFeeRate
+  const serviceFee = discountedSubtotal * serviceFeeRate
   const isFeeWaived = serviceFeeRate === 0
-  const total = subtotal + shipping + serviceFee
+  const total = discountedSubtotal + shipping + serviceFee
 
+  // Free-shipping threshold tracks the DISCOUNTED subtotal — applying a
+  // discount that drops you under the threshold should bring back the
+  // "Add $X more for free shipping" hint.
   const amountToFreeShipping =
-    shippingMethod === "ship" && subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD
-      ? FREE_SHIPPING_THRESHOLD - subtotal
+    shippingMethod === "ship" &&
+    discountedSubtotal > 0 &&
+    discountedSubtotal < FREE_SHIPPING_THRESHOLD
+      ? FREE_SHIPPING_THRESHOLD - discountedSubtotal
       : 0
   const earnedFreeShipping =
-    shippingMethod === "ship" && subtotal >= FREE_SHIPPING_THRESHOLD
+    shippingMethod === "ship" && discountedSubtotal >= FREE_SHIPPING_THRESHOLD
 
   return (
     <div className="flex flex-col gap-6 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">
@@ -86,6 +95,17 @@ export function OrderSummary({
             ${subtotal.toFixed(2)}
           </span>
         </div>
+
+        {appliedDiscount && discountAmount > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-emerald-700">
+              Discount ({appliedDiscount.code})
+            </span>
+            <span className="text-sm font-medium text-emerald-700">
+              -${discountAmount.toFixed(2)}
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">

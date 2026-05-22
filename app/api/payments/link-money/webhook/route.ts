@@ -11,6 +11,8 @@ import {
   sendCustomerOrderConfirmedEmail,
 } from "@/lib/email"
 import { applyWebhook } from "@/lib/link-money/payment-service"
+import { confirmRedemption } from "@/lib/discounts/db"
+import { releaseDiscountReservation } from "@/lib/discounts/checkout"
 import type { LinkMoneyWebhookBody } from "@/lib/link-money/payment-types"
 import {
   logWebhook,
@@ -264,6 +266,14 @@ async function syncOrderFromPayment(
         updated_at: new Date().toISOString(),
       })
       .eq("id", fullOrder.id)
+
+    // Release the discount reservation back into the pool. Only release
+    // when transitioning *into* failed from a non-paid state — a paid →
+    // refunded transition is handled separately (Stripe-equivalent
+    // behavior: once redeemed, the code stays consumed).
+    if (fullOrder.discountCodeId && fullOrder.paymentStatus !== "paid") {
+      await releaseDiscountReservation(fullOrder.discountCodeId)
+    }
     return
   }
 
@@ -323,6 +333,19 @@ async function syncOrderFromPayment(
     sendCustomerOrderConfirmedEmail(paidOrder).catch((err) =>
       console.error("customer paid-confirmation email failed", err)
     )
+
+    // Confirm discount redemption (idempotent via DB unique constraints).
+    if (paidOrder.discountCodeId) {
+      await confirmRedemption({
+        codeId: paidOrder.discountCodeId,
+        userId: paidOrder.userId,
+        email: paidOrder.email ?? null,
+        orderId: paidOrder.id,
+        discountApplied: paidOrder.discountAmount ?? 0,
+      }).catch((err) =>
+        console.error("Failed to confirm discount redemption:", err)
+      )
+    }
 
     return
   }

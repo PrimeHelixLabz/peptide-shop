@@ -7,6 +7,10 @@ import { stripe } from "@/lib/stripe"
 import { getServiceFeeRate, SHIPPING_CARRIER_LABEL, getShippingCost } from "@/lib/order-constants"
 import { resolveOrderAffiliateCode } from "@/lib/affiliates"
 import { assertAgeVerified } from "@/lib/age-verification"
+import {
+  applyDiscountForCheckout,
+  releaseDiscountReservation,
+} from "@/lib/discounts/checkout"
 
 const createStripeCheckoutSchema = z.object({
   cartItems: z.array(
@@ -39,10 +43,18 @@ const createStripeCheckoutSchema = z.object({
   notes: z.string().optional(),
   shippingMethod: z.enum(["ship", "local-pickup"]).default("ship"),
   affiliateCode: z.string().trim().max(32).optional(),
+  discountCode: z.string().trim().max(40).optional(),
 }).passthrough()
 
 export const POST = requireAuthMiddleware(
   async (req: AuthenticatedRequest) => {
+    // Track the discount reservation so we can release it if anything
+    // after the reserveRedemption() call fails (Stripe session create,
+    // pending-checkout insert, etc.). Also track the one-shot Stripe
+    // coupon id so we can delete it on cleanup — Stripe accumulates
+    // orphan coupons otherwise.
+    let reservedDiscountCodeId: string | null = null
+    let createdStripeCouponId: string | null = null
     try {
       const userId = req.user!.id
 
@@ -62,6 +74,7 @@ export const POST = requireAuthMiddleware(
         notes,
         shippingMethod,
         affiliateCode: enteredAffiliateCode,
+        discountCode: enteredDiscountCode,
       } = createStripeCheckoutSchema.parse(body)
 
       if (cartItems.length === 0) {
@@ -135,13 +148,29 @@ export const POST = requireAuthMiddleware(
         })
       }
 
-      // Compute shipping and service fee to match frontend OrderSummary.
-      // Shipping is free once subtotal crosses FREE_SHIPPING_THRESHOLD; helper
-      // is the source of truth so server total can't be tricked by client.
-      const shipping = getShippingCost(subtotal, shippingMethod)
+      // ── Apply discount code (validates + atomically reserves a slot). ──
+      // Reservation is released in the catch block on any later failure;
+      // confirmed in the webhook on checkout.session.completed.
+      const discountResult = await applyDiscountForCheckout({
+        inputCode: enteredDiscountCode,
+        subtotal,
+        userId,
+        email: shippingAddress.email,
+      })
+      if (!discountResult.ok) {
+        return NextResponse.json({ error: discountResult.error }, { status: 400 })
+      }
+      const discount = discountResult.discount
+      reservedDiscountCodeId = discount?.codeId ?? null
+      const discountedSubtotal = Math.max(0, subtotal - (discount?.amount ?? 0))
+
+      // Compute shipping and service fee against the DISCOUNTED subtotal so
+      // they match what the cart showed the customer. Free-ship threshold is
+      // checked against the discounted base.
+      const shipping = getShippingCost(discountedSubtotal, shippingMethod)
       const stripeServiceFeeRate = getServiceFeeRate("stripe")
-      const serviceFee = subtotal * stripeServiceFeeRate
-      const total = subtotal + shipping + serviceFee
+      const serviceFee = discountedSubtotal * stripeServiceFeeRate
+      const total = discountedSubtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()
         .toString(36)
@@ -218,11 +247,43 @@ export const POST = requireAuthMiddleware(
         billingAddress: billingAddress || shippingAddress,
         notes,
         affiliateCode: await resolveOrderAffiliateCode(req, enteredAffiliateCode),
+        // Carry the discount through to the webhook so the eventual order
+        // row gets the right columns + we can confirm the redemption.
+        discountCodeId: discount?.codeId ?? null,
+        discountCode: discount?.code ?? null,
+        discountAmount: discount?.amount ?? 0,
+      }
+
+      // Mint a one-shot Stripe coupon for the discount so the Stripe-hosted
+      // checkout displays "DISCOUNT_CODE -$X" as its own line. Without this,
+      // the line_items would sum to the pre-discount total and Stripe would
+      // overcharge. We don't reuse this Stripe coupon — it's local to this
+      // session and our DB is the source of truth for redemption tracking.
+      let stripeDiscounts: { coupon: string }[] | undefined
+      if (discount && discount.amount > 0) {
+        const stripeCoupon = await stripe.coupons.create({
+          amount_off: Math.round(discount.amount * 100),
+          currency: "usd",
+          duration: "once",
+          name: `Discount: ${discount.code}`,
+          // Single-use guard at Stripe's side too. The session is the only
+          // place this coupon can be redeemed, so we never want it to apply
+          // to anything else even if it somehow leaks.
+          max_redemptions: 1,
+          metadata: {
+            discountCodeId: discount.codeId,
+            discountCode: discount.code,
+            orderNumber,
+          },
+        })
+        createdStripeCouponId = stripeCoupon.id
+        stripeDiscounts = [{ coupon: stripeCoupon.id }]
       }
 
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         line_items: lineItems,
+        ...(stripeDiscounts ? { discounts: stripeDiscounts } : {}),
         customer_email: shippingAddress.email,
         success_url: `${origin}/orders/${orderNumber}?email=${encodeURIComponent(
           shippingAddress.email
@@ -232,6 +293,7 @@ export const POST = requireAuthMiddleware(
           pendingCheckoutId,
           orderNumber,
           userId,
+          ...(discount ? { discountCodeId: discount.codeId } : {}),
         },
       })
 
@@ -251,6 +313,18 @@ export const POST = requireAuthMiddleware(
         { status: 201 }
       )
     } catch (error) {
+      // Whatever went wrong, give the discount slot back so other customers
+      // can use it, and delete the orphan Stripe coupon so it doesn't sit
+      // around in our Stripe account forever.
+      await releaseDiscountReservation(reservedDiscountCodeId)
+      if (createdStripeCouponId) {
+        try {
+          await stripe.coupons.del(createdStripeCouponId)
+        } catch (delErr) {
+          console.error("Failed to delete orphan Stripe coupon:", delErr)
+        }
+      }
+
       if (error instanceof z.ZodError) {
         return NextResponse.json(
           { error: "Validation error", details: error.errors },

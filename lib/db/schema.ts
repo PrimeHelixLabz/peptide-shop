@@ -163,6 +163,22 @@ export interface Order {
    * cookie. Used by the affiliate-conversion trigger to attribute commissions.
    */
   affiliateCode?: string | null
+  /**
+   * FK to discount_codes.id when a code was applied at checkout. ON DELETE
+   * SET NULL so deleting a code doesn't nuke historical orders.
+   */
+  discountCodeId?: string | null
+  /**
+   * Captured code string at the moment of redemption (denormalized).
+   * Survives even if the originating discount_codes row is later deleted.
+   */
+  discountCode?: string | null
+  /**
+   * Dollar discount applied to this order. Subtracted from subtotal
+   * before shipping + service fee are computed against the discounted
+   * base. Defaults to 0 when no code was applied.
+   */
+  discountAmount?: number
   createdAt: string
   updatedAt: string
 }

@@ -399,6 +399,16 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   <span className="text-xs text-muted-foreground">Subtotal</span>
                   <span className="text-sm font-semibold text-foreground">${subtotal.toFixed(2)}</span>
                 </div>
+                {order.discountAmount != null && order.discountAmount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-emerald-700">
+                      Discount{order.discountCode ? ` (${order.discountCode})` : ""}
+                    </span>
+                    <span className="text-sm font-semibold text-emerald-700">
+                      -${order.discountAmount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Shipping</span>
                   <span className="text-sm font-semibold text-foreground">${shipping.toFixed(2)}</span>

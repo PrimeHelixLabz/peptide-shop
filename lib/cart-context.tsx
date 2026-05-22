@@ -18,6 +18,20 @@ interface LocalCartItem {
   variantId: string
 }
 
+/**
+ * Snapshot of an applied discount code persisted in localStorage between
+ * page reloads. The discountAmount is recomputed against the live cart
+ * subtotal on every render, so a stored amount is just a hint — never
+ * load-bearing for the math.
+ */
+export interface AppliedDiscount {
+  codeId: string
+  code: string
+  discountType: "percent" | "amount"
+  percentOff: number | null
+  amountOff: number | null
+}
+
 interface CartContextValue {
   items: CartItem[]
   addItem: (product: Product, quantity: number, variantId: string) => void
@@ -26,16 +40,23 @@ interface CartContextValue {
   clearCart: () => void
   totalItems: number
   subtotal: number
+  /** Discount amount in dollars, computed from appliedDiscount + subtotal. */
+  discountAmount: number
+  appliedDiscount: AppliedDiscount | null
+  applyDiscount: (discount: AppliedDiscount) => void
+  removeDiscount: () => void
   loading: boolean
 }
 
 const CART_STORAGE_KEY = "cart_items"
 const CART_VERSION = "1"
+const DISCOUNT_STORAGE_KEY = "cart_discount"
 
 const CartContext = createContext<CartContextValue | undefined>(undefined)
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null)
   const [loading, setLoading] = useState(true)
   const pathname = usePathname()
   const { user, loading: authLoading } = useAuth()
@@ -284,11 +305,77 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [items, removeItem, saveLocalCart]
   )
 
+  /* ────────────────────────────────────────────────────────────────
+   *  Applied discount persistence
+   * ──────────────────────────────────────────────────────────── */
+
+  const readStoredDiscount = useCallback((): AppliedDiscount | null => {
+    if (typeof window === "undefined") return null
+    try {
+      const raw = localStorage.getItem(DISCOUNT_STORAGE_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as AppliedDiscount
+      if (
+        parsed &&
+        typeof parsed.code === "string" &&
+        typeof parsed.codeId === "string" &&
+        (parsed.discountType === "percent" || parsed.discountType === "amount")
+      ) {
+        return parsed
+      }
+      return null
+    } catch {
+      return null
+    }
+  }, [])
+
+  const writeStoredDiscount = useCallback((d: AppliedDiscount | null) => {
+    if (typeof window === "undefined") return
+    try {
+      if (d) {
+        localStorage.setItem(DISCOUNT_STORAGE_KEY, JSON.stringify(d))
+      } else {
+        localStorage.removeItem(DISCOUNT_STORAGE_KEY)
+      }
+    } catch {
+      // ignore quota errors
+    }
+  }, [])
+
+  const applyDiscount = useCallback(
+    (discount: AppliedDiscount) => {
+      setAppliedDiscount(discount)
+      writeStoredDiscount(discount)
+    },
+    [writeStoredDiscount]
+  )
+
+  const removeDiscount = useCallback(() => {
+    setAppliedDiscount(null)
+    writeStoredDiscount(null)
+  }, [writeStoredDiscount])
+
+  // Hydrate the applied discount on mount alongside the cart load.
+  useEffect(() => {
+    if (authLoading) return
+    if (isAdminPage || !user) {
+      setAppliedDiscount(null)
+      return
+    }
+    const stored = readStoredDiscount()
+    if (stored) setAppliedDiscount(stored)
+    // Re-run when auth resolves so signed-out → signed-in flips pick up
+    // any code persisted before login.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user, isAdminPage])
+
   const clearCart = useCallback(() => {
     localCartRef.current = []
     saveLocalCart([])
     setItems([])
-  }, [saveLocalCart])
+    setAppliedDiscount(null)
+    writeStoredDiscount(null)
+  }, [saveLocalCart, writeStoredDiscount])
 
   const totalItems = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
@@ -304,6 +391,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [items]
   )
 
+  // Recompute discount against the current subtotal on every render — the
+  // stored AppliedDiscount only carries the rate/amount, never the resolved
+  // dollar value, so this stays correct as the cart changes.
+  const discountAmount = useMemo(() => {
+    if (!appliedDiscount || subtotal <= 0) return 0
+    let raw = 0
+    if (appliedDiscount.discountType === "percent" && appliedDiscount.percentOff != null) {
+      raw = subtotal * (appliedDiscount.percentOff / 100)
+    } else if (appliedDiscount.discountType === "amount" && appliedDiscount.amountOff != null) {
+      raw = appliedDiscount.amountOff
+    }
+    return Math.round(Math.min(raw, subtotal) * 100) / 100
+  }, [appliedDiscount, subtotal])
+
   const value = useMemo<CartContextValue>(
     () => ({
       items,
@@ -313,9 +414,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       clearCart,
       totalItems,
       subtotal,
+      discountAmount,
+      appliedDiscount,
+      applyDiscount,
+      removeDiscount,
       loading,
     }),
-    [items, addItem, removeItem, updateQuantity, clearCart, totalItems, subtotal, loading]
+    [
+      items,
+      addItem,
+      removeItem,
+      updateQuantity,
+      clearCart,
+      totalItems,
+      subtotal,
+      discountAmount,
+      appliedDiscount,
+      applyDiscount,
+      removeDiscount,
+      loading,
+    ]
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

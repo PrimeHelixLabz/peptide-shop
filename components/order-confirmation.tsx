@@ -230,6 +230,16 @@ export function OrderConfirmation({ orderNumber }: OrderConfirmationProps) {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>${order.subtotal.toFixed(2)}</span>
               </div>
+              {order.discountAmount && order.discountAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-emerald-700">
+                    Discount{order.discountCode ? ` (${order.discountCode})` : ""}
+                  </span>
+                  <span className="text-emerald-700">
+                    -${order.discountAmount.toFixed(2)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>
                 <span>${order.shipping.toFixed(2)}</span>

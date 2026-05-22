@@ -168,6 +168,7 @@ export async function sendOrderNotificationEmail(order: Order): Promise<void> {
             <!-- Totals -->
             <div style="text-align: right; margin: 16px 0;">
               <p style="margin: 4px 0; color: #6b7280;">Subtotal: ${formatCurrency(order.subtotal)}</p>
+              ${order.discountAmount && order.discountAmount > 0 ? `<p style="margin: 4px 0; color: #065f46;">Discount${order.discountCode ? ` (${escapeHtml(order.discountCode)})` : ""}: -${formatCurrency(order.discountAmount)}</p>` : ""}
               <p style="margin: 4px 0; color: #6b7280;">Shipping: ${formatCurrency(order.shipping)}</p>
               <p style="margin: 4px 0; color: #6b7280;">Service Fee: ${formatCurrency(order.serviceFee)}</p>
               <p style="margin: 8px 0 0; color: #111827; font-size: 18px; font-weight: 700;">Total: ${formatCurrency(order.total)}</p>
@@ -265,6 +266,7 @@ function buildCustomerEmailShell(params: {
             <!-- Totals -->
             <div style="text-align: right; margin: 16px 0;">
               <p style="margin: 4px 0; color: #6b7280;">Subtotal: ${formatCurrency(order.subtotal)}</p>
+              ${order.discountAmount && order.discountAmount > 0 ? `<p style="margin: 4px 0; color: #065f46;">Discount${order.discountCode ? ` (${escapeHtml(order.discountCode)})` : ""}: -${formatCurrency(order.discountAmount)}</p>` : ""}
               <p style="margin: 4px 0; color: #6b7280;">Shipping: ${formatCurrency(order.shipping)}</p>
               ${order.serviceFee > 0 ? `<p style="margin: 4px 0; color: #6b7280;">Service Fee: ${formatCurrency(order.serviceFee)}</p>` : ""}
               <p style="margin: 8px 0 0; color: #111827; font-size: 18px; font-weight: 700;">Total: ${formatCurrency(order.total)}</p>

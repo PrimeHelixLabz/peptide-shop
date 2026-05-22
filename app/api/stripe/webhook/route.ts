@@ -12,6 +12,8 @@ import {
   sendOrderNotificationEmail,
   sendCustomerOrderConfirmedEmail,
 } from "@/lib/email"
+import { confirmRedemption } from "@/lib/discounts/db"
+import { releaseDiscountReservation } from "@/lib/discounts/checkout"
 
 export const POST = async (req: NextRequest) => {
   const sig = req.headers.get("stripe-signature")
@@ -103,6 +105,9 @@ export const POST = async (req: NextRequest) => {
               paymentMethod: "stripe",
               notes: checkoutData.notes,
               affiliateCode: checkoutData.affiliateCode ?? null,
+              discountCodeId: checkoutData.discountCodeId ?? null,
+              discountCode: checkoutData.discountCode ?? null,
+              discountAmount: checkoutData.discountAmount ?? 0,
             })
           } catch (orderError) {
             // Order creation itself failed — clean up pending checkout so the
@@ -143,6 +148,21 @@ export const POST = async (req: NextRequest) => {
             console.error("Failed to send customer paid-confirmation email:", err)
           )
 
+          // Confirm the discount redemption (insert audit row). Idempotent
+          // via the unique (code_id, user_id|email) constraints, so a Stripe
+          // webhook retry won't double-count.
+          if (createdOrder.discountCodeId) {
+            await confirmRedemption({
+              codeId: createdOrder.discountCodeId,
+              userId: createdOrder.userId,
+              email: createdOrder.email ?? null,
+              orderId: createdOrder.id,
+              discountApplied: createdOrder.discountAmount ?? 0,
+            }).catch((err) =>
+              console.error("Failed to confirm discount redemption:", err)
+            )
+          }
+
           // Clean up the pending checkout
           await deletePendingCheckoutAsAdmin(pendingCheckoutId)
 
@@ -157,10 +177,30 @@ export const POST = async (req: NextRequest) => {
       case "payment_intent.payment_failed": {
         const session = event.data.object as any
         const pendingCheckoutId = session.metadata?.pendingCheckoutId as string | undefined
+        const discountCodeId = session.metadata?.discountCodeId as string | undefined
         if (pendingCheckoutId) {
           // Payment failed or session expired - just clean up, no order was created
           console.log("Webhook: cleaning up pending checkout (payment failed/expired)", pendingCheckoutId)
           await deletePendingCheckoutAsAdmin(pendingCheckoutId)
+        }
+        // Release the discount reservation so it becomes available again.
+        if (discountCodeId) {
+          await releaseDiscountReservation(discountCodeId)
+        }
+        // Delete the one-shot Stripe coupon we created for this session.
+        // Stripe doesn't auto-expire coupons; without this, they accumulate.
+        const discountedSession = session?.discounts as
+          | Array<{ coupon?: string | { id?: string } }>
+          | undefined
+        const couponRef = discountedSession?.[0]?.coupon
+        const couponId =
+          typeof couponRef === "string" ? couponRef : couponRef?.id ?? null
+        if (couponId) {
+          try {
+            await stripe.coupons.del(couponId)
+          } catch (delErr) {
+            console.error("Failed to delete Stripe coupon on session cleanup:", delErr)
+          }
         }
         break
       }

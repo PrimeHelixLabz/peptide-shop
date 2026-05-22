@@ -20,6 +20,10 @@ import {
 import { sendCustomerOrderPlacedEmail } from "@/lib/email"
 import { resolveOrderAffiliateCode } from "@/lib/affiliates"
 import { assertAgeVerified } from "@/lib/age-verification"
+import {
+  applyDiscountForCheckout,
+  releaseDiscountReservation,
+} from "@/lib/discounts/checkout"
 
 const createLinkSchema = z.object({
   cartItems: z.array(
@@ -52,6 +56,7 @@ const createLinkSchema = z.object({
   notes: z.string().optional(),
   shippingMethod: z.enum(["ship", "local-pickup"]).default("ship"),
   affiliateCode: z.string().trim().max(32).optional(),
+  discountCode: z.string().trim().max(40).optional(),
 })
 
 /**
@@ -65,6 +70,7 @@ export const POST = requireAuthMiddleware(
   async (req: AuthenticatedRequest) => {
     const userId = req.user!.id
     let createdOrderId: string | null = null
+    let reservedDiscountCodeId: string | null = null
 
     const ageCheck = await assertAgeVerified(req, userId)
     if (!ageCheck.ok) {
@@ -83,6 +89,7 @@ export const POST = requireAuthMiddleware(
         notes,
         shippingMethod,
         affiliateCode: enteredAffiliateCode,
+        discountCode: enteredDiscountCode,
       } = createLinkSchema.parse(body)
 
       if (cartItems.length === 0) {
@@ -141,11 +148,25 @@ export const POST = requireAuthMiddleware(
         })
       }
 
-      const shipping = getShippingCost(subtotal, shippingMethod)
+      // ── Apply discount code (validates + atomically reserves). ──
+      const discountResult = await applyDiscountForCheckout({
+        inputCode: enteredDiscountCode,
+        subtotal,
+        userId,
+        email: shippingAddress.email,
+      })
+      if (!discountResult.ok) {
+        return NextResponse.json({ error: discountResult.error }, { status: 400 })
+      }
+      const discount = discountResult.discount
+      reservedDiscountCodeId = discount?.codeId ?? null
+      const discountedSubtotal = Math.max(0, subtotal - (discount?.amount ?? 0))
+
+      const shipping = getShippingCost(discountedSubtotal, shippingMethod)
       // CentryOS deducts its MDR from our receivable — no customer-side
       // service fee here. Rate resolves to 0 via SERVICE_FEE_RATE_BY_METHOD.
-      const serviceFee = subtotal * getServiceFeeRate("centryos")
-      const total = subtotal + shipping + serviceFee
+      const serviceFee = discountedSubtotal * getServiceFeeRate("centryos")
+      const total = discountedSubtotal + shipping + serviceFee
 
       const orderNumber = `ORD-${Date.now()}-${Math.random()
         .toString(36)
@@ -172,6 +193,9 @@ export const POST = requireAuthMiddleware(
         paymentMethod: "centryos",
         notes,
         affiliateCode: await resolveOrderAffiliateCode(req, enteredAffiliateCode),
+        discountCodeId: discount?.codeId ?? null,
+        discountCode: discount?.code ?? null,
+        discountAmount: discount?.amount ?? 0,
       })
 
       // ── Create payment row BEFORE calling CentryOS so the webhook can
@@ -237,6 +261,10 @@ export const POST = requireAuthMiddleware(
         )
       }
       console.error("CentryOS create-link error:", error)
+
+      // Release any discount reservation made earlier in the flow so the
+      // code becomes available again to other customers.
+      await releaseDiscountReservation(reservedDiscountCodeId)
 
       // If we created an order but the link mint failed, drop the
       // empty pending order so the dashboard isn't polluted.

@@ -13,6 +13,8 @@ import {
   applyCollectionWebhook,
   verifyWebhookSignature,
 } from "@/lib/centryos/payment-service"
+import { confirmRedemption } from "@/lib/discounts/db"
+import { releaseDiscountReservation } from "@/lib/discounts/checkout"
 import type { CentryOSWebhookBody } from "@/lib/centryos/payment-types"
 import {
   logWebhook,
@@ -333,6 +335,14 @@ async function syncOrderFromPayment(
       payment_status: "failed",
       status: "cancelled",
     })
+
+    // Release the discount reservation back into the pool. Only release
+    // when transitioning from non-paid to failed — paid → refunded keeps
+    // the redemption consumed (matches Stripe-equivalent behavior).
+    if (fullOrder.discountCodeId && fullOrder.paymentStatus !== "paid") {
+      await releaseDiscountReservation(fullOrder.discountCodeId)
+      trace?.step("sync.discount_released", true)
+    }
     return
   }
 
@@ -408,6 +418,20 @@ async function syncOrderFromPayment(
       console.error("customer paid-confirmation email failed", err)
     )
     trace?.step("sync.notification_email_dispatched", true)
+
+    // Confirm discount redemption (idempotent via DB unique constraints).
+    if (paidOrder.discountCodeId) {
+      await confirmRedemption({
+        codeId: paidOrder.discountCodeId,
+        userId: paidOrder.userId,
+        email: paidOrder.email ?? null,
+        orderId: paidOrder.id,
+        discountApplied: paidOrder.discountAmount ?? 0,
+      }).catch((err) =>
+        console.error("Failed to confirm discount redemption:", err)
+      )
+      trace?.step("sync.discount_confirmed", true)
+    }
 
     return
   }
