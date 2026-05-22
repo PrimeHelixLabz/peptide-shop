@@ -305,10 +305,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [items, removeItem, saveLocalCart]
   )
 
-  /* ────────────────────────────────────────────────────────────────
-   *  Applied discount persistence
-   * ──────────────────────────────────────────────────────────── */
-
   const readStoredDiscount = useCallback((): AppliedDiscount | null => {
     if (typeof window === "undefined") return null
     try {
@@ -355,7 +351,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     writeStoredDiscount(null)
   }, [writeStoredDiscount])
 
-  // Hydrate the applied discount on mount alongside the cart load.
+  // Hydrate the applied discount alongside the cart load.
   useEffect(() => {
     if (authLoading) return
     if (isAdminPage || !user) {
@@ -364,8 +360,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
     const stored = readStoredDiscount()
     if (stored) setAppliedDiscount(stored)
-    // Re-run when auth resolves so signed-out → signed-in flips pick up
-    // any code persisted before login.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, isAdminPage])
 

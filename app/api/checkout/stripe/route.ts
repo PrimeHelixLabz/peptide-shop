@@ -164,10 +164,11 @@ export const POST = requireAuthMiddleware(
       reservedDiscountCodeId = discount?.codeId ?? null
       const discountedSubtotal = Math.max(0, subtotal - (discount?.amount ?? 0))
 
-      // Compute shipping and service fee against the DISCOUNTED subtotal so
-      // they match what the cart showed the customer. Free-ship threshold is
-      // checked against the discounted base.
-      const shipping = getShippingCost(discountedSubtotal, shippingMethod)
+      // Shipping is gated on the RAW subtotal so applying a discount can't
+      // rewind a free-shipping perk the customer already earned at $250+.
+      // Service fee uses the discounted base since it scales with the actual
+      // amount we're charging.
+      const shipping = getShippingCost(subtotal, shippingMethod)
       const stripeServiceFeeRate = getServiceFeeRate("stripe")
       const serviceFee = discountedSubtotal * stripeServiceFeeRate
       const total = discountedSubtotal + shipping + serviceFee

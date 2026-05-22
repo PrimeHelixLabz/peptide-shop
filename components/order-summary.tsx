@@ -30,28 +30,29 @@ export function OrderSummary({
 }: OrderSummaryProps) {
   const { subtotal, totalItems, discountAmount, appliedDiscount } = useCart()
 
-  // Discount is subtracted from the subtotal before shipping + fees are
-  // computed against the discounted base. That matches Stripe's coupon
-  // behavior and the order-creation routes server-side.
+  // Shipping uses the RAW subtotal so a discount can't cost the customer
+  // their free-shipping perk — once they qualify by cart size, applying
+  // a code doesn't take it away. Service fee uses the discounted base
+  // since it represents the processor's cut of what we actually charge.
   const discountedSubtotal = Math.max(0, subtotal - discountAmount)
-  const shipping = getShippingCost(discountedSubtotal, shippingMethod)
+  const shipping = getShippingCost(subtotal, shippingMethod)
   const shippingLabel = shippingMethod === "local-pickup" ? "Local Pickup" : SHIPPING_CARRIER_LABEL
   const serviceFeeRate = getServiceFeeRate(paymentMethod)
   const serviceFee = discountedSubtotal * serviceFeeRate
   const isFeeWaived = serviceFeeRate === 0
   const total = discountedSubtotal + shipping + serviceFee
 
-  // Free-shipping threshold tracks the DISCOUNTED subtotal — applying a
-  // discount that drops you under the threshold should bring back the
-  // "Add $X more for free shipping" hint.
+  // Free-shipping progress is gated on the raw subtotal too (matches the
+  // shipping calc above). Otherwise applying a discount could rewind the
+  // "you've unlocked free shipping" banner the customer already earned.
   const amountToFreeShipping =
     shippingMethod === "ship" &&
-    discountedSubtotal > 0 &&
-    discountedSubtotal < FREE_SHIPPING_THRESHOLD
-      ? FREE_SHIPPING_THRESHOLD - discountedSubtotal
+    subtotal > 0 &&
+    subtotal < FREE_SHIPPING_THRESHOLD
+      ? FREE_SHIPPING_THRESHOLD - subtotal
       : 0
   const earnedFreeShipping =
-    shippingMethod === "ship" && discountedSubtotal >= FREE_SHIPPING_THRESHOLD
+    shippingMethod === "ship" && subtotal >= FREE_SHIPPING_THRESHOLD
 
   return (
     <div className="flex flex-col gap-6 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] lg:p-8">

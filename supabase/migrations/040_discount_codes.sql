@@ -219,6 +219,74 @@ AS $$
 $$;
 
 -- ============================================================
+-- Auto-release on order termination
+-- ============================================================
+-- Releases the reservation when an order is cancelled, fails, or is
+-- deleted — UNLESS a confirmed redemption row already exists. Refunds
+-- (paid → refunded) keep the redemption consumed, matching Stripe.
+--
+-- One trigger function, two triggers (UPDATE + DELETE) so manual admin
+-- cancels, payment-webhook failures, and the 3-day cleanup job all
+-- release through the same code path. The application layer never has
+-- to remember to release for any order that actually got inserted.
+
+CREATE OR REPLACE FUNCTION public.release_discount_on_terminal_state()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_target_code_id UUID;
+  v_order_id UUID;
+BEGIN
+  -- Resolve which order + code we're acting on, depending on TG_OP.
+  IF TG_OP = 'DELETE' THEN
+    v_target_code_id := OLD.discount_code_id;
+    v_order_id := OLD.id;
+  ELSE
+    v_target_code_id := NEW.discount_code_id;
+    v_order_id := NEW.id;
+
+    -- For UPDATE: only fire on the transition INTO a terminal state.
+    -- Subsequent updates to an already-cancelled order are no-ops.
+    IF NOT (
+      (NEW.status = 'cancelled' AND OLD.status IS DISTINCT FROM 'cancelled')
+      OR
+      (NEW.payment_status = 'failed' AND OLD.payment_status IS DISTINCT FROM 'failed')
+    ) THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  IF v_target_code_id IS NULL THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  -- Confirmed redemption exists → already consumed, leave it alone.
+  IF EXISTS (
+    SELECT 1 FROM public.discount_redemptions WHERE order_id = v_order_id
+  ) THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  UPDATE public.discount_codes
+  SET redeemed_count = GREATEST(redeemed_count - 1, 0)
+  WHERE id = v_target_code_id;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_release_discount_on_cancel ON public.orders;
+CREATE TRIGGER trigger_release_discount_on_cancel
+  AFTER UPDATE OF status, payment_status ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION release_discount_on_terminal_state();
+
+DROP TRIGGER IF EXISTS trigger_release_discount_on_delete ON public.orders;
+CREATE TRIGGER trigger_release_discount_on_delete
+  BEFORE DELETE ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION release_discount_on_terminal_state();
+
+-- ============================================================
 -- RLS
 -- ============================================================
 -- All discount reads/writes flow through the API under the service

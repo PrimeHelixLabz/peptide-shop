@@ -127,10 +127,12 @@ export function CheckoutForm() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("link_money")
 
   // Mirror OrderSummary's math so the Pay button can display the total
-  // the customer will be charged. Server-side routes recompute from the
-  // same helpers, so this is display-only — never load-bearing for trust.
+  // the customer will be charged. Shipping uses raw subtotal so a discount
+  // doesn't cost the customer their already-earned free-shipping perk.
+  // Server-side routes recompute from the same helpers, so this is
+  // display-only — never load-bearing for trust.
   const discountedSubtotal = Math.max(0, subtotal - discountAmount)
-  const shippingCost = getShippingCost(discountedSubtotal, shippingMethod)
+  const shippingCost = getShippingCost(subtotal, shippingMethod)
   const checkoutServiceFee = discountedSubtotal * getServiceFeeRate(paymentMethod)
   const checkoutTotal = discountedSubtotal + shippingCost + checkoutServiceFee
   const totalLabel = `$${checkoutTotal.toFixed(2)}`

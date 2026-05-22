@@ -1,18 +1,8 @@
 /**
- * Shared discount helpers used by the three checkout routes
- * (Stripe, Link.money, CentryOS). Each route:
- *
- *   1. Calls `applyDiscountForCheckout()` after computing the cart subtotal,
- *      passing the customer's identity. Returns the reserved discount amount
- *      or an error to surface back to the client.
- *   2. Subtracts the returned amount from subtotal before computing shipping
- *      + service fee.
- *   3. Stores `discountCodeId`, `discountCode`, `discountAmount` on the
- *      order row.
- *   4. On any failure between reservation and successful payment-intent
- *      creation, calls `releaseDiscountReservation()` to give the slot
- *      back. Confirmation happens later in the payment-success webhook
- *      via `confirmRedemption()`.
+ * Shared discount helpers for the 3 checkout routes (Stripe, Link.money,
+ * CentryOS). Reservation lives in the DB — the orders trigger releases on
+ * cancel/fail/delete. `releaseDiscountReservation` is only needed when the
+ * order never got inserted.
  */
 
 import {
@@ -33,13 +23,9 @@ export type ApplyDiscountResult =
   | { ok: false; error: string }
 
 /**
- * Validate, then atomically reserve a redemption slot for a code at
- * order-creation time. If `inputCode` is falsy, returns `{ ok: true, discount: null }` —
- * lets callers always invoke this without a pre-check.
- *
- * NOTE: This mutates `discount_codes.redeemed_count`. If the order
- * creation step that follows it fails, the caller MUST invoke
- * `releaseDiscountReservation(codeId)` to release the slot.
+ * Validate + atomically reserve a slot. Returns ok:true with discount:null
+ * for falsy input so callers don't need a pre-check. Caller is responsible
+ * for releasing only when the order never got inserted.
  */
 export async function applyDiscountForCheckout(params: {
   inputCode: string | null | undefined
@@ -50,8 +36,7 @@ export async function applyDiscountForCheckout(params: {
   const code = params.inputCode?.trim()
   if (!code) return { ok: true, discount: null }
 
-  // Re-validate server-side against live state. The client-side
-  // /api/discounts/validate is for UX; this is the authoritative gate.
+  // Authoritative server-side gate; the cart-side validate is just UX.
   const result = await validateCode({
     code,
     subtotal: params.subtotal,
@@ -62,9 +47,7 @@ export async function applyDiscountForCheckout(params: {
     return { ok: false, error: result.reason }
   }
 
-  // Race-safe reservation — this is the line that prevents two simultaneous
-  // checkouts from both consuming the last unit of a 1-use code, OR the
-  // same customer opening two tabs and slipping past a per-user-once code.
+  // Atomic reservation — race-safe against parallel checkouts.
   const reserved = await reserveRedemption({
     codeId: result.code.id,
     userId: params.userId,
@@ -77,9 +60,8 @@ export async function applyDiscountForCheckout(params: {
     }
   }
 
-  // Recompute the discount against the freshly-reserved code state.
-  // Almost always identical to result.discountAmount, but guards against
-  // the rare case of admin editing the code rate between validate and reserve.
+  // Recompute against the freshly-locked row in case admin edited the
+  // rate between validate and reserve.
   const amount = computeDiscount(reserved, params.subtotal)
   if (amount <= 0) {
     await releaseReservation(reserved.id)

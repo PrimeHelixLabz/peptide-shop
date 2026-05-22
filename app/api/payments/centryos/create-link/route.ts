@@ -162,7 +162,9 @@ export const POST = requireAuthMiddleware(
       reservedDiscountCodeId = discount?.codeId ?? null
       const discountedSubtotal = Math.max(0, subtotal - (discount?.amount ?? 0))
 
-      const shipping = getShippingCost(discountedSubtotal, shippingMethod)
+      // Shipping is gated on the RAW subtotal so applying a discount can't
+      // rewind a free-shipping perk the customer already earned at $250+.
+      const shipping = getShippingCost(subtotal, shippingMethod)
       // CentryOS deducts its MDR from our receivable — no customer-side
       // service fee here. Rate resolves to 0 via SERVICE_FEE_RATE_BY_METHOD.
       const serviceFee = discountedSubtotal * getServiceFeeRate("centryos")
@@ -262,12 +264,10 @@ export const POST = requireAuthMiddleware(
       }
       console.error("CentryOS create-link error:", error)
 
-      // Release any discount reservation made earlier in the flow so the
-      // code becomes available again to other customers.
-      await releaseDiscountReservation(reservedDiscountCodeId)
-
-      // If we created an order but the link mint failed, drop the
-      // empty pending order so the dashboard isn't polluted.
+      // Drop the empty pending order so the dashboard isn't polluted.
+      // The orders BEFORE DELETE trigger releases the discount reservation
+      // automatically — unless the order never got created, in which case
+      // we release explicitly below.
       if (createdOrderId) {
         await deletePendingCentryOSOrderAsAdmin(createdOrderId).catch(
           (cleanupErr) =>
@@ -276,6 +276,8 @@ export const POST = requireAuthMiddleware(
               cleanupErr
             )
         )
+      } else {
+        await releaseDiscountReservation(reservedDiscountCodeId)
       }
 
       return NextResponse.json(

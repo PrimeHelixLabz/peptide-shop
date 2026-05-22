@@ -12,7 +12,6 @@ import {
 } from "@/lib/email"
 import { applyWebhook } from "@/lib/link-money/payment-service"
 import { confirmRedemption } from "@/lib/discounts/db"
-import { releaseDiscountReservation } from "@/lib/discounts/checkout"
 import type { LinkMoneyWebhookBody } from "@/lib/link-money/payment-types"
 import {
   logWebhook,
@@ -267,13 +266,9 @@ async function syncOrderFromPayment(
       })
       .eq("id", fullOrder.id)
 
-    // Release the discount reservation back into the pool. Only release
-    // when transitioning *into* failed from a non-paid state — a paid →
-    // refunded transition is handled separately (Stripe-equivalent
-    // behavior: once redeemed, the code stays consumed).
-    if (fullOrder.discountCodeId && fullOrder.paymentStatus !== "paid") {
-      await releaseDiscountReservation(fullOrder.discountCodeId)
-    }
+    // The orders trigger (release_discount_on_order_cancel) releases the
+    // reservation automatically on this transition — no JS-side release
+    // needed. Refunded orders keep their redemption (Stripe-equivalent).
     return
   }
 

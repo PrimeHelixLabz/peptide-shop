@@ -14,7 +14,6 @@ import {
   verifyWebhookSignature,
 } from "@/lib/centryos/payment-service"
 import { confirmRedemption } from "@/lib/discounts/db"
-import { releaseDiscountReservation } from "@/lib/discounts/checkout"
 import type { CentryOSWebhookBody } from "@/lib/centryos/payment-types"
 import {
   logWebhook,
@@ -336,13 +335,9 @@ async function syncOrderFromPayment(
       status: "cancelled",
     })
 
-    // Release the discount reservation back into the pool. Only release
-    // when transitioning from non-paid to failed — paid → refunded keeps
-    // the redemption consumed (matches Stripe-equivalent behavior).
-    if (fullOrder.discountCodeId && fullOrder.paymentStatus !== "paid") {
-      await releaseDiscountReservation(fullOrder.discountCodeId)
-      trace?.step("sync.discount_released", true)
-    }
+    // The orders trigger (release_discount_on_order_cancel) releases the
+    // reservation automatically on this transition — no JS-side release
+    // needed. Refunded orders keep their redemption (Stripe-equivalent).
     return
   }
 

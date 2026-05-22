@@ -150,7 +150,9 @@ export const POST = requireAuthMiddleware(
       const discount = discountResult.discount
       const discountedSubtotal = Math.max(0, subtotal - (discount?.amount ?? 0))
 
-      const shipping = getShippingCost(discountedSubtotal, shippingMethod)
+      // Shipping is gated on the RAW subtotal so applying a discount can't
+      // rewind a free-shipping perk the customer already earned at $250+.
+      const shipping = getShippingCost(subtotal, shippingMethod)
       const serviceFee = discountedSubtotal * getServiceFeeRate("link_money")
       const total = discountedSubtotal + shipping + serviceFee
 
@@ -247,7 +249,14 @@ export const POST = requireAuthMiddleware(
           status: lmResponse.status,
           body: errorBody,
         })
-        await releaseDiscountReservation(discount?.codeId)
+        // Mark the order failed — the orders trigger releases the discount
+        // reservation automatically on this transition. (Doing JS-side
+        // release here would risk a double-decrement if the 3-day cleanup
+        // job also touched the order later.)
+        await updateOrderAsAdmin(orderId, {
+          status: "cancelled",
+          paymentStatus: "failed",
+        })
         return NextResponse.json(
           { error: "Failed to create Link Money session" },
           { status: 502 }
@@ -263,7 +272,10 @@ export const POST = requireAuthMiddleware(
 
       if (!result.sessionUrl) {
         console.error("Link Money returned no sessionUrl:", lmData)
-        await releaseDiscountReservation(discount?.codeId)
+        await updateOrderAsAdmin(orderId, {
+          status: "cancelled",
+          paymentStatus: "failed",
+        })
         return NextResponse.json(
           { error: "Invalid Link Money session response" },
           { status: 502 }
