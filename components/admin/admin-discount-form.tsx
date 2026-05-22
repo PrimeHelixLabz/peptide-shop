@@ -16,6 +16,7 @@ import { AdminCard } from "@/components/common/admin-card"
 import { FormInput } from "@/components/common/form-input"
 import { Select } from "@/components/common/select"
 import { StatusBadge } from "@/components/common/status-badge"
+import { UserPicker } from "@/components/common/user-picker"
 import { Button } from "@/components/ui/button"
 
 interface AdminDiscountFormProps {
@@ -312,14 +313,14 @@ export function AdminDiscountForm({
                 placeholder="optional"
                 helperText="Cart subtotal must reach this before the code applies."
               />
-              <FormInput
+              <UserPicker
                 label="Lock to user (advanced)"
-                value={form.restrictedToUserId}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, restrictedToUserId: e.target.value }))
+                value={form.restrictedToUserId || null}
+                onChange={(id) =>
+                  setForm((p) => ({ ...p, restrictedToUserId: id ?? "" }))
                 }
-                placeholder="leave blank for any customer"
-                helperText="Paste a user UUID to make this a single-customer VIP code."
+                placeholder="Any customer — leave blank to allow all"
+                helperText="Search by name or email to make this a single-customer VIP code."
               />
             </div>
           </AdminCard>
@@ -397,7 +398,7 @@ export function AdminDiscountForm({
                   }
                   className="h-4 w-4 rounded border-border"
                 />
-                Active (customers can redeem this code)
+                Active
               </label>
             </div>
           </AdminCard>

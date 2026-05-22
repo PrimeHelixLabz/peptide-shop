@@ -23,7 +23,7 @@ const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+            className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80"
           >
             {label}
           </label>
@@ -32,8 +32,8 @@ const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaProps>(
           id={textareaId}
           ref={ref}
           className={cn(
-            'w-full resize-none rounded-xl bg-background border-0 shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] px-4 py-3 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-brand-primary/20 transition-shadow',
-            error && 'ring-2 ring-destructive',
+            'w-full resize-none rounded-xl bg-white dark:bg-gray-900 border border-border/60 dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)] px-4 py-3 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:border-brand-primary/40 focus:ring-2 focus:ring-brand-primary/20 transition-[box-shadow,border-color]',
+            error && 'border-destructive ring-2 ring-destructive',
             className
           )}
           {...props}
@@ -42,7 +42,7 @@ const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaProps>(
           <p className="text-xs text-destructive">{error}</p>
         )}
         {helperText && !error && (
-          <p className="text-xs text-muted-foreground">{helperText}</p>
+          <p className="text-xs text-muted-foreground/80 leading-snug">{helperText}</p>
         )}
       </div>
     )

@@ -269,10 +269,10 @@ export function Select({
       onClick={() => !disabled && setOpen((v) => !v)}
       onKeyDown={onKeyDown}
       className={cn(
-        "relative flex h-12 items-center gap-2 rounded-xl bg-white dark:bg-gray-900 px-4 pr-10 text-sm text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] outline-none transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:cursor-not-allowed disabled:opacity-50",
+        "relative flex h-12 items-center gap-2 rounded-xl bg-white dark:bg-gray-900 px-4 pr-10 text-sm text-foreground border border-border/60 dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)] outline-none transition-[colors,border-color,box-shadow] hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-border focus-visible:border-brand-primary/40 focus-visible:ring-2 focus-visible:ring-brand-primary/20 disabled:cursor-not-allowed disabled:opacity-50",
         isBare ? "w-fit min-w-[10rem]" : "w-full",
         isPlaceholder && "text-muted-foreground",
-        error && "ring-2 ring-destructive",
+        error && "border-destructive ring-2 ring-destructive",
         triggerClassName
       )}
     >
@@ -379,7 +379,7 @@ export function Select({
         <label
           id={`${fieldId}-label`}
           htmlFor={fieldId}
-          className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+          className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80"
         >
           {label}
           {required && <span className="ml-0.5 text-destructive">*</span>}
@@ -388,7 +388,7 @@ export function Select({
       {control}
       {error && <p className="text-xs text-destructive">{error}</p>}
       {helperText && !error && (
-        <p className="text-xs text-muted-foreground">{helperText}</p>
+        <p className="text-xs text-muted-foreground/80 leading-snug">{helperText}</p>
       )}
     </div>
   )
