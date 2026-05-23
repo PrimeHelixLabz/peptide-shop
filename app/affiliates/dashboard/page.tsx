@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { StatusBadge, type StatusVariant } from "@/components/common/status-badge"
 import { CopyLinkButton } from "@/components/affiliates/copy-link-button"
 import { PayoutDetailsForm } from "@/components/affiliates/payout-details-form"
+import { ReferralQrCode } from "@/components/affiliates/referral-qr-code"
 import { getCurrentUser } from "@/lib/auth/supabase-auth"
 import {
   resolveAffiliateForUser,
@@ -273,31 +274,41 @@ export default async function AffiliateDashboardPage() {
 
               {/* Referral Links */}
               <AdminCard title="Your referral link">
-                <div className="flex flex-col gap-4">
-                  <p className="text-sm text-muted-foreground">
-                    Share this link to earn commission. Your code is{" "}
-                    <strong className="font-mono text-foreground">
-                      {code.code}
-                    </strong>
-                    .
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-muted p-4">
-                    <code className="flex-1 break-all text-sm text-foreground">
-                      {referralLink}
-                    </code>
-                    <CopyLinkButton value={referralLink} />
+                <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
+                  <div className="flex flex-1 flex-col gap-4">
+                    <p className="text-sm text-muted-foreground">
+                      Share this link to earn commission. Your code is{" "}
+                      <strong className="font-mono text-foreground">
+                        {code.code}
+                      </strong>
+                      .
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-muted p-4">
+                      <code className="flex-1 break-all text-sm text-foreground">
+                        {referralLink}
+                      </code>
+                      <CopyLinkButton value={referralLink} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-muted p-4">
+                      <code className="flex-1 break-all text-sm text-foreground">
+                        {shopReferralLink}
+                      </code>
+                      <CopyLinkButton value={shopReferralLink} label="Copy shop link" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Tip: append <code className="font-mono">?ref={code.code}</code>{" "}
+                      to any URL on the site &mdash; including individual product
+                      pages.
+                    </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-muted p-4">
-                    <code className="flex-1 break-all text-sm text-foreground">
-                      {shopReferralLink}
-                    </code>
-                    <CopyLinkButton value={shopReferralLink} label="Copy shop link" />
+                  {/* QR code for the homepage referral link. Downloads as a
+                      1024px PNG so partners can drop it into flyers and ads. */}
+                  <div className="flex flex-col items-center gap-2 md:shrink-0">
+                    <ReferralQrCode url={referralLink} code={code.code} />
+                    <p className="max-w-[12rem] text-center text-[11px] text-muted-foreground">
+                      Scan-ready QR for ads &amp; print. Encodes your homepage link above.
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Tip: append <code className="font-mono">?ref={code.code}</code>{" "}
-                    to any URL on the site &mdash; including individual product
-                    pages.
-                  </p>
                 </div>
               </AdminCard>
 

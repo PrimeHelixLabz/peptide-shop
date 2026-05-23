@@ -462,6 +462,10 @@ export interface AffiliateWithStats extends Affiliate {
   pendingEarnings: number
   payableEarnings: number
   paidEarnings: number
+  /** Active referral code, if one exists yet. Null for pending/suspended
+   *  affiliates that haven't been approved (codes are minted at approval
+   *  time), or in the rare case of a code-generation failure. */
+  code: string | null
 }
 
 /**
@@ -474,18 +478,26 @@ export async function getAllAffiliatesWithStatsAsAdmin(): Promise<
 > {
   const supabase = createAdminClient()
 
-  const [{ data: affiliatesData, error: affiliatesError }, { data: conversionsData, error: conversionsError }] =
-    await Promise.all([
-      supabase
-        .from("affiliates")
-        .select(
-          "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
-        )
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("affiliate_conversions")
-        .select("affiliate_id, status, commission_amount"),
-    ])
+  const [
+    { data: affiliatesData, error: affiliatesError },
+    { data: conversionsData, error: conversionsError },
+    { data: codesData, error: codesError },
+  ] = await Promise.all([
+    supabase
+      .from("affiliates")
+      .select(
+        "id, user_id, name, email, website, audience, payout_method, payout_details, status, commission_rate, approved_at, created_at, updated_at"
+      )
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("affiliate_conversions")
+      .select("affiliate_id, status, commission_amount"),
+    supabase
+      .from("affiliate_codes")
+      .select("affiliate_id, code, created_at")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false }),
+  ])
 
   if (affiliatesError) {
     console.error("getAllAffiliatesWithStatsAsAdmin: affiliates query failed", affiliatesError)
@@ -494,6 +506,19 @@ export async function getAllAffiliatesWithStatsAsAdmin(): Promise<
   if (conversionsError) {
     console.error("getAllAffiliatesWithStatsAsAdmin: conversions query failed", conversionsError)
     // Continue — affiliate list is more important than stats.
+  }
+  if (codesError) {
+    console.error("getAllAffiliatesWithStatsAsAdmin: codes query failed", codesError)
+    // Continue — surfacing the table without codes is still useful.
+  }
+
+  // One row per affiliate; codes are ordered DESC by created_at above,
+  // so the first one we see for an affiliate is the most recent active code.
+  const codeByAffiliate = new Map<string, string>()
+  for (const row of (codesData as unknown as { affiliate_id: string; code: string }[]) || []) {
+    if (!codeByAffiliate.has(row.affiliate_id)) {
+      codeByAffiliate.set(row.affiliate_id, row.code)
+    }
   }
 
   type ConvAggRow = {
@@ -547,6 +572,7 @@ export async function getAllAffiliatesWithStatsAsAdmin(): Promise<
       pendingEarnings: roundCurrency(stats.pendingEarnings),
       payableEarnings: roundCurrency(stats.payableEarnings),
       paidEarnings: roundCurrency(stats.paidEarnings),
+      code: codeByAffiliate.get(aff.id) ?? null,
     }
   })
 }

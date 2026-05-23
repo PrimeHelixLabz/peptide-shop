@@ -10,11 +10,17 @@ import { StatusBadge, type StatusVariant } from "@/components/common/status-badg
 import { AdminCard } from "@/components/common/admin-card"
 import { EmptyState } from "@/components/common/empty-state"
 import { Users } from "lucide-react"
+import { CopyLinkButton } from "@/components/affiliates/copy-link-button"
+import { ReferralQrCode } from "@/components/affiliates/referral-qr-code"
 import type {
   AffiliateConversion,
   AffiliateStatus,
   AffiliateWithStats,
 } from "@/lib/affiliates"
+
+// Kept in sync with the affiliate dashboard so the link an admin sees here
+// matches what the partner copies from their own page.
+const SITE_ORIGIN = "https://primehelixlabz.com"
 
 interface Props {
   affiliates: AffiliateWithStats[]
@@ -463,6 +469,11 @@ function Row({
           <div className="flex flex-col">
             <span className="text-sm font-medium text-foreground">{a.name}</span>
             <span className="text-xs text-muted-foreground">{a.email}</span>
+            {a.code && (
+              <span className="mt-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-primary">
+                {a.code}
+              </span>
+            )}
           </div>
         </td>
         <td className="px-6 py-4 align-middle">
@@ -501,6 +512,61 @@ function Row({
         <tr className="border-b border-border/50 bg-muted/40">
           <td className="px-6 py-4"></td>
           <td colSpan={6} className="px-6 py-4">
+            {/* Referral link + code — surfaced here so admins can grab a
+                partner's link without opening the partner-side dashboard,
+                e.g. to feed into a QR-code generator for offline collateral. */}
+            {a.code ? (
+              <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-border/50 bg-background p-4 md:flex-row md:items-start md:gap-6">
+                <div className="flex flex-1 flex-col gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Referral link &amp; code
+                    </p>
+                    <span className="font-mono text-xs font-semibold uppercase tracking-wider text-primary">
+                      {a.code}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted p-3">
+                    <code className="flex-1 break-all text-xs text-foreground">
+                      {`${SITE_ORIGIN}/?ref=${a.code}`}
+                    </code>
+                    <CopyLinkButton value={`${SITE_ORIGIN}/?ref=${a.code}`} />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted p-3">
+                    <code className="flex-1 break-all text-xs text-foreground">
+                      {`${SITE_ORIGIN}/shop?ref=${a.code}`}
+                    </code>
+                    <CopyLinkButton
+                      value={`${SITE_ORIGIN}/shop?ref=${a.code}`}
+                      label="Copy shop link"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Append <code className="font-mono">?ref={a.code}</code> to any
+                    page on the site (including individual products) to attribute
+                    the visit to this partner.
+                  </p>
+                </div>
+                {/* Print-ready QR for the homepage link. Useful for sending
+                    directly to a partner who's asked for one. */}
+                <div className="flex flex-col items-center gap-2 md:shrink-0">
+                  <ReferralQrCode
+                    url={`${SITE_ORIGIN}/?ref=${a.code}`}
+                    code={a.code}
+                    displaySize={160}
+                  />
+                  <p className="max-w-[10rem] text-center text-[11px] text-muted-foreground">
+                    Print-ready QR. Share with the partner for ads &amp; flyers.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6 rounded-2xl border border-dashed border-border/50 bg-background p-4 text-xs text-muted-foreground">
+                No referral code yet — codes are minted when the affiliate is
+                approved.
+              </div>
+            )}
+
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               <DetailField label="Website / channel">
                 {a.website ? (
