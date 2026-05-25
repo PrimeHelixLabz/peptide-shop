@@ -10,6 +10,49 @@ import {
   getProductReviews,
   getProductRatingSummary,
 } from "@/lib/db/reviews"
+import { stripHtmlToPlainText } from "@/lib/blog/sanitize"
+
+// Search-engine-friendly description length. Google truncates at ~160 chars
+// in SERPs; we keep a small safety margin to avoid mid-word cuts.
+const META_DESCRIPTION_MAX = 155
+
+function truncateForMeta(text: string): string {
+  const collapsed = text.replace(/\s+/g, " ").trim()
+  if (collapsed.length <= META_DESCRIPTION_MAX) return collapsed
+  // Cut at the last word boundary inside the budget so we don't end mid-word.
+  const slice = collapsed.slice(0, META_DESCRIPTION_MAX)
+  const lastSpace = slice.lastIndexOf(" ")
+  return (lastSpace > 80 ? slice.slice(0, lastSpace) : slice).trimEnd() + "…"
+}
+
+/**
+ * Pick the best available meta description for a product. The admin form
+ * stopped populating `description` (it's hardcoded to "" — see
+ * components/admin/admin-product-form.tsx) so for current products this
+ * always falls through to the longDescription HTML or the templated default.
+ *
+ * Returning a non-empty string here is critical — Bing Webmaster flags any
+ * product page with a missing description, which hurts our SERP CTR.
+ */
+function pickProductMetaDescription(product: {
+  name: string
+  description?: string
+  longDescription?: string
+  category?: string
+}): string {
+  const direct = product.description?.trim()
+  if (direct) return truncateForMeta(direct)
+
+  if (product.longDescription) {
+    const fromLong = stripHtmlToPlainText(product.longDescription)
+    if (fromLong) return truncateForMeta(fromLong)
+  }
+
+  const category = product.category ? `${product.category} peptide` : "research peptide"
+  return truncateForMeta(
+    `${product.name} — pharmaceutical-grade ${category} from PrimeHelix Labz. Lab-tested purity, HPLC-verified, ships with a Certificate of Analysis. For research use only.`
+  )
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -31,20 +74,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const heroImage = product.images?.[0] || product.image
+  const metaDescription = pickProductMetaDescription(product)
 
   return {
     title: `${product.name} | PrimeHelix Labz`,
-    description: product.description,
+    description: metaDescription,
     openGraph: {
       title: `${product.name} | PrimeHelix Labz`,
-      description: product.description,
+      description: metaDescription,
       type: "website",
       images: [{ url: heroImage }],
     },
     twitter: {
       card: "summary_large_image",
       title: `${product.name} | PrimeHelix Labz`,
-      description: product.description,
+      description: metaDescription,
       images: [heroImage],
     },
     alternates: {
