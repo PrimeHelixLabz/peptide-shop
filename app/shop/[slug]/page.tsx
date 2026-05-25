@@ -30,6 +30,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   }
 
+  const heroImage = product.images?.[0] || product.image
+
   return {
     title: `${product.name} | PrimeHelix Labz`,
     description: product.description,
@@ -37,7 +39,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${product.name} | PrimeHelix Labz`,
       description: product.description,
       type: "website",
-      images: [{ url: product.images?.[0] || product.image }],
+      images: [{ url: heroImage }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${product.name} | PrimeHelix Labz`,
+      description: product.description,
+      images: [heroImage],
     },
     alternates: {
       canonical: `/shop/${slug}`,

@@ -823,3 +823,98 @@ export async function sendCustomerOrderConfirmedEmail(order: Order): Promise<voi
     console.error("Failed to send customer paid-confirmation email:", error)
   }
 }
+
+interface RestockNotificationParams {
+  toEmail: string
+  productName: string
+  variantSku: string
+  productUrl: string
+  productImage?: string
+  unsubscribeUrl: string
+}
+
+export async function sendRestockNotificationEmail(
+  params: RestockNotificationParams
+): Promise<void> {
+  const safeProductName = escapeHtml(params.productName)
+  const safeVariantSku = escapeHtml(params.variantSku)
+  const imageBlock = params.productImage
+    ? `
+      <div style="margin: 16px 0; text-align: center;">
+        <img src="${params.productImage}" alt="${safeProductName}" style="max-width: 240px; height: auto; border-radius: 12px; border: 1px solid #e5e7eb;" />
+      </div>`
+    : ""
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <div style="background-color: #065f46; padding: 28px 24px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 22px; letter-spacing: 0.02em;">Back in stock</h1>
+            <p style="margin: 8px 0 0; color: #a7f3d0; font-size: 13px;">PrimeHelix Labz</p>
+          </div>
+
+          <div style="padding: 28px 24px;">
+            <p style="margin: 0 0 16px; color: #111827; font-size: 16px; line-height: 1.6;">
+              Good news &mdash; <strong>${safeProductName} (${safeVariantSku})</strong>
+              is back in stock and available to order.
+            </p>
+
+            ${imageBlock}
+
+            <p style="margin: 16px 0 24px; color: #374151; font-size: 15px; line-height: 1.65;">
+              Restocks of this compound move quickly. We recommend ordering soon
+              if you want to avoid the next wait.
+            </p>
+
+            <p style="margin: 0 0 28px; text-align: center;">
+              <a href="${params.productUrl}" style="display: inline-block; background-color: #1e293b; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-weight: 500; font-size: 15px;">
+                View product
+              </a>
+            </p>
+
+            <p style="margin: 20px 0 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Questions? Reply to this email or reach
+              <a href="mailto:${SUPPORT_EMAIL}" style="color: #1e293b;">${SUPPORT_EMAIL}</a>.
+            </p>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 6px; color: #6b7280; font-size: 12px;">
+              You received this because you asked us to notify you when this
+              product was restocked.
+              <a href="${params.unsubscribeUrl}" style="color: #1e293b; text-decoration: underline;">Unsubscribe</a>.
+            </p>
+            <p style="margin: 0 0 6px; color: #9ca3af; font-size: 11px;">
+              PrimeHelix Labz &middot; 20403 N Lake Pleasant RD, Suite 117, Peoria, AZ 85382
+            </p>
+            <p style="margin: 0; color: #9ca3af; font-size: 11px;">
+              All products are sold strictly for research purposes only. Not for human consumption.
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>`
+
+  const { error } = await resend.emails.send({
+    from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+    to: [params.toEmail.trim()],
+    replyTo: SUPPORT_EMAIL,
+    subject: `Back in stock: ${params.productName} (${params.variantSku})`,
+    html,
+    headers: {
+      "List-Unsubscribe": `<${params.unsubscribeUrl}>, <mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+  })
+
+  if (error) {
+    console.error("Failed to send restock notification email:", error)
+    throw new Error(error.message)
+  }
+}

@@ -8,11 +8,13 @@ import { Minus, Plus, ShoppingCart, Check, FlaskConical, Shield, Truck, ChevronL
 import type { ProductDetail } from "@/lib/products"
 import type { ProductRatingSummary } from "@/lib/db/reviews"
 import { ReviewSummary } from "@/components/reviews/review-summary"
+import { RestockNotifyForm } from "@/components/restock-notify-form"
+import { ReconstitutionCalculator } from "@/components/reconstitution-calculator"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { useAuth } from "@/lib/auth/auth-context"
 
-type TabId = "description" | "coa"
+type TabId = "description" | "coa" | "calculator"
 
 export function ProductDetailView({
   product,
@@ -22,12 +24,11 @@ export function ProductDetailView({
   ratingSummary?: ProductRatingSummary
 }) {
   const hasCoa = !!product.coaUrl
-  const tabs: { id: TabId; label: string }[] = hasCoa
-    ? [
-        { id: "description", label: "Description" },
-        { id: "coa", label: "COA" },
-      ]
-    : [{ id: "description", label: "Description" }]
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "description", label: "Description" },
+    ...(hasCoa ? [{ id: "coa" as TabId, label: "COA" }] : []),
+    { id: "calculator", label: "Dosing Calculator" },
+  ]
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState<TabId>("description")
   const [added, setAdded] = useState(false)
@@ -171,7 +172,8 @@ export function ProductDetailView({
 
   const tabContent: Record<TabId, string> = {
     description: descriptionHtml,
-    coa: "Certificate of Analysis (COA) images are provided for this product."
+    coa: "Certificate of Analysis (COA) images are provided for this product.",
+    calculator: "",
   }
 
   return (
@@ -507,7 +509,7 @@ export function ProductDetailView({
               onClick={handleAddToCart}
               disabled={!displayInStock || added}
               className="flex h-12 flex-1 items-center justify-center gap-2.5 rounded-2xl bg-primary px-8 text-sm font-medium text-white transition-all duration-300 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:max-w-xs shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] min-h-[48px]"
-              aria-label={`Add ${quantity} ${product.name}${selectedVariant ? ` (${selectedVariant.name})` : ""} to cart`}
+              aria-label={`Add ${quantity} ${product.name}${selectedVariant ? ` (${selectedVariant.sku})` : ""} to cart`}
             >
               {added ? (
                 <>
@@ -522,6 +524,17 @@ export function ProductDetailView({
               )}
             </button>
           </div>
+
+          {/* Restock notification — only shown when the currently-selected
+              variant is out of stock. Replaces the (disabled) Add-to-Cart
+              experience with a way to recover the lost sale. */}
+          {!displayInStock && selectedVariant && (
+            <RestockNotifyForm
+              variantId={selectedVariant.id}
+              variantSku={selectedVariant.sku ?? selectedVariant.name ?? "this strength"}
+              defaultEmail={user?.email}
+            />
+          )}
 
           {/* Trust Badges */}
           <div className="grid grid-cols-3 gap-3 rounded-2xl bg-gray-50 p-4">
@@ -621,6 +634,13 @@ export function ProductDetailView({
                   {String(sequence)}
                 </code>
               </div>
+            )}
+
+            {tab.id === "calculator" && (
+              <ReconstitutionCalculator
+                productName={product.name}
+                variantSku={selectedVariant?.sku}
+              />
             )}
           </div>
         ))}

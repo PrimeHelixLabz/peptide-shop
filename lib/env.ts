@@ -73,6 +73,11 @@ const serverSchema = z.object({
 
   // Observability (optional)
   SENTRY_DSN: optionalNonEmpty,
+
+  // Cron auth (required in production). Vercel Cron sends this as a Bearer
+  // token in the Authorization header when configured in vercel.json, which
+  // is how the /api/cron/* routes know a request is genuine.
+  CRON_SECRET: optionalNonEmpty,
 })
 
 const clientSchema = z.object({
@@ -168,6 +173,11 @@ function validateServer(): z.infer<typeof serverSchema> {
     if (!e.NEWSLETTER_UNSUBSCRIBE_SECRET) {
       crossErrors.push(
         "NEWSLETTER_UNSUBSCRIBE_SECRET must be set in production (used to sign one-click unsubscribe links)."
+      )
+    }
+    if (!e.CRON_SECRET) {
+      crossErrors.push(
+        "CRON_SECRET must be set in production (Vercel Cron Authorization header — used by /api/cron/* routes)."
       )
     }
   }
