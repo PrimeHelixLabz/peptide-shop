@@ -162,9 +162,12 @@ export function ProductDetailView({
   // This allows words to wrap naturally while preserving formatting
   const processHtmlForWrapping = (html: string): string => {
     if (!html) return ""
-    // Replace &nbsp; with regular spaces, but preserve intentional spacing
-    // Replace &nbsp; that are between words (not at start/end of tags)
-    return html.replace(/&nbsp;/g, " ")
+    return html
+      .replace(/&nbsp;/g, " ")
+      // The product name is the page's canonical <h1>. Admins can insert
+      // <h1> via the Quill editor, which trips Bing's "multiple H1" SEO
+      // check — demote any description-level h1s to h2.
+      .replace(/<(\/?)h1(\s|>)/gi, "<$1h2$2")
   }
 
   // const descriptionHtml = processHtmlForWrapping(product.longDescription || product.description || "")

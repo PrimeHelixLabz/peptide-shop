@@ -20,6 +20,22 @@ interface PageProps {
 export const revalidate = 300
 export const dynamicParams = true
 
+// Bing Webmaster flags <title> over 70 chars. The brand suffix is 19 chars,
+// so when title + suffix exceeds the budget we drop the suffix; if the
+// title alone still exceeds, we truncate at the nearest word boundary.
+const META_TITLE_MAX = 70
+const BRAND_SUFFIX = " | PrimeHelix Labz"
+
+function composeMetaTitle(title: string): string {
+  const trimmed = title.trim()
+  const withSuffix = `${trimmed}${BRAND_SUFFIX}`
+  if (withSuffix.length <= META_TITLE_MAX) return withSuffix
+  if (trimmed.length <= META_TITLE_MAX) return trimmed
+  const slice = trimmed.slice(0, META_TITLE_MAX - 1)
+  const lastSpace = slice.lastIndexOf(" ")
+  return (lastSpace > 30 ? slice.slice(0, lastSpace) : slice).trimEnd() + "…"
+}
+
 export async function generateStaticParams() {
   const slugs = await getPublishedSlugs()
   return slugs.map((slug) => ({ slug }))
@@ -41,7 +57,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "Article Not Found | PrimeHelix Labz" }
   }
   return {
-    title: `${post.title} | PrimeHelix Labz`,
+    title: composeMetaTitle(post.title),
     description: post.description,
     alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
