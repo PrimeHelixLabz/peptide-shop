@@ -19,9 +19,11 @@ export default function robots(): MetadataRoute.Robots {
           '/signin',
           '/signup',
           '/payments/',
+          '/affiliates/dashboard',
+          '/unsubscribe',
         ],
       },
     ],
-    sitemap: 'https://primehelixlabz.com/sitemap.xml',
+    sitemap: 'https://www.primehelixlabz.com/sitemap.xml',
   }
 }

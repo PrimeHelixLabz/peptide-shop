@@ -73,8 +73,8 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
 
   const canonical =
     page === 1
-      ? "https://primehelixlabz.com/blog"
-      : `https://primehelixlabz.com/blog?page=${page}`
+      ? "https://www.primehelixlabz.com/blog"
+      : `https://www.primehelixlabz.com/blog?page=${page}`
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -84,7 +84,7 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
     publisher: {
       "@type": "Organization",
       name: "PrimeHelix Labz",
-      url: "https://primehelixlabz.com",
+      url: "https://www.primehelixlabz.com",
     },
     blogPost: posts.map((p) => ({
       "@type": "BlogPosting",
@@ -92,7 +92,7 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
       description: p.description,
       datePublished: p.publishedAt,
       dateModified: p.updatedAt,
-      url: `https://primehelixlabz.com/blog/${p.slug}`,
+      url: `https://www.primehelixlabz.com/blog/${p.slug}`,
       author: {
         "@type": "Organization",
         name: p.authorName,
@@ -142,7 +142,6 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
                             fill
                             className="object-cover transition-transform duration-500 group-hover:scale-105"
                             sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                            unoptimized={post.featuredImage.includes("supabase")}
                           />
                         </div>
                       )}

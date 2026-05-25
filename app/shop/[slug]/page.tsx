@@ -73,7 +73,7 @@ export default async function ProductPage({ params }: PageProps) {
     name: product.name,
     description: product.description,
     image: product.images?.[0] || product.image,
-    url: `https://primehelixlabz.com/shop/${slug}`,
+    url: `https://www.primehelixlabz.com/shop/${slug}`,
     sku: product.variants?.[0]?.sku || product.id,
     brand: {
       "@type": "Brand",
@@ -136,19 +136,19 @@ export default async function ProductPage({ params }: PageProps) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: "https://primehelixlabz.com/",
+        item: "https://www.primehelixlabz.com/",
       },
       {
         "@type": "ListItem",
         position: 2,
         name: "Shop",
-        item: "https://primehelixlabz.com/shop",
+        item: "https://www.primehelixlabz.com/shop",
       },
       {
         "@type": "ListItem",
         position: 3,
         name: product.name,
-        item: `https://primehelixlabz.com/shop/${slug}`,
+        item: `https://www.primehelixlabz.com/shop/${slug}`,
       },
     ],
   }

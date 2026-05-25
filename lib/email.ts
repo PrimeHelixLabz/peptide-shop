@@ -336,37 +336,37 @@ interface WelcomeArticle {
 const WELCOME_ARTICLES: WelcomeArticle[] = [
   {
     title: "BPC-157 Research Guide",
-    url: "https://primehelixlabz.com/blog/bpc-157-research-guide",
+    url: "https://www.primehelixlabz.com/blog/bpc-157-research-guide",
     description:
       "Structure, mechanisms studied in animal models, and what published preclinical literature reports.",
   },
   {
     title: "BPC-157 vs TB-500",
-    url: "https://primehelixlabz.com/blog/bpc-157-vs-tb-500",
+    url: "https://www.primehelixlabz.com/blog/bpc-157-vs-tb-500",
     description:
       "How these two tissue-repair peptides differ structurally and mechanistically.",
   },
   {
     title: "Peptide Storage Guide",
-    url: "https://primehelixlabz.com/blog/peptide-storage-guide",
+    url: "https://www.primehelixlabz.com/blog/peptide-storage-guide",
     description:
       "Lyophilized vs reconstituted, temperature, freeze-thaw, and shelf life in the lab.",
   },
   {
     title: "How to Read a Certificate of Analysis",
-    url: "https://primehelixlabz.com/blog/how-to-read-peptide-coa",
+    url: "https://www.primehelixlabz.com/blog/how-to-read-peptide-coa",
     description:
       "Field-by-field walkthrough of a peptide COA, plus the red flags to watch for.",
   },
   {
     title: "GHK-Cu Research Overview",
-    url: "https://primehelixlabz.com/blog/ghk-cu-research-overview",
+    url: "https://www.primehelixlabz.com/blog/ghk-cu-research-overview",
     description:
       "The copper-binding tripeptide, its mechanisms in dermal-research literature, and lab handling.",
   },
 ]
 
-const SITE_ORIGIN = "https://primehelixlabz.com"
+const SITE_ORIGIN = "https://www.primehelixlabz.com"
 
 export async function sendNewsletterWelcomeEmail(toEmail: string): Promise<void> {
   const safeEmail = escapeHtml(toEmail.trim())
@@ -417,7 +417,7 @@ export async function sendNewsletterWelcomeEmail(toEmail: string): Promise<void>
 
             <p style="margin: 28px 0 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
               Browse our full catalog at
-              <a href="https://primehelixlabz.com/shop" style="color: #1e293b; font-weight: 500;">primehelixlabz.com/shop</a>.
+              <a href="https://www.primehelixlabz.com/shop" style="color: #1e293b; font-weight: 500;">primehelixlabz.com/shop</a>.
               All products ship with a lot-specific Certificate of Analysis.
             </p>
 

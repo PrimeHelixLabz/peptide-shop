@@ -20,7 +20,7 @@ import type {
 
 // Kept in sync with the affiliate dashboard so the link an admin sees here
 // matches what the partner copies from their own page.
-const SITE_ORIGIN = "https://primehelixlabz.com"
+const SITE_ORIGIN = "https://www.primehelixlabz.com"
 
 interface Props {
   affiliates: AffiliateWithStats[]

@@ -33,7 +33,6 @@ export function CartItemRow({ item }: { item: CartItem }) {
           fill
           className="object-cover transition-opacity hover:opacity-80"
           sizes="128px"
-          unoptimized={getProductImageUrl(displayImage, displayImages).includes("supabase")}
         />
       </Link>
 

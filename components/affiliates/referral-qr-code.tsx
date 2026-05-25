@@ -6,7 +6,7 @@ import { Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ReferralQrCodeProps {
-  /** Full URL to encode (e.g. https://primehelixlabz.com/?ref=ABCD1234). */
+  /** Full URL to encode (e.g. https://www.primehelixlabz.com/?ref=ABCD1234). */
   url: string
   /** Affiliate code; used only to generate a sensible download filename. */
   code: string

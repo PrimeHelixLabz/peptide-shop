@@ -213,7 +213,6 @@ export function ProductDetailView({
               priority
               className="object-contain transition-opacity duration-300"
               sizes="(max-width: 1024px) 100vw, 50vw"
-              unoptimized={currentImage?.includes("supabase") ?? false}
             />
             {!displayInStock && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-3xl">
@@ -299,7 +298,6 @@ export function ProductDetailView({
                       fill
                       className="object-contain"
                       sizes="80px"
-                      unoptimized={img?.includes("supabase") ?? false}
                     />
                   </button>
                 </div>
@@ -609,7 +607,6 @@ export function ProductDetailView({
                       width={1200}
                       height={1600}
                       className="h-auto w-full object-contain bg-white"
-                      unoptimized={product.coaUrl?.includes("supabase") ?? false}
                     />
                   </div>
                 </div>

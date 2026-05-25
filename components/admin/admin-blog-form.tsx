@@ -341,7 +341,6 @@ export function AdminBlogForm({ initial }: AdminBlogFormProps) {
                   width={800}
                   height={500}
                   className="h-auto w-full object-cover"
-                  unoptimized={form.featuredImage.includes("supabase")}
                 />
                 <button
                   type="button"

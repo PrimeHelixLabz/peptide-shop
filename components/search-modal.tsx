@@ -132,7 +132,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       fill
                       className="object-cover"
                       sizes="64px"
-                      unoptimized={getProductImageUrl(product.image, product.images).includes("supabase")}
                     />
                   </div>
                   <div className="flex-1 min-w-0">

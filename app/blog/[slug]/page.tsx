@@ -82,15 +82,15 @@ export default async function BlogPostPage({ params }: PageProps) {
     publisher: {
       "@type": "Organization",
       name: "PrimeHelix Labz",
-      url: "https://primehelixlabz.com",
+      url: "https://www.primehelixlabz.com",
       logo: {
         "@type": "ImageObject",
-        url: "https://primehelixlabz.com/logo.webp",
+        url: "https://www.primehelixlabz.com/logo.webp",
       },
     },
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `https://primehelixlabz.com/blog/${post.slug}`,
+      "@id": `https://www.primehelixlabz.com/blog/${post.slug}`,
     },
     keywords: post.tags.join(", "),
     ...(post.featuredImage && { image: post.featuredImage }),
@@ -104,19 +104,19 @@ export default async function BlogPostPage({ params }: PageProps) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: "https://primehelixlabz.com/",
+        item: "https://www.primehelixlabz.com/",
       },
       {
         "@type": "ListItem",
         position: 2,
         name: "Blog",
-        item: "https://primehelixlabz.com/blog",
+        item: "https://www.primehelixlabz.com/blog",
       },
       {
         "@type": "ListItem",
         position: 3,
         name: post.title,
-        item: `https://primehelixlabz.com/blog/${post.slug}`,
+        item: `https://www.primehelixlabz.com/blog/${post.slug}`,
       },
     ],
   }
@@ -181,7 +181,6 @@ export default async function BlogPostPage({ params }: PageProps) {
                     className="object-cover"
                     sizes="(max-width: 768px) 100vw, 768px"
                     priority
-                    unoptimized={post.featuredImage.includes("supabase")}
                   />
                 </div>
               )}

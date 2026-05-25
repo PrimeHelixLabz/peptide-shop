@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic"
 
-const SITE_ORIGIN = "https://primehelixlabz.com"
+const SITE_ORIGIN = "https://www.primehelixlabz.com"
 
 const CONVERSION_STATUS_VARIANT: Record<ConversionStatus, StatusVariant> = {
   pending: "warning",

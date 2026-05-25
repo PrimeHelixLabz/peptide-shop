@@ -41,7 +41,6 @@ export function RelatedProducts({ products }: { products: ProductDetail[] }) {
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  unoptimized={getProductImageUrl(product.image, product.images).includes("supabase")}
                 />
                 {!product.inStock && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-2xl">
