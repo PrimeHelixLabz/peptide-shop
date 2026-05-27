@@ -48,9 +48,10 @@ export interface Product {
    */
   thumbnailUrl?: string
   /**
-   * Optional Certificate of Analysis image URL (CDN-ready).
+   * Certificates of Analysis attached to this product. Ordered by `sortOrder`.
+   * Empty/undefined means no COA tab is shown on the storefront.
    */
-  coaUrl?: string
+  coas?: ProductCoa[]
   image: string // Legacy: base/default image (kept for backward compatibility)
   images?: string[] // Legacy: base/default images (kept for backward compatibility)
   category?: string // Legacy: category name (for backward compatibility)
@@ -85,6 +86,17 @@ export interface ProductVariant {
   inStock: boolean
   displayOrder: number // Order for displaying variants
   isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProductCoa {
+  id: string
+  productId: string
+  imageUrl: string
+  /** Optional caption shown above the image (e.g. "Batch 2024-11"). */
+  label?: string
+  sortOrder: number
   createdAt: string
   updatedAt: string
 }

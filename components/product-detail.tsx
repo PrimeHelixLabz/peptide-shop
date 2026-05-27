@@ -23,7 +23,8 @@ export function ProductDetailView({
   product: ProductDetail
   ratingSummary?: ProductRatingSummary
 }) {
-  const hasCoa = !!product.coaUrl
+  const coas = product.coas || []
+  const hasCoa = coas.length > 0
   const tabs: { id: TabId; label: string }[] = [
     { id: "description", label: "Description" },
     ...(hasCoa ? [{ id: "coa" as TabId, label: "COA" }] : []),
@@ -611,21 +612,32 @@ export function ProductDetailView({
             )}
 
             {tab.id === "coa" && hasCoa && (
-              <div className="max-w-3xl space-y-4">
+              <div className="max-w-3xl space-y-6">
                 <p className="text-sm leading-relaxed text-muted-foreground lg:text-base lg:leading-relaxed">
                   {tabContent.coa}
                 </p>
-                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
-                  <div className="relative w-full max-h-[800px]">
-                    <Image
-                      src={product.coaUrl!}
-                      alt={`${product.name} Certificate of Analysis`}
-                      width={1200}
-                      height={1600}
-                      className="h-auto w-full object-contain bg-white"
-                    />
+                {coas.map((coa, i) => (
+                  <div key={coa.id} className="space-y-2">
+                    {coa.label && (
+                      <h3 className="text-sm font-semibold text-foreground lg:text-base">
+                        {coa.label}
+                      </h3>
+                    )}
+                    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                      <div className="relative w-full max-h-[800px]">
+                        <Image
+                          src={coa.imageUrl}
+                          alt={`${product.name} Certificate of Analysis${
+                            coa.label ? ` — ${coa.label}` : coas.length > 1 ? ` ${i + 1}` : ""
+                          }`}
+                          width={1200}
+                          height={1600}
+                          className="h-auto w-full object-contain bg-white"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
             )}
             {tab.id === "description" && sequence && (

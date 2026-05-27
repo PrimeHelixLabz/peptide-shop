@@ -35,6 +35,13 @@ export interface ProductVariantFormData {
   displayOrder: number
 }
 
+export interface CoaFormItem {
+  // DB id if this row already exists on the server
+  id?: string
+  imageUrl: string
+  label: string
+}
+
 export interface ProductFormData {
   name: string
   description: string
@@ -42,9 +49,9 @@ export interface ProductFormData {
   categoryId: string
   thumbnailFile?: File
   thumbnailPreview: string
-  // COA (Certificate of Analysis)
-  coaFile?: File
-  coaPreview: string
+  // Certificates of Analysis. Multiple are supported so a product with both
+  // an original batch in stock and new incoming batches can show each COA.
+  coas: CoaFormItem[]
   specifications: Array<{ key: string; value: string }>
   usage: string
   shipping: string
@@ -59,8 +66,7 @@ const initialFormData: ProductFormData = {
   categoryId: "",
   thumbnailFile: undefined,
   thumbnailPreview: "",
-   coaFile: undefined,
-   coaPreview: "",
+  coas: [],
   specifications: [{ key: "purity", value: "" }], // Purity as default property for peptides
   usage: "",
   shipping: "",
@@ -214,6 +220,17 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               !!thumbnailUrl && thumbnailUrl.includes("/variants/")
             const explicitThumbnailPreview = !isDerivedFromVariant ? (thumbnailUrl || "") : ""
 
+            const coas: CoaFormItem[] = Array.isArray(product.coas)
+              ? product.coas
+                  .slice()
+                  .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                  .map((c: any) => ({
+                    id: c.id,
+                    imageUrl: c.imageUrl || "",
+                    label: c.label || "",
+                  }))
+              : []
+
             setForm({
               name: product.name || "",
               // description: product.description || "", // DISABLED
@@ -225,8 +242,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
               // If the product is using a derived thumbnail from a variant,
               // we keep this empty so the admin can see that no explicit thumbnail is selected.
               thumbnailPreview: explicitThumbnailPreview,
-              coaFile: undefined,
-              coaPreview: product.coaUrl || "",
+              coas,
               specifications: specsArray,
               usage: product.usage || "",
               shipping: product.shipping || "",
@@ -331,81 +347,152 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     [productId, form.thumbnailPreview]
   )
 
-  /* ---- COA handling ---- */
+  /* ---- COA handling (multi) ---- */
 
-  const handleCoaFile = useCallback(
-    (file: File | null) => {
-      if (!file) return
-      if (!file.type.startsWith("image/")) return
+  // Persist the full COA list to the server. The PUT route replaces all rows
+  // for the product, so we always send the entire current list. Called after
+  // every add/remove/reorder and on label blur.
+  const syncCoasToServer = useCallback(
+    async (coas: CoaFormItem[]) => {
+      if (!productId) return
+      try {
+        const res = await fetch(`/api/products/${productId}/coas`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            coas: coas.map((c, i) => ({
+              imageUrl: c.imageUrl,
+              label: c.label.trim() || null,
+              sortOrder: i,
+            })),
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          console.error("Failed to sync COAs:", err)
+          toast.error("Failed to save COAs", {
+            description: err.error || "Please try again.",
+          })
+          return
+        }
+        const data = await res.json().catch(() => ({}))
+        // Refresh local ids from the server response so subsequent removes
+        // can target the right rows after a server-side regenerate.
+        if (Array.isArray(data.coas)) {
+          setForm((prev) => ({
+            ...prev,
+            coas: data.coas.map((c: any, i: number) => ({
+              id: c.id,
+              imageUrl: c.imageUrl || prev.coas[i]?.imageUrl || "",
+              label: c.label || "",
+            })),
+          }))
+        }
+      } catch (error) {
+        console.error("Error syncing COAs:", error)
+        toast.error("Failed to save COAs", {
+          description: "Please try again.",
+        })
+      }
+    },
+    [productId]
+  )
 
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const preview = e.target?.result as string
-        setForm((prev) => ({
-          ...prev,
-          coaFile: file,
-          coaPreview: preview,
-        }))
+  const handleCoaFilesAdd = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return
+      const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"))
+      if (imageFiles.length === 0) return
 
-        // If editing an existing product, immediately upload and persist COA image
-        if (productId) {
-          ;(async () => {
-            try {
-              // Best-effort delete previous COA image from storage if it was a storage URL
-              if (form.coaPreview && isStorageUrl(form.coaPreview)) {
-                try {
-                  await fetch("/api/upload/delete", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ url: form.coaPreview }),
-                  })
-                } catch {
-                  // ignore delete failures here
-                }
-              }
+      if (!productId) {
+        toast.error("Save the product first", {
+          description: "Create the product, then add Certificates of Analysis.",
+        })
+        return
+      }
 
-              const coaFd = new FormData()
-              coaFd.append("file", file)
-              coaFd.append("productId", productId)
-              coaFd.append("kind", "coa")
+      try {
+        const uploadedUrls: string[] = []
+        for (const file of imageFiles) {
+          const fd = new FormData()
+          fd.append("file", file)
+          fd.append("productId", productId)
+          fd.append("kind", "coa")
 
-              const uploadRes = await fetch("/api/upload", { method: "POST", body: coaFd })
-              if (!uploadRes.ok) {
-                const err = await uploadRes.json().catch(() => ({}))
-                console.error("Failed to upload COA image:", err)
-                toast.error("Failed to upload COA image", {
-                  description: err.error || "Please try again.",
-                })
-                return
-              }
+          const up = await fetch("/api/upload", { method: "POST", body: fd })
+          if (!up.ok) {
+            const err = await up.json().catch(() => ({}))
+            console.error("Failed to upload COA image:", err)
+            toast.error("Failed to upload COA image", {
+              description: err.error || "Please try again.",
+            })
+            continue
+          }
+          const upData = await up.json()
+          if (upData?.url) uploadedUrls.push(upData.url)
+        }
 
-              const uploadData = await uploadRes.json()
-              const url = uploadData.url as string | undefined
-              if (!url) return
+        if (uploadedUrls.length === 0) return
 
-              setForm((prev) => ({
-                ...prev,
-                coaFile: undefined,
-                coaPreview: url,
-              }))
+        // Append uploaded images to the current list with empty labels.
+        const next: CoaFormItem[] = [
+          ...form.coas,
+          ...uploadedUrls.map((url) => ({ imageUrl: url, label: "" })),
+        ]
+        setForm((prev) => ({ ...prev, coas: next }))
+        await syncCoasToServer(next)
+      } catch (error) {
+        console.error("Error uploading COA images:", error)
+        toast.error("Failed to upload COA images", {
+          description: "Please try again.",
+        })
+      }
+    },
+    [productId, form.coas, syncCoasToServer]
+  )
 
-              await fetch(`/api/products/${productId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ coaUrl: url }),
-              })
-            } catch (error) {
-              console.error("Error saving COA image:", error)
-              toast.error("Failed to save COA image", {
-                description: "The COA may not have been updated. Please try again.",
-              })
-            }
-          })()
+  const removeCoa = useCallback(
+    async (index: number) => {
+      const target = form.coas[index]
+      if (!target) return
+
+      // Best-effort storage cleanup for the deleted image.
+      if (target.imageUrl && isStorageUrl(target.imageUrl)) {
+        try {
+          await fetch("/api/upload/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: target.imageUrl }),
+          })
+        } catch {
+          // ignore — orphan file is better than a wedged UI
         }
       }
-      reader.readAsDataURL(file)
+
+      const next = form.coas.filter((_, i) => i !== index)
+      setForm((prev) => ({ ...prev, coas: next }))
+
+      if (productId) {
+        await syncCoasToServer(next)
+      }
     },
-    [productId, form.coaPreview]
+    [form.coas, productId, syncCoasToServer]
+  )
+
+  function updateCoaLabel(index: number, label: string) {
+    setForm((prev) => ({
+      ...prev,
+      coas: prev.coas.map((c, i) => (i === index ? { ...c, label } : c)),
+    }))
+  }
+
+  const commitCoaLabel = useCallback(
+    async (index: number) => {
+      if (!productId) return
+      // form.coas already contains the latest label from updateCoaLabel.
+      await syncCoasToServer(form.coas)
+    },
+    [productId, form.coas, syncCoasToServer]
   )
 
   function handleDrag(e: React.DragEvent) {
@@ -484,65 +571,10 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
     }
   }
 
-  /* ---- COA helpers ---- */
-
-  async function clearCoa() {
-    const preview = form.coaPreview
-
-    // If it's an existing image from Supabase storage, delete it from storage
-    if (preview && isStorageUrl(preview)) {
-      try {
-        const response = await fetch("/api/upload/delete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: preview }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          console.error("Failed to delete COA image from storage:", errorData)
-          toast.error("Failed to delete COA image from storage", {
-            description:
-              errorData.error ||
-              "The COA was removed from the form but may still exist in storage.",
-          })
-        }
-      } catch (error) {
-        console.error("Error deleting COA image from storage:", error)
-        toast.error("Error deleting COA image", {
-          description:
-            "The COA was removed from the form but may still exist in storage.",
-        })
-      }
-    }
-
-    // Remove from form state
-    setForm((prev) => ({
-      ...prev,
-      coaFile: undefined,
-      coaPreview: "",
-    }))
-
-    // If editing an existing product, immediately clear COA on the product record
-    if (productId) {
-      try {
-        await fetch(`/api/products/${productId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ coaUrl: null }),
-        })
-      } catch (error) {
-        console.error("Error clearing COA on product:", error)
-        toast.error("Failed to update product COA", {
-          description: "The COA reference may not have been removed from the product.",
-        })
-      }
-    }
-  }
-
   function handleCoaInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] || null
-    handleCoaFile(file)
+    void handleCoaFilesAdd(e.target.files)
+    // Allow picking the same file again later
+    e.target.value = ""
   }
 
   function addSpecification() {
@@ -1567,46 +1599,79 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
             </div>
           </AdminCard>
 
-          {/* COA upload card */}
-          <AdminCard title="Certificate of Analysis (COA)">
+          {/* COA upload card (multi) */}
+          <AdminCard title="Certificates of Analysis (COA)">
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Upload an image of the lab Certificate of Analysis. When present, a COA tab will appear on the product detail page.
+                Upload one or more COA images. Label each one (e.g.
+                &quot;Batch 2024-11&quot;) so customers can match a COA to the
+                vial they received. When at least one is present, a COA tab
+                appears on the product detail page.
               </p>
 
-              {form.coaPreview && (
-                <div className="relative overflow-hidden rounded-xl bg-muted border border-border">
-                  <Image
-                    src={form.coaPreview}
-                    alt="COA preview"
-                    width={800}
-                    height={1000}
-                    className="h-auto w-full object-contain bg-white"
-                    unoptimized={form.coaPreview.startsWith("http")}
-                  />
-                  <button
-                    type="button"
-                    onClick={clearCoa}
-                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-background/90 text-foreground backdrop-blur-sm transition-colors hover:bg-accent"
-                    aria-label="Remove COA"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+              {!productId && (
+                <div className="rounded-xl border border-dashed border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
+                  Save the product first, then upload COAs.
                 </div>
+              )}
+
+              {form.coas.length > 0 && (
+                <ul className="space-y-3">
+                  {form.coas.map((coa, index) => (
+                    <li
+                      key={coa.id || coa.imageUrl || index}
+                      className="flex gap-3 rounded-xl border border-border bg-background p-3"
+                    >
+                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
+                        <Image
+                          src={coa.imageUrl}
+                          alt={coa.label || `COA ${index + 1}`}
+                          width={160}
+                          height={160}
+                          className="h-full w-full object-cover"
+                          unoptimized={coa.imageUrl.startsWith("http")}
+                        />
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Label (optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={coa.label}
+                          onChange={(e) => updateCoaLabel(index, e.target.value)}
+                          onBlur={() => void commitCoaLabel(index)}
+                          placeholder="e.g. Batch 2024-11"
+                          maxLength={120}
+                          className="block w-full rounded-lg border border-gray-200 bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void removeCoa(index)}
+                          className="self-start text-[11px] font-medium text-red-600 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
 
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium text-muted-foreground">
-                  COA Image (optional)
+                  {form.coas.length > 0 ? "Add another COA" : "Add COA image(s)"}
                 </label>
                 <input
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={handleCoaInputChange}
-                  className="block w-full rounded-xl border border-gray-200 bg-background px-3 py-2 text-xs text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground hover:file:bg-muted/80"
+                  disabled={!productId}
+                  className="block w-full rounded-xl border border-gray-200 bg-background px-3 py-2 text-xs text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground hover:file:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  JPEG, PNG, or WebP up to 5MB. For structured details like lab name or test date, use Specifications.
+                  JPEG, PNG, or WebP up to 5MB each. For structured details like lab name or test date, use Specifications.
                 </p>
               </div>
             </div>

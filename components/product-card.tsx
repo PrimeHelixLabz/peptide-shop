@@ -21,8 +21,13 @@ export interface Product {
   price: number
   description: string
   thumbnailUrl?: string
-  // Optional Certificate of Analysis image URL (for detail COA tab)
-  coaUrl?: string
+  // Certificates of Analysis (for detail COA tab). Empty/undefined hides the tab.
+  coas?: Array<{
+    id: string
+    imageUrl: string
+    label?: string
+    sortOrder: number
+  }>
   image: string // Keep for backward compatibility, will use first image from images if available
   images?: string[] // Array of image URLs
   category?: string

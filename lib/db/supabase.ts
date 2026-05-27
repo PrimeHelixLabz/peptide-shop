@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type {
   User,
   Product,
+  ProductCoa,
   ProductVariant,
   VariantImage,
   CartItem,
@@ -22,6 +23,7 @@ import type {
 } from "./schema"
 
 import { extractStoragePath, getStorageUrl, getStorageUrls } from "@/lib/storage/supabase-storage"
+import { rowToProductCoa } from "./product-coas"
 
 // Helper to convert database row to ProductVariant
 function rowToVariant(row: any): ProductVariant {
@@ -49,7 +51,6 @@ function rowToProduct(row: any): Product {
     ? getStorageUrls(row.images) 
     : (row.images ? [getStorageUrl(row.images)] : [])
   const thumbnailUrl = row.thumbnail_url ? getStorageUrl(row.thumbnail_url) : undefined
-  const coaUrl = row.coa_url ? getStorageUrl(row.coa_url) : undefined
 
   // Process variants if they exist
   let variants: ProductVariant[] | undefined
@@ -57,6 +58,14 @@ function rowToProduct(row: any): Product {
     const mapped = row.variants.map((v: any) => rowToVariant(v))
     // Sort variants by display_order
     variants = mapped.sort((a: ProductVariant, b: ProductVariant) => a.displayOrder - b.displayOrder)
+  }
+
+  // Process COAs from joined product_coas
+  let coas: ProductCoa[] | undefined
+  if (row.product_coas && Array.isArray(row.product_coas)) {
+    coas = row.product_coas
+      .map((c: any) => rowToProductCoa(c))
+      .sort((a: ProductCoa, b: ProductCoa) => a.sortOrder - b.sortOrder)
   }
 
   // Calculate overall stock status: true if product is in stock OR any variant is in stock
@@ -90,7 +99,7 @@ function rowToProduct(row: any): Product {
     description: row.description,
     longDescription: row.long_description,
     thumbnailUrl,
-    coaUrl,
+    coas,
     image: displayImage, // Use product image, or first variant image as placeholder
     images: displayImages,
     // Support both old category (text) and new category_id (with join)
@@ -122,11 +131,7 @@ function productToRow(product: Partial<Product>): any {
     product.thumbnailUrl !== undefined
       ? (product.thumbnailUrl ? (extractStoragePath(product.thumbnailUrl) || product.thumbnailUrl) : null)
       : undefined
-  const coa_url =
-    product.coaUrl !== undefined
-      ? (product.coaUrl ? (extractStoragePath(product.coaUrl) || product.coaUrl) : null)
-      : undefined
-  
+
   const row: any = {
     name: product.name,
     price: product.price,
@@ -135,7 +140,6 @@ function productToRow(product: Partial<Product>): any {
     image,
     images: images.length > 0 ? images : (image ? [image] : []),
     ...(thumbnail_url !== undefined ? { thumbnail_url } : {}),
-    ...(coa_url !== undefined ? { coa_url } : {}),
     category: product.category, // Keep for backward compatibility
     category_id: product.categoryId, // New category reference
     in_stock: product.inStock,
@@ -481,6 +485,9 @@ export async function getProducts(options?: {
       ),
       variants:product_variants (
         *
+      ),
+      product_coas (
+        *
       )
     `)
 
@@ -603,6 +610,9 @@ export async function getProductById(id: string): Promise<Product | null> {
       ),
       variants:product_variants (
         *
+      ),
+      product_coas (
+        *
       )
     `)
     .eq("id", id)
@@ -632,6 +642,9 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
         slug
       ),
       variants:product_variants (
+        *
+      ),
+      product_coas (
         *
       )
     `)
