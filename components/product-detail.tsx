@@ -9,12 +9,11 @@ import type { ProductDetail } from "@/lib/products"
 import type { ProductRatingSummary } from "@/lib/db/reviews"
 import { ReviewSummary } from "@/components/reviews/review-summary"
 import { RestockNotifyForm } from "@/components/restock-notify-form"
-import { ReconstitutionCalculator } from "@/components/reconstitution-calculator"
 import { useCart } from "@/lib/cart-context"
 import { useWishlist } from "@/lib/wishlist-context"
 import { useAuth } from "@/lib/auth/auth-context"
 
-type TabId = "description" | "coa" | "calculator"
+type TabId = "description" | "coa"
 
 export function ProductDetailView({
   product,
@@ -28,7 +27,6 @@ export function ProductDetailView({
   const tabs: { id: TabId; label: string }[] = [
     { id: "description", label: "Description" },
     ...(hasCoa ? [{ id: "coa" as TabId, label: "COA" }] : []),
-    { id: "calculator", label: "Dosing Calculator" },
   ]
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState<TabId>("description")
@@ -177,7 +175,6 @@ export function ProductDetailView({
   const tabContent: Record<TabId, string> = {
     description: descriptionHtml,
     coa: "Certificate of Analysis (COA) images are provided for this product.",
-    calculator: "",
   }
 
   return (
@@ -649,13 +646,6 @@ export function ProductDetailView({
                   {String(sequence)}
                 </code>
               </div>
-            )}
-
-            {tab.id === "calculator" && (
-              <ReconstitutionCalculator
-                productName={product.name}
-                variantSku={selectedVariant?.sku}
-              />
             )}
           </div>
         ))}
