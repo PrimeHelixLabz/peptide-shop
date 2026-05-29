@@ -233,8 +233,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
 
             setForm({
               name: product.name || "",
-              // description: product.description || "", // DISABLED
-              description: "", // DISABLED - keeping empty string for form compatibility
+              description: product.description || "",
               longDescription: product.longDescription || "",
               categoryId: product.categoryId || "",
               thumbnailFile: undefined,
@@ -920,8 +919,7 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
         name: form.name,
         price: defaultVariant ? parseFloat(defaultVariant.price) : 0, // Backward compatibility
         ...(explicitThumbnailUrl ? { thumbnailUrl: explicitThumbnailUrl } : {}),
-        // description: form.description, // DISABLED
-        description: "", // DISABLED - keeping empty string for API compatibility
+        description: form.description.trim(),
         longDescription: form.longDescription,
         image: "", // legacy
         images: [], // legacy
@@ -1423,14 +1421,20 @@ export function AdminProductForm({ productId, initialData }: AdminProductFormPro
                 ]}
               />
 
-              {/* Description - DISABLED */}
-              {/* <FormTextarea
-                label="Short Description"
-                rows={5}
-                placeholder="Describe this product..."
+              {/* Meta Description (SEO). Used verbatim as <meta name="description">
+                  and in the Product JSON-LD. When left blank the product page falls
+                  back to a truncated longDescription, which Google/Bing flag as
+                  low-quality — so a hand-written, per-product snippet is preferred.
+                  Keep within ~155 chars so search engines don't truncate it. */}
+              <FormTextarea
+                label="Meta Description (SEO)"
+                rows={3}
+                maxLength={160}
+                placeholder="One-sentence search snippet for this product (≈150 characters)."
                 value={form.description}
                 onChange={(e) => updateField("description", e.target.value)}
-              /> */}
+                helperText={`${form.description.length}/155 characters — shown in Google/Bing results. Leave blank to auto-generate from the detailed description.`}
+              />
 
               {/* Detailed Description (rich text) */}
               <RichTextEditor

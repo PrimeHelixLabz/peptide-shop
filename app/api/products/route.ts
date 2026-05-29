@@ -27,6 +27,7 @@ const variantInputSchema = z.object({
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   price: z.number().positive("Price must be a positive number"),
+  description: z.string().optional(),
   longDescription: z.string().optional(),
   thumbnailUrl: z.string().url().nullable().optional(),
   image: z.string().refine(

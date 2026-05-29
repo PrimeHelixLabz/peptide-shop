@@ -6,6 +6,7 @@ import { z } from "zod"
 const updateProductSchema = z.object({
   name: z.string().min(1).optional(),
   price: z.number().positive().optional(),
+  description: z.string().optional(),
   longDescription: z.string().optional(),
   thumbnailUrl: z.string().url().nullable().optional(),
   category: z.string().optional(),

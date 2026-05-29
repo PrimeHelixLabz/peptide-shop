@@ -26,13 +26,15 @@ function truncateForMeta(text: string): string {
 }
 
 /**
- * Pick the best available meta description for a product. The admin form
- * stopped populating `description` (it's hardcoded to "" — see
- * components/admin/admin-product-form.tsx) so for current products this
- * always falls through to the longDescription HTML or the templated default.
+ * Pick the best available meta description for a product. Preference order:
+ *   1. The hand-written `description` (the "Meta Description (SEO)" admin field).
+ *   2. The longDescription HTML, stripped and truncated.
+ *   3. A templated default built from name + category.
  *
- * Returning a non-empty string here is critical — Bing Webmaster flags any
- * product page with a missing description, which hurts our SERP CTR.
+ * Prefer a hand-written, per-product description: the truncated longDescription
+ * fallback is generic and Google/Bing treat it as low-quality (a contributor to
+ * "Crawled - currently not indexed"). Returning a non-empty string here is also
+ * critical — Bing Webmaster flags any product page with a missing description.
  */
 function pickProductMetaDescription(product: {
   name: string
