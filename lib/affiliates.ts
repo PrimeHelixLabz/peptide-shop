@@ -45,6 +45,7 @@ export interface AffiliateCode {
 }
 
 export type ConversionStatus = "pending" | "payable" | "paid" | "reversed"
+export type ConversionSource = "automatic" | "manual"
 
 export interface AffiliateConversion {
   id: string
@@ -55,6 +56,8 @@ export interface AffiliateConversion {
   commissionRate: number
   commissionAmount: number
   status: ConversionStatus
+  source: ConversionSource
+  adminNotes: string | null
   paidAt: string | null
   payoutReference: string | null
   createdAt: string
@@ -102,6 +105,8 @@ interface ConversionRow {
   commission_rate: number | string
   commission_amount: number | string
   status: ConversionStatus
+  source: string
+  admin_notes: string | null
   paid_at: string | null
   payout_reference: string | null
   created_at: string
@@ -145,6 +150,8 @@ function rowToConversion(row: ConversionRow): AffiliateConversion {
     commissionRate: Number(row.commission_rate),
     commissionAmount: Number(row.commission_amount),
     status: row.status,
+    source: (row.source ?? "automatic") as ConversionSource,
+    adminNotes: row.admin_notes ?? null,
     paidAt: row.paid_at,
     payoutReference: row.payout_reference,
     createdAt: row.created_at,
@@ -723,7 +730,7 @@ export async function getUnpaidConversionsForAffiliateAsAdmin(
   const { data, error } = await supabase
     .from("affiliate_conversions")
     .select(
-      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, paid_at, payout_reference, created_at"
+      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
     )
     .eq("affiliate_id", affiliateId)
     .in("status", ["pending", "payable"])
@@ -794,7 +801,7 @@ export async function getAffiliateStats(
   const { data, error } = await supabase
     .from("affiliate_conversions")
     .select(
-      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, paid_at, payout_reference, created_at"
+      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
     )
     .eq("affiliate_id", affiliateId)
     .order("created_at", { ascending: false })
@@ -838,6 +845,212 @@ export async function getAffiliateStats(
 
 function roundCurrency(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+// ============================================================
+// Manual commission entry
+// ============================================================
+
+export interface OrderPreview {
+  id: string
+  orderNumber: string
+  customerName: string
+  orderTotal: number
+  createdAt: string
+  /** True when a conversion row already exists for this order. */
+  alreadyAttributed: boolean
+  /** True when the existing attribution is to THIS affiliate. */
+  attributedToCurrentAffiliate: boolean
+  /** Name of the OTHER affiliate this order is already attributed to, or null. */
+  attributedToOtherAffiliate: string | null
+}
+
+export type OrderLookupResult =
+  | { found: false; reason: "not-found" | "not-paid" }
+  | { found: true; order: OrderPreview }
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Admin-only: looks up a paid order by UUID or order_number and returns a
+ * preview for the manual-commission entry form. Checks whether the order is
+ * already attributed (to this affiliate or another) so the admin can be warned
+ * before attempting to insert a duplicate (which would fail the UNIQUE constraint
+ * on affiliate_conversions.order_id anyway).
+ */
+export async function lookupOrderForManualConversionAsAdmin(
+  affiliateId: string,
+  orderRef: string
+): Promise<OrderLookupResult> {
+  const ref = orderRef.trim()
+  if (!ref) return { found: false, reason: "not-found" }
+
+  const supabase = createAdminClient()
+  const isUuid = UUID_REGEX.test(ref)
+
+  const baseQuery = supabase
+    .from("orders")
+    .select("id, order_number, total, created_at, payment_status, shipping_address")
+
+  const { data: orderData, error: orderError } = await (
+    isUuid ? baseQuery.eq("id", ref) : baseQuery.eq("order_number", ref)
+  ).maybeSingle()
+
+  if (orderError) {
+    console.error("lookupOrderForManualConversionAsAdmin: orders query failed", orderError)
+    return { found: false, reason: "not-found" }
+  }
+  if (!orderData) return { found: false, reason: "not-found" }
+
+  const order = orderData as unknown as {
+    id: string
+    order_number: string
+    total: number | string
+    created_at: string
+    payment_status: string
+    shipping_address: Record<string, string> | null
+  }
+
+  if (order.payment_status !== "paid") {
+    return { found: false, reason: "not-paid" }
+  }
+
+  // Derive customer name from shipping_address JSONB.
+  const addr = order.shipping_address ?? {}
+  const firstName = addr.firstName ?? ""
+  const lastName = addr.lastName ?? ""
+  const customerName =
+    [firstName, lastName].filter(Boolean).join(" ") || "Unknown customer"
+
+  // Check for existing attribution.
+  const { data: existing } = await supabase
+    .from("affiliate_conversions")
+    .select("affiliate_id, affiliates!inner(name)")
+    .eq("order_id", order.id)
+    .maybeSingle()
+
+  const existingRow = existing as unknown as {
+    affiliate_id: string
+    affiliates: { name: string } | null
+  } | null
+
+  const alreadyAttributed = !!existingRow
+  const attributedToCurrentAffiliate =
+    alreadyAttributed && existingRow!.affiliate_id === affiliateId
+  const attributedToOtherAffiliate =
+    alreadyAttributed && !attributedToCurrentAffiliate
+      ? (existingRow!.affiliates?.name ?? "another affiliate")
+      : null
+
+  return {
+    found: true,
+    order: {
+      id: order.id,
+      orderNumber: order.order_number,
+      customerName,
+      orderTotal: Number(order.total),
+      createdAt: order.created_at,
+      alreadyAttributed,
+      attributedToCurrentAffiliate,
+      attributedToOtherAffiliate,
+    },
+  }
+}
+
+export interface ManualConversionOptions {
+  commissionRateOverride?: number
+  adminNotes?: string
+}
+
+/**
+ * Admin-only: manually creates an affiliate_conversion for an order that was
+ * not attributed automatically (e.g. customer forgot to enter the referral code).
+ *
+ * Uses the affiliate's current commission_rate unless overridden. Fetches the
+ * affiliate's active referral code (generating one if needed) to populate the
+ * denormalized `code` column. Throws if the order is already attributed — the
+ * UNIQUE constraint on order_id would catch it anyway, but we surface a clear
+ * message before hitting the DB.
+ */
+export async function createManualConversionAsAdmin(
+  affiliateId: string,
+  orderId: string,
+  options?: ManualConversionOptions
+): Promise<AffiliateConversion> {
+  const supabase = createAdminClient()
+
+  const affiliate = await getAffiliateByIdAsAdmin(affiliateId)
+  if (!affiliate) throw new Error("Affiliate not found")
+  if (affiliate.status !== "approved") {
+    throw new Error("Affiliate must be approved to receive commissions")
+  }
+
+  // Ensure the affiliate has an active referral code; generate if missing.
+  const codeRecord = await ensureCodeForAffiliate(affiliateId, affiliate.name)
+
+  const { data: orderData, error: orderError } = await supabase
+    .from("orders")
+    .select("id, total, payment_status")
+    .eq("id", orderId)
+    .maybeSingle()
+
+  if (orderError || !orderData) {
+    throw new Error("Order not found")
+  }
+  const order = orderData as unknown as {
+    id: string
+    total: number | string
+    payment_status: string
+  }
+  if (order.payment_status !== "paid") {
+    throw new Error("Order has not been paid — cannot attribute commission")
+  }
+
+  // Reject if already attributed (avoid hitting the UNIQUE constraint with a
+  // cryptic DB error).
+  const { data: existing } = await supabase
+    .from("affiliate_conversions")
+    .select("id")
+    .eq("order_id", orderId)
+    .maybeSingle()
+
+  if (existing) {
+    throw new Error("This order already has an affiliate conversion record")
+  }
+
+  const rate =
+    options?.commissionRateOverride !== undefined
+      ? options.commissionRateOverride
+      : affiliate.commissionRate
+
+  const orderTotal = Number(order.total)
+  const commissionAmount = roundCurrency(orderTotal * rate)
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("affiliate_conversions")
+    .insert({
+      affiliate_id: affiliateId,
+      code: codeRecord.code,
+      order_id: orderId,
+      order_total: orderTotal,
+      commission_rate: rate,
+      commission_amount: commissionAmount,
+      status: "pending",
+      source: "manual",
+      admin_notes: options?.adminNotes ?? null,
+    })
+    .select(
+      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
+    )
+    .single()
+
+  if (insertError || !inserted) {
+    console.error("createManualConversionAsAdmin: insert failed", insertError)
+    throw new Error("Failed to create conversion record")
+  }
+
+  return rowToConversion(inserted as unknown as ConversionRow)
 }
 
 /**

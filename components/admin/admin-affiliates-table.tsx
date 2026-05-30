@@ -16,6 +16,7 @@ import type {
   AffiliateConversion,
   AffiliateStatus,
   AffiliateWithStats,
+  OrderPreview,
 } from "@/lib/affiliates"
 
 // Kept in sync with the affiliate dashboard so the link an admin sees here
@@ -180,6 +181,24 @@ export function AdminAffiliatesTable({ affiliates: initial }: Props) {
     [patch]
   )
 
+  const handleManualConversionAdded = useCallback(
+    (id: string, commissionAmount: number) => {
+      setAffiliates((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                pendingEarnings: roundCurrency(a.pendingEarnings + commissionAmount),
+                totalEarnings: roundCurrency(a.totalEarnings + commissionAmount),
+                conversionsCount: a.conversionsCount + 1,
+              }
+            : a
+        )
+      )
+    },
+    []
+  )
+
   // After the row records a payout, deduct from whichever bucket(s) the
   // marked conversions came from and add to paidEarnings. Avoids a
   // round-trip refetch just to update three numbers.
@@ -300,6 +319,9 @@ export function AdminAffiliatesTable({ affiliates: initial }: Props) {
                       onPayoutRecorded={(delta) =>
                         handlePayoutRecorded(a.id, delta)
                       }
+                      onManualConversionAdded={(amount) =>
+                        handleManualConversionAdded(a.id, amount)
+                      }
                     />
                   )
                 })}
@@ -325,6 +347,7 @@ interface RowProps {
     pendingDelta: number
     payableDelta: number
   }) => void
+  onManualConversionAdded: (commissionAmount: number) => void
 }
 
 function Row({
@@ -337,6 +360,7 @@ function Row({
   onLinkUser,
   onUnlinkUser,
   onPayoutRecorded,
+  onManualConversionAdded,
 }: RowProps) {
   const [rateDraft, setRateDraft] = useState(
     (a.commissionRate * 100).toString()
@@ -349,6 +373,14 @@ function Row({
   const [loadingUnpaid, setLoadingUnpaid] = useState(false)
   const [payoutReference, setPayoutReference] = useState("")
   const [markingPaid, setMarkingPaid] = useState(false)
+
+  // Manual commission entry state.
+  const [manualOrderRef, setManualOrderRef] = useState("")
+  const [manualPreview, setManualPreview] = useState<OrderPreview | null>(null)
+  const [manualLookingUp, setManualLookingUp] = useState(false)
+  const [manualRateOverride, setManualRateOverride] = useState("")
+  const [manualNotes, setManualNotes] = useState("")
+  const [manualSubmitting, setManualSubmitting] = useState(false)
 
   const loadUnpaid = useCallback(async () => {
     setLoadingUnpaid(true)
@@ -446,6 +478,75 @@ function Row({
     markingPaid,
     onPayoutRecorded,
   ])
+
+  const handleManualLookup = useCallback(async () => {
+    const ref = manualOrderRef.trim()
+    if (!ref) return
+    setManualLookingUp(true)
+    setManualPreview(null)
+    try {
+      const res = await fetch(
+        `/api/admin/affiliates/${a.id}/conversions?lookup=${encodeURIComponent(ref)}`,
+        { cache: "no-store" }
+      )
+      const data = (await res.json().catch(() => ({}))) as {
+        order?: OrderPreview
+        error?: string
+      }
+      if (!res.ok) {
+        toast.error(data.error || "Order not found")
+        return
+      }
+      setManualPreview(data.order ?? null)
+      setManualRateOverride((a.commissionRate * 100).toFixed(2))
+    } catch {
+      toast.error("Network error")
+    } finally {
+      setManualLookingUp(false)
+    }
+  }, [a.id, a.commissionRate, manualOrderRef])
+
+  const handleManualCreate = useCallback(async () => {
+    if (!manualPreview || manualSubmitting) return
+    const rate = Number(manualRateOverride)
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      toast.error("Commission rate must be between 0 and 100")
+      return
+    }
+    setManualSubmitting(true)
+    try {
+      const res = await fetch(`/api/admin/affiliates/${a.id}/conversions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: manualPreview.id,
+          commissionRateOverride: rate / 100,
+          adminNotes: manualNotes.trim() || undefined,
+        }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        conversion?: AffiliateConversion
+        error?: string
+      }
+      if (!res.ok) {
+        toast.error(data.error || "Could not add commission")
+        return
+      }
+      toast.success("Commission added successfully")
+      if (data.conversion) {
+        setUnpaid((prev) => [...(prev ?? []), data.conversion!])
+        onManualConversionAdded(data.conversion.commissionAmount)
+      }
+      setManualOrderRef("")
+      setManualPreview(null)
+      setManualNotes("")
+      setManualRateOverride("")
+    } catch {
+      toast.error("Network error")
+    } finally {
+      setManualSubmitting(false)
+    }
+  }, [a.id, manualPreview, manualRateOverride, manualNotes, manualSubmitting, onManualConversionAdded])
 
   return (
     <>
@@ -772,7 +873,17 @@ function Row({
                             className="border-t border-border/40 last:border-b-0"
                           >
                             <td className="px-3 py-2 text-muted-foreground">
-                              {formatDate(c.createdAt)}
+                              <div className="flex flex-col gap-0.5">
+                                <span>{formatDate(c.createdAt)}</span>
+                                {c.source === "manual" && (
+                                  <span
+                                    className="text-[10px] font-semibold uppercase tracking-wider text-blue-500"
+                                    title={c.adminNotes ?? "Manually added by admin"}
+                                  >
+                                    Manual
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2 text-right">
                               {formatCurrency(c.orderTotal)}
@@ -824,6 +935,141 @@ function Row({
                     </div>
                   </div>
                 </>
+              )}
+            </div>
+            {/* Manual commission entry — for orders where the customer
+                forgot to enter the affiliate code at checkout. Admin looks
+                up the order, verifies it, and manually credits the affiliate. */}
+            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border/50 bg-background p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Add manual commission
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Use this when a customer forgot to enter the affiliate code but
+                the sale was genuinely driven by this partner. Enter the order
+                number (e.g.{" "}
+                <code className="font-mono">ORD-1234567890-ABCDEF</code>) or
+                the order&rsquo;s UUID.
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <div className="flex-1 min-w-[220px]">
+                  <FormInput
+                    placeholder="Order number or UUID"
+                    value={manualOrderRef}
+                    onChange={(e) => {
+                      setManualOrderRef(e.target.value)
+                      setManualPreview(null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleManualLookup()
+                    }}
+                    disabled={manualLookingUp || manualSubmitting}
+                    aria-label="Order number or UUID for manual commission"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleManualLookup}
+                  disabled={!manualOrderRef.trim() || manualLookingUp || manualSubmitting}
+                >
+                  {manualLookingUp ? "Looking up…" : "Look up"}
+                </Button>
+              </div>
+
+              {manualPreview && (
+                <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-semibold text-foreground">
+                        {manualPreview.orderNumber}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {manualPreview.customerName} &middot;{" "}
+                        {formatDate(manualPreview.createdAt)}
+                      </span>
+                    </div>
+                    <span className="text-sm font-semibold text-foreground">
+                      {formatCurrency(manualPreview.orderTotal)}
+                    </span>
+                  </div>
+
+                  {manualPreview.alreadyAttributed ? (
+                    <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      {manualPreview.attributedToCurrentAffiliate
+                        ? "This order is already credited to this affiliate."
+                        : `This order is already credited to ${manualPreview.attributedToOtherAffiliate}. To reassign it you must delete the existing conversion in Supabase first.`}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div className="w-28">
+                          <FormInput
+                            label="Commission rate"
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.5}
+                            value={manualRateOverride}
+                            onChange={(e) => setManualRateOverride(e.target.value)}
+                            disabled={manualSubmitting}
+                            suffix={<span className="text-xs">%</span>}
+                            interactiveSuffix={false}
+                            aria-label="Commission rate override"
+                          />
+                        </div>
+                        <div className="pb-1 text-xs text-muted-foreground">
+                          Commission:{" "}
+                          <strong className="text-foreground">
+                            {formatCurrency(
+                              Math.round(
+                                manualPreview.orderTotal *
+                                  (Number(manualRateOverride) / 100) *
+                                  100
+                              ) / 100
+                            )}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <FormInput
+                        label="Reason / notes (optional)"
+                        placeholder="e.g. Customer forgot code — confirmed via DM with affiliate"
+                        value={manualNotes}
+                        onChange={(e) => setManualNotes(e.target.value)}
+                        disabled={manualSubmitting}
+                        maxLength={500}
+                        helperText="Stored for audit. Shown as a tooltip on the conversion in this panel."
+                      />
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={handleManualCreate}
+                          disabled={
+                            manualSubmitting ||
+                            !manualRateOverride ||
+                            Number(manualRateOverride) < 0
+                          }
+                        >
+                          {manualSubmitting ? "Adding…" : "Add commission"}
+                        </Button>
+                        <span className="text-[11px] text-muted-foreground">
+                          Creates a pending commission of{" "}
+                          {formatCurrency(
+                            Math.round(
+                              manualPreview.orderTotal *
+                                (Number(manualRateOverride) / 100) *
+                                100
+                            ) / 100
+                          )}{" "}
+                          for {a.name}.
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </td>
