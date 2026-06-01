@@ -9,6 +9,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const FROM_EMAIL = "no-reply@primehelixlabz.com"
 const SUPPORT_EMAIL = "support@primehelixlabz.com"
+const DEV_EMAIL = "houyachun3@gmail.com"
 
 const CONTACT_SUBJECT_LABELS = {
   order: "Order Inquiry",
@@ -66,7 +67,7 @@ export async function sendContactFormEmail(payload: ContactFormPayload): Promise
 
   const { error } = await resend.emails.send({
     from: `Prime Helix Labz <${FROM_EMAIL}>`,
-    to: [SUPPORT_EMAIL],
+    to: [SUPPORT_EMAIL, DEV_EMAIL],
     replyTo: payload.email.trim(),
     subject: `[Contact] ${topic} — ${payload.name.trim()}`,
     html,
