@@ -51,6 +51,7 @@ export function mapCollectionStatus(
     case "FAILED":
     case "FAILURE":
     case "DECLINED":
+    case "BLOCKED":
       return "FAILED"
     case "CANCELLED":
     case "CANCELED":
