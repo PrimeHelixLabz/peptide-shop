@@ -20,6 +20,18 @@ export interface CentryOSTokenResponse {
 
 // ── Payment link (POST /v1/ext/collections/payment-link) ──
 
+export interface CentryOSCartItem {
+  /** Required by CentryOS. */
+  name: string
+  /** Required by CentryOS. */
+  description: string
+  qty?: number
+  price?: number
+  currency?: string
+  productId?: string
+  imageUrl?: string
+}
+
 export interface CreatePaymentLinkRequest {
   currency: string
   name: string
@@ -31,6 +43,14 @@ export interface CreatePaymentLinkRequest {
   customerPays: boolean
   orderId: string
   acceptedPaymentOptions: string[]
+  /**
+   * Free-form delivery address string, REQUIRED by CentryOS as of their
+   * 2026 API update (e.g. "123 Main St, Austin, TX, 78701, US"). Omitting
+   * it makes the payment-link endpoint return a 500.
+   */
+  itemDeliveryAddress: string
+  /** Top-level cart, REQUIRED by CentryOS; each item needs name+description. */
+  cartItems: CentryOSCartItem[]
   customData?: Record<string, unknown>
   advancedConfig: {
     websiteUrl: string

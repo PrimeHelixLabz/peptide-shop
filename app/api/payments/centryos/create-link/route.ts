@@ -210,6 +210,17 @@ export const POST = requireAuthMiddleware(
         currency: "USD",
       })
 
+      // CentryOS requires a delivery address string on the payment link.
+      const itemDeliveryAddress = [
+        shippingAddress.street,
+        shippingAddress.city,
+        shippingAddress.state,
+        shippingAddress.zipCode,
+        shippingAddress.country,
+      ]
+        .filter(Boolean)
+        .join(", ")
+
       // ── Mint the hosted checkout link. ──
       const link = await createPaymentLink({
         orderId,
@@ -218,11 +229,14 @@ export const POST = requireAuthMiddleware(
         currency: "USD",
         productName: `Order #${orderNumber}`,
         customerUserId: userId,
+        itemDeliveryAddress,
         cartItems: orderItems.map((item) => ({
           productId: item.productId,
           name: item.productName,
+          description: item.productName,
           price: item.price,
           quantity: item.quantity,
+          imageUrl: item.productImage,
           variantId: item.variantId,
         })),
       })

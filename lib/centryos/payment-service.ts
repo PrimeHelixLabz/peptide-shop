@@ -12,11 +12,46 @@ import type {
 } from "./payment-types"
 import type { ProcessingTrace } from "./processing-trace"
 import type {
+  CentryOSCartItem,
   CreatePaymentLinkRequest,
   CreatePaymentLinkResponse,
 } from "./types"
 
 const PROVIDER = "centryos"
+
+// Gateway/CDN request-correlation headers CentryOS sits behind. When a
+// call fails, logging these lets us hand CentryOS support an exact ID
+// instead of a generic "it 500'd".
+const REQUEST_ID_HEADERS = [
+  "x-request-id",
+  "x-amzn-requestid",
+  "x-amzn-trace-id",
+  "x-amz-cf-id",
+  "cf-ray",
+  "request-id",
+] as const
+
+function collectRequestIds(res: Response): Record<string, string> {
+  const ids: Record<string, string> = {}
+  for (const h of REQUEST_ID_HEADERS) {
+    const v = res.headers.get(h)
+    if (v) ids[h] = v
+  }
+  return ids
+}
+
+/**
+ * Returns a copy of the create-payment-link body safe to log: the
+ * webhook secret is the only sensitive value we send, so redact it.
+ */
+function redactPaymentLinkBody(
+  body: CreatePaymentLinkRequest
+): Record<string, unknown> {
+  return {
+    ...body,
+    advancedConfig: { ...body.advancedConfig, webhookSecret: "[redacted]" },
+  }
+}
 
 interface PaymentRow {
   id: string
@@ -147,6 +182,12 @@ export interface CreatePaymentLinkInput {
   customerUserId?: string | null
   cartItems?: Array<Record<string, unknown>>
   /**
+   * Free-form delivery address string. REQUIRED by CentryOS — omitting it
+   * makes the payment-link endpoint return a 500. Callers should pass the
+   * customer's shipping address (e.g. "123 Main St, Austin, TX, 78701, US").
+   */
+  itemDeliveryAddress?: string
+  /**
    * Optional override for the redirect target. Defaults to
    * `${APP_PUBLIC_URL}/payments/centryos/callback?orderId=...`.
    */
@@ -192,8 +233,43 @@ export async function createPaymentLink(
     customData.cartItems = JSON.stringify(input.cartItems)
   }
 
+  const currency = input.currency ?? "USD"
+
+  // CentryOS requires a top-level `cartItems` array (each item needs at
+  // least name + description) AND `itemDeliveryAddress`. These became
+  // mandatory in their 2026 API update; missing them returns a 500.
+  const cartItems: CentryOSCartItem[] = (input.cartItems ?? []).map((item) => {
+    const name = String(item.name ?? input.productName)
+    const out: CentryOSCartItem = {
+      name,
+      description: String(item.description ?? name),
+      qty: Number(item.quantity ?? item.qty ?? 1),
+      price:
+        typeof item.price === "number"
+          ? item.price
+          : Number(item.price ?? input.amount),
+      currency,
+    }
+    if (item.productId) out.productId = String(item.productId)
+    if (item.imageUrl) out.imageUrl = String(item.imageUrl)
+    return out
+  })
+  // Fall back to a single line item so the required field is never empty.
+  if (cartItems.length === 0) {
+    cartItems.push({
+      name: input.productName,
+      description: input.productName,
+      qty: 1,
+      price: parseFloat(input.amount.toFixed(2)),
+      currency,
+    })
+  }
+
+  const itemDeliveryAddress =
+    input.itemDeliveryAddress?.trim() || "See order details"
+
   const body: CreatePaymentLinkRequest = {
-    currency: input.currency ?? "USD",
+    currency,
     name: input.productName,
     amount: parseFloat(input.amount.toFixed(2)),
     amountLocked: true,
@@ -203,6 +279,8 @@ export async function createPaymentLink(
     customerPays: true,
     orderId: input.orderId,
     acceptedPaymentOptions: ["apple_pay", "card", "cashapp", "google_pay", "us_bank_account"],
+    itemDeliveryAddress,
+    cartItems,
     customData,
     advancedConfig: {
       websiteUrl: config.appPublicUrl,
@@ -226,8 +304,25 @@ export async function createPaymentLink(
 
   if (!res.ok) {
     const text = await res.text().catch(() => "")
+    const requestIds = collectRequestIds(res)
+    // CentryOS returns a bare `500 {"message":"Internal server error"}` with
+    // no field-level detail. Log the request-correlation IDs + the exact
+    // (redacted) payload we sent so the next failure is diagnosable —
+    // either hand the request ID to CentryOS, or spot a bad/oversized field.
+    console.error("CentryOS createPaymentLink failed", {
+      status: res.status,
+      statusText: res.statusText,
+      responseBody: text,
+      requestIds,
+      orderId: input.orderId,
+      clientReferenceId: input.clientReferenceId,
+      requestBody: redactPaymentLinkBody(body),
+    })
+    const idSuffix = Object.keys(requestIds).length
+      ? ` (request-id: ${Object.values(requestIds).join(", ")})`
+      : ""
     throw new Error(
-      `CentryOS createPaymentLink failed: ${res.status} ${text || res.statusText}`
+      `CentryOS createPaymentLink failed: ${res.status} ${text || res.statusText}${idSuffix}`
     )
   }
 
