@@ -5,10 +5,13 @@
  * id/secret would be exposed in the browser bundle.
  */
 
-const STAGING_ACCOUNT_URL = "https://staging-api.accounts.walletos.xyz"
-const PROD_ACCOUNT_URL = "https://api.accounts.walletos.xyz"
-const STAGING_LIQUIDITY_URL = "https://staging-api.liquidity.walletos.xyz"
-const PROD_LIQUIDITY_URL = "https://api.liquidity.walletos.xyz"
+// CentryOS (formerly WalletOS) rebranded and moved hosts. These are the
+// current centryos.xyz endpoints per https://docs.centryos.xyz — the old
+// *.walletos.xyz hosts still route but 500 on the payment-link endpoint.
+const STAGING_ACCOUNT_URL = "https://account-staging-api.centryos.xyz"
+const PROD_ACCOUNT_URL = "https://user-accounts-api.centryos.xyz"
+const STAGING_LIQUIDITY_URL = "https://liquidity-staging-api.centryos.xyz"
+const PROD_LIQUIDITY_URL = "https://ledger-api.centryos.xyz"
 
 export interface CentryOSConfig {
   env: "staging" | "production"

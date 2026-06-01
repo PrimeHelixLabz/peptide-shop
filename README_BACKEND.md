@@ -41,8 +41,8 @@ CENTRYOS_WEBHOOK_SECRET=your_centryos_webhook_secret
 APP_PUBLIC_URL=https://yourdomain.com
 # Optional URL overrides (default to the staging/production hosts that
 # match CENTRYOS_ENV — only set these if CentryOS gives you a custom host).
-# CENTRYOS_ACCOUNT_URL=https://staging-api.accounts.walletos.xyz
-# CENTRYOS_LIQUIDITY_URL=https://staging-api.liquidity.walletos.xyz
+# CENTRYOS_ACCOUNT_URL=https://account-staging-api.centryos.xyz
+# CENTRYOS_LIQUIDITY_URL=https://liquidity-staging-api.centryos.xyz
 ```
 
 **CentryOS webhook URL:** point your CentryOS dashboard webhook at
