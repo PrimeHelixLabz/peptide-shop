@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Package, CheckCircle2, Loader2, Banknote, Trash2, ExternalLink } from "lucide-react"
+import { ArrowLeft, Package, CheckCircle2, Loader2, Banknote, Trash2, ExternalLink, Printer } from "lucide-react"
 import { toast } from "sonner"
 import type { AdminOrder } from "./admin-orders-table"
 import type { Order } from "@/lib/db/schema"
@@ -656,6 +656,14 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   "Update Status"
                 )}
               </button>
+
+              <Link
+                href={`/admin/orders/${orderId}/receipt`}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 dark:border-gray-700 text-sm font-semibold text-foreground transition-all duration-200 hover:border-foreground hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <Printer className="h-4 w-4" />
+                Print Packing Slip
+              </Link>
 
               {order.paymentStatus !== "paid" && (
                 <button

@@ -34,7 +34,12 @@ let sentryPromise: Promise<SentryShape | null> | null = null
 
 function loadSentry(): Promise<SentryShape | null> {
   if (sentryPromise) return sentryPromise
-  if (!env.SENTRY_DSN) {
+  // Match the instrumentation configs (sentry.server/edge.config.ts), which
+  // fall back to NEXT_PUBLIC_SENTRY_DSN. Checking only SENTRY_DSN here would
+  // make captureError/captureMessage silently degrade to console in the common
+  // single-public-DSN setup, even though the SDK is initialized and reporting.
+  const dsn = env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN
+  if (!dsn) {
     sentryPromise = Promise.resolve(null)
     return sentryPromise
   }
