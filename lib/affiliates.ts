@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { NextRequest } from "next/server"
-import { sendAffiliateApprovedEmail } from "@/lib/email"
+import {
+  sendAffiliateApprovedEmail,
+  sendAffiliateDeclinedEmail,
+  sendAffiliateSuspendedEmail,
+} from "@/lib/email"
 
 export const REF_COOKIE_NAME = "phl_ref"
 export const REF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 90 // 90 days
@@ -678,6 +682,21 @@ export async function updateAffiliateAsAdmin(
     } catch (err) {
       console.error("Failed to mint referral code after approval:", err)
     }
+  }
+
+  // Notify on transitions INTO suspended. The same target status covers two
+  // distinct situations, so the copy branches on where we came from:
+  //   pending  → suspended = a rejected application ("not approved")
+  //   approved → suspended = an active partner being cut off ("suspended")
+  // Best-effort: a mail hiccup must not fail the admin's action.
+  if (before.status !== "suspended" && after.status === "suspended") {
+    const notify =
+      before.status === "approved"
+        ? sendAffiliateSuspendedEmail({ toEmail: after.email, name: after.name })
+        : sendAffiliateDeclinedEmail({ toEmail: after.email, name: after.name })
+    notify.catch((err) =>
+      console.error("Failed to send affiliate status email:", err)
+    )
   }
 
   return after

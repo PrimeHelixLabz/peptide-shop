@@ -865,6 +865,148 @@ export async function sendAffiliateApprovedEmail(params: {
   }
 }
 
+export async function sendAffiliateDeclinedEmail(params: {
+  toEmail: string
+  name: string
+}): Promise<void> {
+  const safeName = escapeHtml(params.name)
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <div style="background-color: #1e293b; padding: 28px 24px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 22px; letter-spacing: 0.02em;">Affiliate application update</h1>
+            <p style="margin: 8px 0 0; color: #cbd5e1; font-size: 13px;">PrimeHelix Labz Affiliate Program</p>
+          </div>
+
+          <div style="padding: 28px 24px;">
+            <p style="margin: 0 0 16px; color: #111827; font-size: 16px; line-height: 1.6;">
+              Hi ${safeName},
+            </p>
+            <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.65;">
+              Thanks for your interest in the PrimeHelix Labz affiliate program.
+              After reviewing your application, we're not able to approve it at
+              this time.
+            </p>
+            <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.65;">
+              This isn't necessarily final — if your audience or channels change,
+              you're welcome to reapply down the road. If you believe this was a
+              mistake or have questions, just reply to this email.
+            </p>
+            <p style="margin: 24px 0 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Reach us any time at
+              <a href="mailto:${SUPPORT_EMAIL}" style="color: #1e293b;">${SUPPORT_EMAIL}</a>.
+            </p>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 6px; color: #9ca3af; font-size: 11px;">
+              PrimeHelix Labz &middot; 20403 N Lake Pleasant RD, Suite 117, Peoria, AZ 85382
+            </p>
+            <p style="margin: 0; color: #9ca3af; font-size: 11px;">
+              All products are sold strictly for research purposes only. Not for human consumption.
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>`
+
+  const { error } = await resend.emails.send({
+    from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+    to: [params.toEmail.trim()],
+    replyTo: SUPPORT_EMAIL,
+    subject: "Update on your PrimeHelix Labz affiliate application",
+    html,
+  })
+
+  if (error) {
+    console.error("Failed to send affiliate declined email:", error)
+    throw new Error(error.message)
+  }
+}
+
+export async function sendAffiliateSuspendedEmail(params: {
+  toEmail: string
+  name: string
+}): Promise<void> {
+  const safeName = escapeHtml(params.name)
+  const dashboardUrl = `${SITE_ORIGIN}/affiliates/dashboard`
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <div style="background-color: #7f1d1d; padding: 28px 24px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 22px; letter-spacing: 0.02em;">Affiliate account suspended</h1>
+            <p style="margin: 8px 0 0; color: #fecaca; font-size: 13px;">PrimeHelix Labz Affiliate Program</p>
+          </div>
+
+          <div style="padding: 28px 24px;">
+            <p style="margin: 0 0 16px; color: #111827; font-size: 16px; line-height: 1.6;">
+              Hi ${safeName},
+            </p>
+            <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.65;">
+              Your PrimeHelix Labz affiliate account has been suspended. Your
+              referral links will no longer track new conversions while the
+              account is in this state.
+            </p>
+            <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.65;">
+              To be clear: any commissions you've already earned still stand and
+              will be paid out per the normal schedule — suspension only stops
+              <em>new</em> referrals from being credited.
+            </p>
+            <p style="margin: 0 0 16px; color: #374151; font-size: 15px; line-height: 1.65;">
+              If you think this was a mistake or want to discuss reinstatement,
+              reply to this email and we'll take a look.
+            </p>
+            <p style="margin: 0 0 24px;">
+              <a href="${dashboardUrl}" style="display: inline-block; background-color: #1e293b; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 12px; font-weight: 500; font-size: 14px;">
+                View dashboard
+              </a>
+            </p>
+            <p style="margin: 24px 0 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+              Questions? Reach us at
+              <a href="mailto:${SUPPORT_EMAIL}" style="color: #1e293b;">${SUPPORT_EMAIL}</a>.
+            </p>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 16px 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0 0 6px; color: #9ca3af; font-size: 11px;">
+              PrimeHelix Labz &middot; 20403 N Lake Pleasant RD, Suite 117, Peoria, AZ 85382
+            </p>
+            <p style="margin: 0; color: #9ca3af; font-size: 11px;">
+              All products are sold strictly for research purposes only. Not for human consumption.
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>`
+
+  const { error } = await resend.emails.send({
+    from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+    to: [params.toEmail.trim()],
+    replyTo: SUPPORT_EMAIL,
+    subject: "Your PrimeHelix Labz affiliate account has been suspended",
+    html,
+  })
+
+  if (error) {
+    console.error("Failed to send affiliate suspended email:", error)
+    throw new Error(error.message)
+  }
+}
+
 export async function sendCustomerOrderConfirmedEmail(order: Order): Promise<void> {
   const to = getCustomerEmail(order)
   if (!to) {
