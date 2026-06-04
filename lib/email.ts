@@ -689,6 +689,81 @@ export async function sendCustomerReviewRequestEmail(order: Order): Promise<void
   }
 }
 
+export type AffiliateApplicationPayload = {
+  name: string
+  email: string
+  website?: string | null
+  audience?: string | null
+  payoutMethod?: string | null
+  payoutDetails?: string | null
+}
+
+export async function sendAffiliateApplicationNotificationEmail(
+  payload: AffiliateApplicationPayload
+): Promise<void> {
+  const safeName = escapeHtml(payload.name.trim())
+  const safeEmail = escapeHtml(payload.email.trim())
+  const safeWebsite = payload.website ? escapeHtml(payload.website.trim()) : ""
+  const safeAudience = payload.audience
+    ? escapeHtml(payload.audience.trim()).replace(/\r\n|\r|\n/g, "<br/>")
+    : ""
+  const safePayoutMethod = payload.payoutMethod
+    ? escapeHtml(payload.payoutMethod.trim())
+    : ""
+  const safePayoutDetails = payload.payoutDetails
+    ? escapeHtml(payload.payoutDetails.trim())
+    : ""
+
+  const row = (label: string, value: string) =>
+    `<p style="margin: 8px 0; color: #4b5563;"><strong>${label}:</strong> ${value}</p>`
+
+  const adminUrl = `${SITE_ORIGIN}/admin/affiliates`
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+        <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px;">
+          <h1 style="margin: 0 0 20px; color: #111827; font-size: 18px;">New affiliate application</h1>
+          ${row("Name", safeName)}
+          ${row("Email", safeEmail)}
+          ${safeWebsite ? row("Website", `<a href="${safeWebsite}" style="color: #1e293b;">${safeWebsite}</a>`) : ""}
+          ${safePayoutMethod ? row("Payout method", safePayoutMethod) : ""}
+          ${safePayoutDetails ? row("Payout details", safePayoutDetails) : ""}
+          ${
+            safeAudience
+              ? `<div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0 0 8px; color: #374151; font-size: 13px; text-transform: uppercase;">Audience</p>
+                  <p style="margin: 0; color: #4b5563; line-height: 1.6;">${safeAudience}</p>
+                </div>`
+              : ""
+          }
+          <p style="margin: 24px 0 0;">
+            <a href="${adminUrl}" style="display: inline-block; background-color: #1e293b; color: #ffffff; text-decoration: none; padding: 11px 22px; border-radius: 10px; font-weight: 500; font-size: 14px;">
+              Review in admin
+            </a>
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>`
+
+  const { error } = await resend.emails.send({
+    from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+    to: [SUPPORT_EMAIL],
+    replyTo: payload.email.trim(),
+    subject: `[Affiliate] New application — ${payload.name.trim()}`,
+    html,
+  })
+
+  if (error) {
+    console.error("Failed to send affiliate application notification email:", error)
+    throw new Error(error.message)
+  }
+}
+
 export async function sendAffiliateApprovedEmail(params: {
   toEmail: string
   name: string

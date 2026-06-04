@@ -4,6 +4,7 @@ import { requireAuthMiddleware, type AuthenticatedRequest } from "@/lib/auth/mid
 import { createAdminClient } from "@/lib/supabase/admin"
 import { enforceRateLimit } from "@/lib/rate-limit"
 import { resolveAffiliateForUser } from "@/lib/affiliates"
+import { sendAffiliateApplicationNotificationEmail } from "@/lib/email"
 
 const applySchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
@@ -101,6 +102,19 @@ export const POST = requireAuthMiddleware(async (req: AuthenticatedRequest) => {
       { status: 500 }
     )
   }
+
+  // Notify support + dev that a new application came in. Fire-and-forget:
+  // a mail failure must not fail the application the user just submitted.
+  void sendAffiliateApplicationNotificationEmail({
+    name: parsed.name,
+    email: userEmail,
+    website: parsed.website || null,
+    audience: parsed.audience || null,
+    payoutMethod: parsed.payoutMethod || null,
+    payoutDetails: parsed.payoutDetails || null,
+  }).catch((err) => {
+    console.error("affiliate application notification failed:", err)
+  })
 
   return NextResponse.json({ ok: true })
 })
