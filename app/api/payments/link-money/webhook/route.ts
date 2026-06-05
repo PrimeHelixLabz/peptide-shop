@@ -304,8 +304,14 @@ async function syncOrderFromPayment(
       )
     }
 
+    // A successful retry can arrive after a prior failed attempt already
+    // pushed the order to "cancelled". Money was received, so recover the
+    // order back into the fulfilment pipeline rather than leaving it
+    // paid-but-cancelled.
     const nextOrderStatus =
-      fullOrder.status === "pending" ? "processing" : fullOrder.status
+      fullOrder.status === "pending" || fullOrder.status === "cancelled"
+        ? "processing"
+        : fullOrder.status
 
     await supabase
       .from("orders")

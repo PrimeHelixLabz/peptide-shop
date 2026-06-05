@@ -520,8 +520,16 @@ export async function applyCollectionWebhook(
   const updates: Record<string, unknown> = {
     raw_webhook: body as unknown as Record<string, unknown>,
   }
-  if (advance) updates.status = nextStatus
-  if (needsTxnId) updates.transaction_id = transactionId
+  if (advance) {
+    updates.status = nextStatus
+    // Track the transaction that drove this advance. On a retry, a prior
+    // failed attempt may have already stamped a different transaction_id;
+    // the row must reflect the transaction behind its CURRENT status so
+    // admin sync / reconciliation / refunds resolve the right one.
+    if (transactionId) updates.transaction_id = transactionId
+  } else if (needsTxnId) {
+    updates.transaction_id = transactionId
+  }
 
   const supabase = createAdminClient()
   const { data, error } = await supabase
