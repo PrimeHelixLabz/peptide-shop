@@ -87,14 +87,14 @@ export const GET = requireAdminMiddleware(async (req) => {
       // Map payment status
       const paymentStatusMap: Record<
         string,
-        "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded"
+        "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded" | "Failed"
       > = {
         paid: "Paid",
         pending: "Pending",
         authorized: "Authorized",
         processing: "Processing",
         refunded: "Refunded",
-        failed: "Pending",
+        failed: "Failed",
       }
 
       // Map shipping status

@@ -22,7 +22,7 @@ export interface AdminOrder {
   items: number
   total: string
   date: string
-  paymentStatus: "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded"
+  paymentStatus: "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded" | "Failed"
   shippingStatus: "Processing" | "Shipped" | "Delivered"
   paymentMethod?: string // "stripe" | "link_money"
   orderId?: string // Original order ID for detail page
@@ -38,6 +38,7 @@ const paymentStatusMap: Record<AdminOrder["paymentStatus"], StatusVariant> = {
   Authorized: "info",
   Processing: "info",
   Refunded: "neutral",
+  Failed: "error",
 }
 
 const shippingStatusMap: Record<AdminOrder["shippingStatus"], StatusVariant> = {
@@ -50,7 +51,7 @@ const shippingStatusMap: Record<AdminOrder["shippingStatus"], StatusVariant> = {
 /*  Filter options                                                     */
 /* ------------------------------------------------------------------ */
 
-type PaymentFilter = "all" | "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded"
+type PaymentFilter = "all" | "Paid" | "Pending" | "Authorized" | "Processing" | "Refunded" | "Failed"
 type ShippingFilter = "all" | "Processing" | "Shipped" | "Delivered"
 
 const paymentFilterOptions: { value: PaymentFilter; label: string }[] = [
@@ -59,6 +60,7 @@ const paymentFilterOptions: { value: PaymentFilter; label: string }[] = [
   { value: "Authorized", label: "Authorized" },
   { value: "Processing", label: "Processing" },
   { value: "Pending", label: "Pending" },
+  { value: "Failed", label: "Failed" },
   { value: "Refunded", label: "Refunded" },
 ]
 

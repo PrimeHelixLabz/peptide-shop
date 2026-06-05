@@ -43,6 +43,7 @@ const paymentStyles: Record<AdminOrder["paymentStatus"], string> = {
   Authorized: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800",
   Processing: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800",
   Refunded: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
+  Failed: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800",
 }
 
 const shippingStyles: Record<AdminOrder["shippingStatus"], string> = {
@@ -63,6 +64,7 @@ const mapPaymentStatus = (status: string): AdminOrder["paymentStatus"] => {
   if (status === "authorized") return "Authorized"
   if (status === "processing") return "Processing"
   if (status === "refunded") return "Refunded"
+  if (status === "failed") return "Failed"
   return "Pending"
 }
 
