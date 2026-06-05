@@ -5,12 +5,40 @@
  * order never got inserted.
  */
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import {
   computeDiscount,
   releaseReservation,
   reserveRedemption,
   validateCode,
 } from "@/lib/discounts/db"
+
+/**
+ * Cancel this customer's own never-completed checkouts for a code before
+ * reserving a fresh slot, so an abandoned attempt can't hold a single-use
+ * code hostage on retry. Only touches pending+pending orders (never an
+ * authorized/settling payment — those have advanced past payment_status
+ * 'pending'); the orders cancel trigger returns the reserved slot.
+ */
+async function releaseActorStalePendingHolds(
+  codeId: string,
+  userId: string | null
+): Promise<void> {
+  if (!userId) return
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "cancelled", payment_status: "failed" })
+    .eq("user_id", userId)
+    .eq("discount_code_id", codeId)
+    .eq("status", "pending")
+    .eq("payment_status", "pending")
+  if (error) {
+    // Non-fatal: worst case the fresh reserve below fails and the customer
+    // sees the existing "code no longer available" message.
+    console.error("releaseActorStalePendingHolds failed:", error)
+  }
+}
 
 export interface AppliedCheckoutDiscount {
   codeId: string
@@ -46,6 +74,10 @@ export async function applyDiscountForCheckout(params: {
   if (!result.ok) {
     return { ok: false, error: result.reason }
   }
+
+  // Free any slot this same customer is still holding from an abandoned
+  // checkout of this code, so a retry doesn't fail "already used".
+  await releaseActorStalePendingHolds(result.code.id, params.userId)
 
   // Atomic reservation — race-safe against parallel checkouts.
   const reserved = await reserveRedemption({

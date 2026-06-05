@@ -16,7 +16,6 @@ import { AdminCard } from "@/components/common/admin-card"
 import { FormInput } from "@/components/common/form-input"
 import { Select } from "@/components/common/select"
 import { StatusBadge } from "@/components/common/status-badge"
-import { UserPicker } from "@/components/common/user-picker"
 import { Button } from "@/components/ui/button"
 
 interface AdminDiscountFormProps {
@@ -32,7 +31,7 @@ interface FormState {
   maxRedemptions: string
   perUserMaxRedemptions: string
   minSubtotal: string
-  restrictedToUserId: string
+  restrictedToEmail: string
   isActive: boolean
   expiresAt: string
 }
@@ -46,7 +45,7 @@ function initialState(p?: DiscountCode): FormState {
     maxRedemptions: p?.maxRedemptions?.toString() ?? "",
     perUserMaxRedemptions: p?.perUserMaxRedemptions?.toString() ?? "",
     minSubtotal: p?.minSubtotal?.toString() ?? "",
-    restrictedToUserId: p?.restrictedToUserId ?? "",
+    restrictedToEmail: p?.restrictedToEmail ?? "",
     isActive: p?.isActive ?? true,
     // datetime-local needs YYYY-MM-DDTHH:mm (no timezone, no seconds)
     expiresAt: p?.expiresAt ? toLocalDateTimeInput(p.expiresAt) : "",
@@ -95,13 +94,21 @@ export function AdminDiscountForm({
     const code = normalizeCode(form.code)
     if (code.length < 3) return { error: "Code must be at least 3 characters" }
 
+    const lockEmail = form.restrictedToEmail.trim().toLowerCase()
+    if (lockEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(lockEmail)) {
+      return { error: "Enter a valid email to restrict the code, or leave it blank" }
+    }
+
     const payload: DiscountCodeInput = {
       code,
       discountType: form.discountType,
       maxRedemptions: parseOptionalInt(form.maxRedemptions),
       perUserMaxRedemptions: parseOptionalInt(form.perUserMaxRedemptions),
       minSubtotal: parseOptionalFloat(form.minSubtotal, 0),
-      restrictedToUserId: form.restrictedToUserId.trim() || null,
+      restrictedToEmail: lockEmail || null,
+      // The lock is email-based now; clear any legacy account lock so it
+      // can't shadow the email (or linger after the email is removed).
+      restrictedToUserId: null,
       isActive: form.isActive,
       expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
     }
@@ -313,14 +320,15 @@ export function AdminDiscountForm({
                 placeholder="optional"
                 helperText="Cart subtotal must reach this before the code applies."
               />
-              <UserPicker
-                label="Lock to user (advanced)"
-                value={form.restrictedToUserId || null}
-                onChange={(id) =>
-                  setForm((p) => ({ ...p, restrictedToUserId: id ?? "" }))
+              <FormInput
+                label="Restrict to customer email"
+                type="email"
+                value={form.restrictedToEmail}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, restrictedToEmail: e.target.value }))
                 }
-                placeholder="Any customer — leave blank to allow all"
-                helperText="Search by name or email to make this a single-customer VIP code."
+                placeholder="leave blank for any customer"
+                helperText="Only a customer signed in with this email can redeem the code. Leave blank to let anyone use it."
               />
             </div>
           </AdminCard>
@@ -420,7 +428,9 @@ export function AdminDiscountForm({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Times used</span>
                   <span className="font-medium text-foreground">
-                    {initial.redeemedCount}
+                    {/* Confirmed (paid) redemptions — not the reservation
+                        counter, which transiently counts in-flight checkouts. */}
+                    {initial.confirmedRedemptions}
                     {initial.maxRedemptions != null
                       ? ` / ${initial.maxRedemptions}`
                       : ""}

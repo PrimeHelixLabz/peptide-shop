@@ -23,6 +23,7 @@ interface DiscountRow {
   per_user_max_redemptions: number | null
   min_subtotal: string | number | null
   restricted_to_user_id: string | null
+  restricted_to_email: string | null
   is_active: boolean
   expires_at: string | null
   redeemed_count: number
@@ -31,7 +32,7 @@ interface DiscountRow {
 }
 
 const SELECT_COLUMNS =
-  "id, code, discount_type, percent_off, amount_off, max_redemptions, per_user_max_redemptions, min_subtotal, restricted_to_user_id, is_active, expires_at, redeemed_count, created_at, updated_at"
+  "id, code, discount_type, percent_off, amount_off, max_redemptions, per_user_max_redemptions, min_subtotal, restricted_to_user_id, restricted_to_email, is_active, expires_at, redeemed_count, created_at, updated_at"
 
 function parseNumericOrNull(value: string | number | null | undefined): number | null {
   if (value == null) return null
@@ -50,12 +51,41 @@ function rowToCode(row: DiscountRow): DiscountCode {
     perUserMaxRedemptions: row.per_user_max_redemptions,
     minSubtotal: parseNumericOrNull(row.min_subtotal),
     restrictedToUserId: row.restricted_to_user_id,
+    restrictedToEmail: row.restricted_to_email,
     isActive: row.is_active,
     expiresAt: row.expires_at,
     redeemedCount: row.redeemed_count,
+    // Filled in by the admin listing/detail getters; defaults to 0 for
+    // callers (validate/reserve) that don't need the confirmed count.
+    confirmedRedemptions: 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
+}
+
+/**
+ * Count confirmed (paid) redemptions per code from the ledger. Used by
+ * the admin views so "used" reflects real purchases rather than the
+ * reservation counter (which transiently includes in-flight checkouts).
+ */
+async function getConfirmedRedemptionCounts(
+  supabase: ReturnType<typeof createAdminClient>,
+  codeIds: string[]
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  if (codeIds.length === 0) return counts
+  const { data, error } = await supabase
+    .from("discount_redemptions")
+    .select("code_id")
+    .in("code_id", codeIds)
+  if (error) {
+    console.error("getConfirmedRedemptionCounts failed:", error)
+    return counts
+  }
+  for (const row of (data as unknown as Array<{ code_id: string }>) || []) {
+    counts.set(row.code_id, (counts.get(row.code_id) ?? 0) + 1)
+  }
+  return counts
 }
 
 /**
@@ -90,7 +120,13 @@ export async function getAllDiscountCodesAsAdmin(): Promise<DiscountCode[]> {
     console.error("getAllDiscountCodesAsAdmin failed:", error)
     return []
   }
-  return ((data as unknown as DiscountRow[]) || []).map(rowToCode)
+  const codes = ((data as unknown as DiscountRow[]) || []).map(rowToCode)
+  const counts = await getConfirmedRedemptionCounts(
+    supabase,
+    codes.map((c) => c.id)
+  )
+  for (const c of codes) c.confirmedRedemptions = counts.get(c.id) ?? 0
+  return codes
 }
 
 export async function getDiscountCodeByIdAsAdmin(
@@ -107,7 +143,10 @@ export async function getDiscountCodeByIdAsAdmin(
     return null
   }
   if (!data) return null
-  return rowToCode(data as unknown as DiscountRow)
+  const code = rowToCode(data as unknown as DiscountRow)
+  const counts = await getConfirmedRedemptionCounts(supabase, [code.id])
+  code.confirmedRedemptions = counts.get(code.id) ?? 0
+  return code
 }
 
 /** Used by the admin form for uniqueness UX. */
@@ -139,6 +178,7 @@ export async function createDiscountCodeAsAdmin(
       per_user_max_redemptions: input.perUserMaxRedemptions ?? null,
       min_subtotal: input.minSubtotal ?? null,
       restricted_to_user_id: input.restrictedToUserId ?? null,
+      restricted_to_email: input.restrictedToEmail?.trim().toLowerCase() || null,
       is_active: input.isActive ?? true,
       expires_at: input.expiresAt ?? null,
       created_by: createdBy,
@@ -176,6 +216,9 @@ export async function updateDiscountCodeAsAdmin(
   if (input.minSubtotal !== undefined) updates.min_subtotal = input.minSubtotal
   if (input.restrictedToUserId !== undefined)
     updates.restricted_to_user_id = input.restrictedToUserId
+  if (input.restrictedToEmail !== undefined)
+    updates.restricted_to_email =
+      input.restrictedToEmail?.trim().toLowerCase() || null
   if (input.isActive !== undefined) updates.is_active = input.isActive
   if (input.expiresAt !== undefined) updates.expires_at = input.expiresAt
 
@@ -241,7 +284,15 @@ export async function validateCode(params: {
     return { ok: false, reason: "This code has expired" }
   }
 
-  if (code.restrictedToUserId && code.restrictedToUserId !== params.userId) {
+  // Customer lock: prefer the email lock (works regardless of which
+  // account the customer is signed into, as long as the email matches);
+  // fall back to the legacy account-id lock for pre-email-lock codes.
+  if (code.restrictedToEmail) {
+    const actorEmail = params.email?.trim().toLowerCase() || null
+    if (!actorEmail || actorEmail !== code.restrictedToEmail.toLowerCase()) {
+      return { ok: false, reason: "This code is reserved for another customer" }
+    }
+  } else if (code.restrictedToUserId && code.restrictedToUserId !== params.userId) {
     return { ok: false, reason: "This code is reserved for another customer" }
   }
 
@@ -314,6 +365,8 @@ export async function reserveRedemption(params: {
     p_code_id: params.codeId,
     p_user_id: params.userId,
     p_guest_email: params.userId ? null : params.email?.toLowerCase() ?? null,
+    // Actor email for the email-lock check (re-validated atomically here).
+    p_actor_email: params.email?.toLowerCase() ?? null,
   })
   if (error) {
     console.error("reserveRedemption failed:", error)

@@ -6,7 +6,6 @@ import { useCart } from "@/lib/cart-context"
 import { CartItemRow } from "@/components/cart-item"
 import { OrderSummary } from "@/components/order-summary"
 import { EmptyState } from "@/components/common/empty-state"
-import { DiscountCodeInput } from "@/components/discount-code-input"
 
 export function CartView() {
   const { items, clearCart, totalItems } = useCart()
@@ -45,11 +44,6 @@ export function CartView() {
           {items.map((item) => (
             <CartItemRow key={`${item.product.id}-${item.variantId || 'none'}`} item={item} />
           ))}
-        </div>
-
-        {/* Discount code */}
-        <div className="mt-2">
-          <DiscountCodeInput />
         </div>
 
         {/* Continue Shopping */}

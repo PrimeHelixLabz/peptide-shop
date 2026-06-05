@@ -23,6 +23,7 @@ const updateSchema = z
     perUserMaxRedemptions: z.number().int().positive().optional().nullable(),
     minSubtotal: z.number().nonnegative().optional().nullable(),
     restrictedToUserId: z.string().uuid().optional().nullable(),
+    restrictedToEmail: z.string().email().optional().nullable(),
     isActive: z.boolean().optional(),
     expiresAt: z.string().datetime().optional().nullable(),
   })

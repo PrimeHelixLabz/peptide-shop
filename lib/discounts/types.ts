@@ -15,10 +15,21 @@ export interface DiscountCode {
   maxRedemptions: number | null
   perUserMaxRedemptions: number | null
   minSubtotal: number | null
+  /** Legacy account-id lock. Kept for codes created before email locking. */
   restrictedToUserId: string | null
+  /** Customer email the code is locked to (case-insensitive). Preferred lock. */
+  restrictedToEmail: string | null
   isActive: boolean
   expiresAt: string | null
+  /**
+   * Reservation counter — bumped when a checkout starts, released on
+   * cancel/abandon. NOT the same as completed purchases; the admin UI
+   * shows `confirmedRedemptions` instead so abandoned holds don't read
+   * as "used".
+   */
   redeemedCount: number
+  /** Count of confirmed (paid) redemptions from the ledger. Admin display. */
+  confirmedRedemptions: number
   createdAt: string
   updatedAt: string
 }
@@ -33,6 +44,7 @@ export interface DiscountCodeInput {
   perUserMaxRedemptions?: number | null
   minSubtotal?: number | null
   restrictedToUserId?: string | null
+  restrictedToEmail?: string | null
   isActive?: boolean
   expiresAt?: string | null
 }

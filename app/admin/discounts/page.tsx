@@ -42,16 +42,18 @@ function statusFor(code: DiscountCode): {
   }
   if (
     code.maxRedemptions != null &&
-    code.redeemedCount >= code.maxRedemptions
+    code.confirmedRedemptions >= code.maxRedemptions
   ) {
     return { label: "exhausted", variant: "warning" }
   }
   return { label: "active", variant: "success" }
 }
 
+// "Used" reflects confirmed (paid) redemptions, not the reservation
+// counter — an abandoned checkout shouldn't read as a use here.
 function redemptionLabel(code: DiscountCode): string {
-  if (code.maxRedemptions == null) return `${code.redeemedCount} used`
-  return `${code.redeemedCount} / ${code.maxRedemptions}`
+  if (code.maxRedemptions == null) return `${code.confirmedRedemptions} used`
+  return `${code.confirmedRedemptions} / ${code.maxRedemptions}`
 }
 
 export default async function AdminDiscountsListPage() {

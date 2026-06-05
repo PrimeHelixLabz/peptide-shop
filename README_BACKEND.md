@@ -34,7 +34,7 @@ LINK_MONEY_WEBHOOK_SECRET=your_link_money_webhook_secret
 
 # CentryOS (hosted checkout via WalletOS)
 # Server-side only — never expose CentryOS_API_CLIENT_* in the client bundle.
-CENTRYOS_ENV=staging              # staging | production
+CENTRYOS_ENV=sandbox              # sandbox | production
 CENTRYOS_API_CLIENT_ID=your_centryos_client_id
 CENTRYOS_API_CLIENT_SECRET=your_centryos_client_secret
 CENTRYOS_WEBHOOK_SECRET=your_centryos_webhook_secret

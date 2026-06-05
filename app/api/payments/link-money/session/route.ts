@@ -142,7 +142,9 @@ export const POST = requireAuthMiddleware(
         inputCode: enteredDiscountCode,
         subtotal,
         userId,
-        email: shippingAddress.email,
+        // Account email for the email-lock check (the email the admin
+        // locked the code to); falls back to the entered shipping email.
+        email: req.user!.email ?? shippingAddress.email,
       })
       if (!discountResult.ok) {
         return NextResponse.json({ error: discountResult.error }, { status: 400 })

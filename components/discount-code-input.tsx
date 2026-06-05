@@ -28,7 +28,6 @@ interface ValidateResponse {
  */
 export function DiscountCodeInput() {
   const { subtotal, appliedDiscount, applyDiscount, removeDiscount } = useCart()
-  const [open, setOpen] = useState<boolean>(!!appliedDiscount)
   const [input, setInput] = useState<string>("")
   const [error, setError] = useState<string>("")
   const [loading, setLoading] = useState<boolean>(false)
@@ -83,10 +82,7 @@ export function DiscountCodeInput() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              removeDiscount()
-              setOpen(false)
-            }}
+            onClick={() => removeDiscount()}
             className="flex h-7 w-7 items-center justify-center rounded-full text-emerald-700 transition-colors hover:bg-emerald-100"
             aria-label="Remove discount code"
           >
@@ -97,23 +93,18 @@ export function DiscountCodeInput() {
     )
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <Tag className="h-3.5 w-3.5" />
-        Have a discount code?
-      </button>
-    )
-  }
-
   return (
     <div className="rounded-2xl border border-border bg-white px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.03)]">
+      <label
+        htmlFor="discount-code"
+        className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground"
+      >
+        <Tag className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+        Discount code
+      </label>
       <div className="flex items-center gap-2">
         <input
+          id="discount-code"
           type="text"
           value={input}
           onChange={(e) => setInput(normalizeCode(e.target.value))}
@@ -125,7 +116,7 @@ export function DiscountCodeInput() {
           }}
           placeholder="DISCOUNT CODE"
           maxLength={40}
-          className="h-10 flex-1 rounded-xl bg-transparent px-3 font-mono text-sm uppercase tracking-wider text-foreground outline-none placeholder:text-muted-foreground/60"
+          className="h-10 flex-1 rounded-xl border border-border/70 bg-transparent px-3 font-mono text-sm uppercase tracking-wider text-foreground outline-none transition-colors focus:border-primary placeholder:text-muted-foreground/60"
           aria-label="Discount code"
         />
         <Button

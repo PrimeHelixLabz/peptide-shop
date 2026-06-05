@@ -16,6 +16,7 @@ import { OrderSummary, type ShippingMethod } from "@/components/order-summary"
 import { LinkMoneyButton, type LinkMoneyCheckoutData } from "@/components/link-money-button"
 import { CentryOSButton, type CentryOSCheckoutData } from "@/components/centryos-button"
 import { AffiliateCodeField } from "@/components/affiliates/affiliate-code-field"
+import { DiscountCodeInput } from "@/components/discount-code-input"
 import {
   getServiceFeeRate,
   getShippingCost,
@@ -518,6 +519,14 @@ export function CheckoutForm() {
               className="w-full min-h-[100px] rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Special instructions or notes..."
             />
+          </div>
+
+          {/* Discount code — kept in the form flow (above the Pay button)
+              so it's visible on mobile, where the order summary renders
+              below the button. Applying a code updates the summary total. */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Discount Code</h2>
+            <DiscountCodeInput />
           </div>
 
           {/* Affiliate code (manual entry). Auto-expands when a referral
