@@ -179,6 +179,29 @@ export async function PUT(
     const willTransitionToPaid =
       data.paymentStatus === "paid" && order.paymentStatus !== "paid"
 
+    // A payment_status → "failed" transition must also cancel the order and
+    // release any reserved stock — exactly what the CentryOS webhook does in
+    // syncOrderFromPayment(). The admin PUT path previously wrote
+    // payment_status="failed" raw, leaving status="pending" and inventory
+    // still decremented. Force status="cancelled" here so the invariant holds
+    // regardless of which client triggers the update.
+    const willTransitionToFailed =
+      data.paymentStatus === "failed" && order.paymentStatus !== "failed"
+
+    if (willTransitionToFailed) {
+      data.status = "cancelled"
+      // Restore stock only if it was actually deducted (paid orders, or any
+      // order whose inventory was adjusted). The RPC is idempotent and keys
+      // off orders.inventory_adjusted_at, so a no-op for never-deducted rows.
+      const restoreResult = await restoreInventoryForOrderAsAdmin(order.id)
+      if (!restoreResult.ok) {
+        return NextResponse.json(
+          { error: "Could not restore inventory; update aborted, please retry" },
+          { status: 503 }
+        )
+      }
+    }
+
     if (willTransitionToPaid) {
       const shortfalls = await checkStockAvailability(order.items)
       if (shortfalls.length > 0) {
