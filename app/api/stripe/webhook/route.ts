@@ -140,13 +140,14 @@ export const POST = async (req: NextRequest) => {
             )
           }
 
-          // Send order notification email to support (non-blocking)
-          sendOrderNotificationEmail(createdOrder).catch((err) =>
-            console.error("Failed to send order notification:", err)
-          )
-          sendCustomerOrderConfirmedEmail(createdOrder).catch((err) =>
-            console.error("Failed to send customer paid-confirmation email:", err)
-          )
+          // Await both sends so the in-flight Resend requests can't be frozen
+          // when the handler returns and Vercel suspends the instance. Both
+          // helpers swallow their own errors, so allSettled only guarantees
+          // completion.
+          await Promise.allSettled([
+            sendOrderNotificationEmail(createdOrder),
+            sendCustomerOrderConfirmedEmail(createdOrder),
+          ])
 
           // Confirm the discount redemption (insert audit row). Idempotent
           // via the unique (code_id, user_id|email) constraints, so a Stripe

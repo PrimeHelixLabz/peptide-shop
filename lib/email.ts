@@ -130,6 +130,13 @@ function buildShippingSection(address: Order["shippingAddress"]): string {
 
 export async function sendOrderNotificationEmail(order: Order): Promise<void> {
   const customerEmail = order.email || (order.shippingAddress as any)?.email || "N/A"
+  // This notification only fires once an order is paid (every caller passes a
+  // paid order). Lead with the payment state so support doesn't read it as an
+  // unsettled "new order", and keep the fulfillment status clearly separate —
+  // a freshly paid order is always "processing", which previously got mistaken
+  // for the payment still being in progress.
+  const isPaid = order.paymentStatus === "paid"
+  const headerTitle = isPaid ? "Payment Received" : "New Order Received"
 
   const html = `
     <!DOCTYPE html>
@@ -141,7 +148,7 @@ export async function sendOrderNotificationEmail(order: Order): Promise<void> {
 
           <!-- Header -->
           <div style="background-color: #1e293b; padding: 24px; text-align: center;">
-            <h1 style="margin: 0; color: #ffffff; font-size: 22px;">New Order Received</h1>
+            <h1 style="margin: 0; color: #ffffff; font-size: 22px;">${headerTitle}</h1>
           </div>
 
           <!-- Body -->
@@ -150,8 +157,11 @@ export async function sendOrderNotificationEmail(order: Order): Promise<void> {
               <p style="margin: 0; color: #065f46; font-weight: 600; font-size: 16px;">
                 Order #${order.orderNumber}
               </p>
-              <p style="margin: 4px 0 0; color: #047857; font-size: 14px;">
-                Payment Status: ${order.paymentStatus.toUpperCase()} &bull; Order Status: ${order.status.toUpperCase()}
+              <p style="margin: 8px 0 0; color: #065f46; font-weight: 700; font-size: 15px;">
+                ${isPaid ? "&#10003; Payment received" : `Payment Status: ${order.paymentStatus.toUpperCase()}`}
+              </p>
+              <p style="margin: 4px 0 0; color: #6b7280; font-size: 13px;">
+                Fulfillment status: ${order.status.toUpperCase()}
               </p>
             </div>
 
@@ -201,7 +211,7 @@ export async function sendOrderNotificationEmail(order: Order): Promise<void> {
     await resend.emails.send({
       from: `Prime Helix Labz <${FROM_EMAIL}>`,
       to: [SUPPORT_EMAIL],
-      subject: `New Order #${order.orderNumber} - ${formatCurrency(order.total)}`,
+      subject: `${isPaid ? "Payment received" : "New order"} — Order #${order.orderNumber} (${formatCurrency(order.total)})`,
       html,
     })
     console.log(`Order notification email sent for order ${order.orderNumber}`)

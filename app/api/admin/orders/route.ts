@@ -273,12 +273,13 @@ export const POST = requireAdminMiddleware(async (req) => {
       )
     }
 
-    sendOrderNotificationEmail(createdOrder).catch((err) =>
-      console.error("Failed to send admin cash order notification:", err)
-    )
-    sendCustomerOrderConfirmedEmail(createdOrder).catch((err) =>
-      console.error("Failed to send customer paid-confirmation email:", err)
-    )
+    // Await both sends so the in-flight Resend requests can't be frozen when
+    // the handler returns and Vercel suspends the instance. Both helpers
+    // swallow their own errors, so allSettled only guarantees completion.
+    await Promise.allSettled([
+      sendOrderNotificationEmail(createdOrder),
+      sendCustomerOrderConfirmedEmail(createdOrder),
+    ])
 
     return NextResponse.json({ order: createdOrder }, { status: 201 })
   } catch (error) {

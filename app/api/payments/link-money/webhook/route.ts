@@ -328,12 +328,17 @@ async function syncOrderFromPayment(
       status: nextOrderStatus,
     }
 
-    sendOrderNotificationEmail(paidOrder).catch((err) =>
-      console.error("support notif email failed", err)
-    )
-    sendCustomerOrderConfirmedEmail(paidOrder).catch((err) =>
-      console.error("customer paid-confirmation email failed", err)
-    )
+    // Await both sends. This runs inside the route's `after()` callback; a
+    // fire-and-forget dispatch races serverless suspension — once `after()`
+    // resolves, Vercel freezes the instance and the in-flight Resend request
+    // is killed mid-flight (no send, no error logged). That is exactly how a
+    // paid order ended up with neither the support nor the customer email.
+    // Both helpers swallow their own errors, so allSettled only guarantees
+    // the requests complete before `after()` returns.
+    await Promise.allSettled([
+      sendOrderNotificationEmail(paidOrder),
+      sendCustomerOrderConfirmedEmail(paidOrder),
+    ])
 
     // Confirm discount redemption (idempotent via DB unique constraints).
     if (paidOrder.discountCodeId) {
