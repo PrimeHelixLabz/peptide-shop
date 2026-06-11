@@ -261,12 +261,26 @@ export async function setReviewStatusAsAdmin(
   return rowToAdminReview(data as unknown as AdminReviewRow)
 }
 
-export async function deleteReviewAsAdmin(id: string): Promise<boolean> {
+export async function deleteReviewAsAdmin(
+  id: string
+): Promise<{ ok: boolean; productSlug: string | null }> {
   const supabase = createAdminClient()
+  // Resolve the product slug before deleting so the route can revalidate the
+  // cached detail page. A separate read keeps the delete idempotent — deleting
+  // an already-removed review still succeeds, as it did before this returned
+  // the slug.
+  const { data } = await supabase
+    .from("product_reviews")
+    .select("products(slug)")
+    .eq("id", id)
+    .maybeSingle()
+  const products = (data as unknown as { products?: { slug?: string | null } | null } | null)
+    ?.products
+
   const { error } = await supabase.from("product_reviews").delete().eq("id", id)
   if (error) {
     console.error("deleteReviewAsAdmin failed:", error)
-    return false
+    return { ok: false, productSlug: null }
   }
-  return true
+  return { ok: true, productSlug: products?.slug ?? null }
 }

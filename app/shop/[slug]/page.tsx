@@ -60,9 +60,12 @@ interface PageProps {
   params: Promise<{ slug: string }>
 }
 
-// Use ISR to avoid build-time timeouts while still allowing caching
-// Pages will be generated on-demand and cached for 1 hour
-export const revalidate = 3600 // Revalidate every hour (ISR)
+// Use ISR to avoid build-time timeouts while still allowing caching.
+// 5-minute cap matches /shop and / — it bounds staleness for data that
+// changes outside admin mutations (stock decrements from orders, webhook
+// inventory restores). Admin content edits revalidate on demand via
+// lib/revalidate-shop.ts.
+export const revalidate = 300
 export const dynamicParams = true // Allow dynamic params not in generateStaticParams
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

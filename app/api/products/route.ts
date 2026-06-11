@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/supabase"
 import { requireAdminMiddleware, optionalAuthMiddleware } from "@/lib/auth/middleware"
 import { getProductRatingSummaries } from "@/lib/db/reviews"
+import { revalidateShopPages } from "@/lib/revalidate-shop"
 import { z } from "zod"
 
 const variantInputSchema = z.object({
@@ -125,6 +126,7 @@ export const POST = requireAdminMiddleware(async (req) => {
     })
 
     if (!variants || variants.length === 0) {
+      revalidateShopPages(product.slug)
       return NextResponse.json({ product }, { status: 201 })
     }
 
@@ -167,6 +169,7 @@ export const POST = requireAdminMiddleware(async (req) => {
 
       // Re-fetch so the response includes the variants the client just created.
       const enriched = await getProductById(product.id)
+      revalidateShopPages(product.slug)
       return NextResponse.json({ product: enriched ?? product }, { status: 201 })
     } catch (variantError) {
       console.error("Create product: variant creation failed, rolling back product", variantError)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
 import { getProductVariants, createVariant, setDefaultVariant, syncProductThumbnailToDefaultVariant } from "@/lib/db/supabase"
+import { revalidateShopPagesById } from "@/lib/revalidate-shop"
 import { z } from "zod"
 
 const variantSchema = z.object({
@@ -51,6 +52,7 @@ export const POST = requireAdminMiddleware(async (
       await syncProductThumbnailToDefaultVariant(id, { force: false })
     }
 
+    await revalidateShopPagesById(id)
     return NextResponse.json({ variant }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {

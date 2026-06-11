@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
 import { getVariantImages, replaceVariantImages } from "@/lib/db/variant-images"
+import { revalidateShopPagesById } from "@/lib/revalidate-shop"
 import { z } from "zod"
 
 const replaceImagesSchema = z.object({
@@ -32,11 +33,12 @@ export const PUT = requireAdminMiddleware(async (
   { params }: { params: Promise<{ id: string; variantId: string }> }
 ) => {
   try {
-    const { variantId } = await params
+    const { id, variantId } = await params
     const body = await req.json()
     const { images } = replaceImagesSchema.parse(body)
 
     const updated = await replaceVariantImages(variantId, images)
+    await revalidateShopPagesById(id)
     return NextResponse.json({ images: updated })
   } catch (error) {
     if (error instanceof z.ZodError) {

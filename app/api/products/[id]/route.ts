@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getProductById, updateProduct, deleteProduct, archiveProduct } from "@/lib/db/supabase"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
+import { revalidateShopPages } from "@/lib/revalidate-shop"
 import { z } from "zod"
 
 const updateProductSchema = z.object({
@@ -53,6 +54,7 @@ export const PUT = requireAdminMiddleware(async (
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
+    revalidateShopPages(product.slug)
     return NextResponse.json({ product })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -81,6 +83,7 @@ export const DELETE = requireAdminMiddleware(
           return NextResponse.json({ error: "Product not found" }, { status: 404 })
         }
 
+        revalidateShopPages()
         return NextResponse.json({
           success: true,
           message: "Product deleted permanently",
@@ -93,6 +96,7 @@ export const DELETE = requireAdminMiddleware(
         return NextResponse.json({ error: "Product not found" }, { status: 404 })
       }
 
+      revalidateShopPages()
       return NextResponse.json({ success: true, message: "Product archived successfully" })
     } catch (error) {
       console.error("Archive/delete product error:", error)

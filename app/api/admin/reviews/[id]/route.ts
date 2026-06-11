@@ -8,6 +8,7 @@ import {
   setReviewStatusAsAdmin,
   deleteReviewAsAdmin,
 } from "@/lib/db/reviews"
+import { revalidateShopPages } from "@/lib/revalidate-shop"
 
 const patchSchema = z.object({
   status: z.enum(["pending", "published", "hidden"]),
@@ -37,6 +38,9 @@ export const PATCH = requireAdminMiddleware(
     if (!review) {
       return NextResponse.json({ error: "Review not found" }, { status: 404 })
     }
+    // Published reviews render on the cached product detail page; star
+    // ratings also show on the shop/homepage cards.
+    revalidateShopPages(review.productSlug)
     return NextResponse.json({ review })
   }
 )
@@ -44,10 +48,11 @@ export const PATCH = requireAdminMiddleware(
 export const DELETE = requireAdminMiddleware(
   async (_req: AuthenticatedRequest, context: RouteContext) => {
     const { id } = await context.params
-    const ok = await deleteReviewAsAdmin(id)
+    const { ok, productSlug } = await deleteReviewAsAdmin(id)
     if (!ok) {
       return NextResponse.json({ error: "Could not delete review" }, { status: 500 })
     }
+    revalidateShopPages(productSlug)
     return NextResponse.json({ ok: true })
   }
 )

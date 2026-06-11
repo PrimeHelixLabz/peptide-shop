@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
 import { syncProductThumbnailToDefaultVariant } from "@/lib/db/supabase"
+import { revalidateShopPagesById } from "@/lib/revalidate-shop"
 
 // Sync products.thumbnail_url from the primary image of the default variant.
 // - If the product already has a non-empty thumbnail and force is not requested, it is left as-is.
@@ -12,6 +13,7 @@ export const POST = requireAdminMiddleware(async (
   try {
     const { id } = await params
     await syncProductThumbnailToDefaultVariant(id, { force: false })
+    await revalidateShopPagesById(id)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Sync thumbnail error:", error)

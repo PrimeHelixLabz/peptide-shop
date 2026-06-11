@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/supabase-auth"
+import { revalidateShopPages } from "@/lib/revalidate-shop"
 
 /**
  * GET /api/categories/[id]
@@ -75,6 +76,8 @@ export async function PUT(
       )
     }
 
+    // Category tabs and card labels render on the cached shop page.
+    revalidateShopPages()
     return NextResponse.json({ category })
   } catch (error) {
     if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {
@@ -129,6 +132,7 @@ export async function DELETE(
       )
     }
 
+    revalidateShopPages()
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {

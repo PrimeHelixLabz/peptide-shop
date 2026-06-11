@@ -6,6 +6,11 @@ import { getAllProducts, getCategories } from "@/lib/api/server-products"
 import { getProductRatingSummaries } from "@/lib/db/reviews"
 import { Section, Container, PageHeader } from "@/components/layout"
 
+// Safety net: admin product mutations revalidate this page on demand
+// (lib/revalidate-shop.ts), but cap staleness at 5 minutes in case a
+// mutation path misses the call.
+export const revalidate = 300
+
 export const metadata: Metadata = {
   title: "Shop | PrimeHelix Labz",
   description:

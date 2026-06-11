@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
 import { getVariantById, updateVariant, deleteVariant, getProductVariants, ensureDefaultVariant, setDefaultVariant, syncProductThumbnailToDefaultVariant } from "@/lib/db/supabase"
+import { revalidateShopPagesById } from "@/lib/revalidate-shop"
 import { z } from "zod"
 
 const updateVariantSchema = z.object({
@@ -69,6 +70,7 @@ export const PUT = requireAdminMiddleware(async (
       await syncProductThumbnailToDefaultVariant(productId, { force: false })
     }
 
+    await revalidateShopPagesById(productId)
     return NextResponse.json({ variant })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -112,6 +114,7 @@ export const DELETE = requireAdminMiddleware(async (
       await syncProductThumbnailToDefaultVariant(productId, { force: true })
     }
 
+    await revalidateShopPagesById(productId)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Delete variant error:", error)

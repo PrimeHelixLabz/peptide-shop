@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { getProductCoas, replaceProductCoas } from "@/lib/db/product-coas"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
+import { revalidateShopPagesById } from "@/lib/revalidate-shop"
 
 export async function GET(
   _req: NextRequest,
@@ -36,6 +37,7 @@ export const PUT = requireAdminMiddleware(async (
     const body = await req.json()
     const { coas } = replaceSchema.parse(body)
     const saved = await replaceProductCoas(id, coas)
+    await revalidateShopPagesById(id)
     return NextResponse.json({ coas: saved })
   } catch (error) {
     if (error instanceof z.ZodError) {
