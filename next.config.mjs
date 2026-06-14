@@ -5,13 +5,6 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    // Serve images straight from Supabase Storage's CDN instead of routing
-    // them through Vercel's image optimizer. The optimizer's quota was being
-    // exhausted, which made it return HTTP 402 for any image not already in
-    // its edge cache (newly added COAs broke first, product photos next as
-    // their cache entries expired). Supabase already serves these over a CDN,
-    // so optimization added cost and a failure mode for little benefit.
-    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: '*.supabase.in' },
