@@ -202,6 +202,7 @@ export async function POST(req: NextRequest) {
             await syncOrderFromPayment(
               result.payment.orderId,
               result.payment.status,
+              parseFeeCharged(body),
               trace
             )
           } else {
@@ -282,6 +283,26 @@ const PAYMENT_TO_ORDER_STATUS: Record<string, string> = {
   SUCCEEDED: "paid",
 }
 
+const round2 = (n: number): number =>
+  Math.round((n + Number.EPSILON) * 100) / 100
+
+/**
+ * CentryOS reports the fee it added on top of the charge as `feeCharged`.
+ * In live COLLECTION webhooks this arrives inside `payload` as a STRING
+ * (e.g. "2.41"); older/alt shapes have surfaced it at the top level as a
+ * number. Parse defensively and return null when absent or non-numeric so
+ * callers fall back to the order's existing stored values rather than
+ * zeroing out the total on a malformed payload.
+ */
+function parseFeeCharged(body: CentryOSWebhookBody): number | null {
+  const raw =
+    (body?.payload as { feeCharged?: unknown } | undefined)?.feeCharged ??
+    (body as { feeCharged?: unknown })?.feeCharged
+  if (raw == null) return null
+  const fee = typeof raw === "number" ? raw : parseFloat(String(raw))
+  return Number.isFinite(fee) && fee >= 0 ? fee : null
+}
+
 /**
  * Sync the orders row from the latest payments row state. FAILED /
  * EXPIRED / CANCELLED collapse onto a "failed + cancelled" terminal
@@ -290,6 +311,7 @@ const PAYMENT_TO_ORDER_STATUS: Record<string, string> = {
 async function syncOrderFromPayment(
   orderId: string,
   status: string,
+  feeCharged: number | null,
   trace?: ProcessingTrace
 ): Promise<void> {
   // Load the FULL order once, up front. Earlier versions did a 4-field SELECT
@@ -393,23 +415,47 @@ async function syncOrderFromPayment(
         ? "processing"
         : fullOrder.status
 
-    await supabase
-      .from("orders")
-      .update({
-        payment_status: "paid",
-        status: nextOrderStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", fullOrder.id)
+    // CentryOS surcharges the customer on top of our order amount and reports
+    // it as feeCharged. We record it as the order's service_fee and recompute
+    // the total so the packing slip reflects what the customer actually paid.
+    // Recompute (not increment) from the immutable base fields — this is a
+    // pure function of subtotal/discount/shipping/fee, so reprocessing the
+    // same webhook can never double-apply the fee.
+    const recomputedTotal =
+      feeCharged != null
+        ? round2(
+            fullOrder.subtotal -
+              (fullOrder.discountAmount ?? 0) +
+              fullOrder.shipping +
+              feeCharged
+          )
+        : null
+
+    const paidUpdate: Record<string, unknown> = {
+      payment_status: "paid",
+      status: nextOrderStatus,
+      updated_at: new Date().toISOString(),
+    }
+    if (feeCharged != null && recomputedTotal != null) {
+      paidUpdate.service_fee = feeCharged
+      paidUpdate.total = recomputedTotal
+    }
+
+    await supabase.from("orders").update(paidUpdate).eq("id", fullOrder.id)
     trace?.step("sync.order_marked_paid", true, {
       payment_status: "paid",
       status: nextOrderStatus,
+      service_fee: feeCharged,
+      total: recomputedTotal,
     })
 
     const paidOrder = {
       ...fullOrder,
       paymentStatus: "paid" as const,
       status: nextOrderStatus,
+      ...(feeCharged != null && recomputedTotal != null
+        ? { serviceFee: feeCharged, total: recomputedTotal }
+        : {}),
     }
 
     // Await both sends. This runs inside the route's `after()` callback; a

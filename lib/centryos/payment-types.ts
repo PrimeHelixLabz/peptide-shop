@@ -48,6 +48,9 @@ export interface CentryOSWebhookBody {
     transactionId?: string
     amount?: number
     currency?: string
+    // Surcharge CentryOS adds on top of the charge. Arrives as a STRING
+    // (e.g. "2.41") in live COLLECTION webhooks. Parse before use.
+    feeCharged?: number | string
     // Checkout-form fields collected from the customer (Email, First/Last
     // name, Phone, etc.). NOT where we put orderId/clientReferenceId —
     // those go through paymentLink.customData below.

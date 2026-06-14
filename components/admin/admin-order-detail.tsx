@@ -659,13 +659,15 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                 )}
               </button>
 
-              <Link
-                href={`/admin/orders/${orderId}/receipt`}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 dark:border-gray-700 text-sm font-semibold text-foreground transition-all duration-200 hover:border-foreground hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                <Printer className="h-4 w-4" />
-                Print Packing Slip
-              </Link>
+              {order.paymentStatus === "paid" && (
+                <Link
+                  href={`/admin/orders/${orderId}/receipt`}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 dark:border-gray-700 text-sm font-semibold text-foreground transition-all duration-200 hover:border-foreground hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print Packing Slip
+                </Link>
+              )}
 
               {order.paymentStatus !== "paid" && (
                 <button
