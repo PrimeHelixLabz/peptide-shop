@@ -355,7 +355,7 @@ export default async function AffiliateDashboardPage() {
                             Date
                           </th>
                           <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Order total
+                            Net sales
                           </th>
                           <th className="hidden px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">
                             Rate
@@ -378,7 +378,7 @@ export default async function AffiliateDashboardPage() {
                               {formatDate(c.createdAt)}
                             </td>
                             <td className="px-6 py-4 text-sm">
-                              {formatCurrency(c.orderTotal)}
+                              {formatCurrency(c.commissionBase)}
                             </td>
                             <td className="hidden px-6 py-4 text-sm text-muted-foreground md:table-cell">
                               {(c.commissionRate * 100).toFixed(0)}%

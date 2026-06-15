@@ -861,7 +861,7 @@ function Row({
                       <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
                         <tr>
                           <th className="px-3 py-2">Order date</th>
-                          <th className="px-3 py-2 text-right">Order total</th>
+                          <th className="px-3 py-2 text-right">Net sales</th>
                           <th className="px-3 py-2 text-right">Commission</th>
                           <th className="px-3 py-2">Status</th>
                         </tr>
@@ -886,7 +886,7 @@ function Row({
                               </div>
                             </td>
                             <td className="px-3 py-2 text-right">
-                              {formatCurrency(c.orderTotal)}
+                              {formatCurrency(c.commissionBase)}
                             </td>
                             <td className="px-3 py-2 text-right font-medium">
                               {formatCurrency(c.commissionAmount)}
@@ -1024,12 +1024,16 @@ function Row({
                           <strong className="text-foreground">
                             {formatCurrency(
                               Math.round(
-                                manualPreview.orderTotal *
+                                manualPreview.commissionBase *
                                   (Number(manualRateOverride) / 100) *
                                   100
                               ) / 100
                             )}
-                          </strong>
+                          </strong>{" "}
+                          <span className="text-[10px]">
+                            on {formatCurrency(manualPreview.commissionBase)} net
+                            sales
+                          </span>
                         </div>
                       </div>
 
@@ -1059,7 +1063,7 @@ function Row({
                           Creates a pending commission of{" "}
                           {formatCurrency(
                             Math.round(
-                              manualPreview.orderTotal *
+                              manualPreview.commissionBase *
                                 (Number(manualRateOverride) / 100) *
                                 100
                             ) / 100

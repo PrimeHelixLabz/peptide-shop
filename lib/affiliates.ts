@@ -57,6 +57,8 @@ export interface AffiliateConversion {
   code: string
   orderId: string
   orderTotal: number
+  /** Net product revenue the commission is computed from: subtotal − discount. */
+  commissionBase: number
   commissionRate: number
   commissionAmount: number
   status: ConversionStatus
@@ -106,6 +108,7 @@ interface ConversionRow {
   code: string
   order_id: string
   order_total: number | string
+  commission_base: number | string
   commission_rate: number | string
   commission_amount: number | string
   status: ConversionStatus
@@ -151,6 +154,7 @@ function rowToConversion(row: ConversionRow): AffiliateConversion {
     code: row.code,
     orderId: row.order_id,
     orderTotal: Number(row.order_total),
+    commissionBase: Number(row.commission_base),
     commissionRate: Number(row.commission_rate),
     commissionAmount: Number(row.commission_amount),
     status: row.status,
@@ -749,7 +753,7 @@ export async function getUnpaidConversionsForAffiliateAsAdmin(
   const { data, error } = await supabase
     .from("affiliate_conversions")
     .select(
-      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
+      "id, affiliate_id, code, order_id, order_total, commission_base, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
     )
     .eq("affiliate_id", affiliateId)
     .in("status", ["pending", "payable"])
@@ -820,7 +824,7 @@ export async function getAffiliateStats(
   const { data, error } = await supabase
     .from("affiliate_conversions")
     .select(
-      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
+      "id, affiliate_id, code, order_id, order_total, commission_base, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
     )
     .eq("affiliate_id", affiliateId)
     .order("created_at", { ascending: false })
@@ -875,6 +879,8 @@ export interface OrderPreview {
   orderNumber: string
   customerName: string
   orderTotal: number
+  /** Net product revenue (subtotal − discount) — the commission base. */
+  commissionBase: number
   createdAt: string
   /** True when a conversion row already exists for this order. */
   alreadyAttributed: boolean
@@ -910,7 +916,7 @@ export async function lookupOrderForManualConversionAsAdmin(
 
   const baseQuery = supabase
     .from("orders")
-    .select("id, order_number, total, created_at, payment_status, shipping_address")
+    .select("id, order_number, total, subtotal, discount_amount, created_at, payment_status, shipping_address")
 
   const { data: orderData, error: orderError } = await (
     isUuid ? baseQuery.eq("id", ref) : baseQuery.eq("order_number", ref)
@@ -926,6 +932,8 @@ export async function lookupOrderForManualConversionAsAdmin(
     id: string
     order_number: string
     total: number | string
+    subtotal: number | string
+    discount_amount: number | string | null
     created_at: string
     payment_status: string
     shipping_address: Record<string, string> | null
@@ -969,6 +977,10 @@ export async function lookupOrderForManualConversionAsAdmin(
       orderNumber: order.order_number,
       customerName,
       orderTotal: Number(order.total),
+      commissionBase: Math.max(
+        Number(order.subtotal) - Number(order.discount_amount ?? 0),
+        0
+      ),
       createdAt: order.created_at,
       alreadyAttributed,
       attributedToCurrentAffiliate,
@@ -1010,7 +1022,7 @@ export async function createManualConversionAsAdmin(
 
   const { data: orderData, error: orderError } = await supabase
     .from("orders")
-    .select("id, total, payment_status")
+    .select("id, total, subtotal, discount_amount, payment_status")
     .eq("id", orderId)
     .maybeSingle()
 
@@ -1020,6 +1032,8 @@ export async function createManualConversionAsAdmin(
   const order = orderData as unknown as {
     id: string
     total: number | string
+    subtotal: number | string
+    discount_amount: number | string | null
     payment_status: string
   }
   if (order.payment_status !== "paid") {
@@ -1044,7 +1058,13 @@ export async function createManualConversionAsAdmin(
       : affiliate.commissionRate
 
   const orderTotal = Number(order.total)
-  const commissionAmount = roundCurrency(orderTotal * rate)
+  // Commission is paid on net product revenue (subtotal − discount), not on
+  // the grand total which includes shipping and service/CentryOS fees.
+  const commissionBase = Math.max(
+    Number(order.subtotal) - Number(order.discount_amount ?? 0),
+    0
+  )
+  const commissionAmount = roundCurrency(commissionBase * rate)
 
   const { data: inserted, error: insertError } = await supabase
     .from("affiliate_conversions")
@@ -1053,6 +1073,7 @@ export async function createManualConversionAsAdmin(
       code: codeRecord.code,
       order_id: orderId,
       order_total: orderTotal,
+      commission_base: commissionBase,
       commission_rate: rate,
       commission_amount: commissionAmount,
       status: "pending",
@@ -1060,7 +1081,7 @@ export async function createManualConversionAsAdmin(
       admin_notes: options?.adminNotes ?? null,
     })
     .select(
-      "id, affiliate_id, code, order_id, order_total, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
+      "id, affiliate_id, code, order_id, order_total, commission_base, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at"
     )
     .single()
 
