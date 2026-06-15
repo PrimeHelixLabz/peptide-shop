@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { parseDayKey, formatDayKey } from "@/lib/admin/date-tz"
 
 type PresetRange = "7d" | "30d" | "90d" | "all"
 
@@ -79,9 +80,12 @@ export function DateRangePicker({
     onPresetChange?.("custom")
   }
 
-  // Whether we can go forward (the current end date is before today)
+  // Whether we can go forward (the current end date is before today).
+  // Compare *local* calendar days — value.to is a local end-of-day Date, so
+  // toISOString() would skew it into the next UTC day in negative-offset zones
+  // and wrongly disable the arrow for a window ending yesterday.
   const canGoNext = value.to
-    ? value.to.toISOString().split("T")[0] < new Date().toISOString().split("T")[0]
+    ? formatDayKey(value.to) < formatDayKey(new Date())
     : false
 
   // Sync selected preset when value changes externally
@@ -123,7 +127,10 @@ export function DateRangePicker({
   }, [value.from, value.to])
 
   function handleFromDateChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const fromDate = e.target.value ? new Date(e.target.value) : undefined
+    // parseDayKey builds a *local* date from the "YYYY-MM-DD" input. Plain
+    // new Date("YYYY-MM-DD") parses as UTC midnight and lands a day early in
+    // negative-offset zones (e.g. picking Jun 9 would select Jun 8 in PT).
+    const fromDate = e.target.value ? parseDayKey(e.target.value) : undefined
     if (fromDate) {
       fromDate.setHours(0, 0, 0, 0)
     }
@@ -133,7 +140,7 @@ export function DateRangePicker({
   }
 
   function handleToDateChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const toDate = e.target.value ? new Date(e.target.value) : undefined
+    const toDate = e.target.value ? parseDayKey(e.target.value) : undefined
     if (toDate) {
       toDate.setHours(23, 59, 59, 999)
     }

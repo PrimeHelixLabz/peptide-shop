@@ -10,6 +10,7 @@ import { StatusBadge, type StatusVariant } from "@/components/common/status-badg
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
 import { usePersistentTableState } from "@/hooks/usePersistentTableState"
 import { formatPaymentMethodShort } from "@/lib/format-payment-method"
+import { clientTimeZone } from "@/lib/admin/date-tz"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -95,7 +96,9 @@ export function AdminOrdersTable() {
   useEffect(() => {
     async function fetchOrders() {
       try {
-        const response = await fetch("/api/admin/orders")
+        const response = await fetch(
+          `/api/admin/orders?tz=${encodeURIComponent(clientTimeZone())}`
+        )
         if (response.ok) {
           const data = await response.json()
           setOrders(data.orders || [])

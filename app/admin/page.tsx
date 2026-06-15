@@ -23,6 +23,7 @@ import {
 } from "@/components/admin/inventory-charts"
 // import { ShortageRiskTable } from "@/components/admin/shortage-risk-table"
 import { format } from "date-fns"
+import { clientTimeZone } from "@/lib/admin/date-tz"
 import type {
   DemandTrendPoint,
   StockOverviewPoint,
@@ -121,7 +122,8 @@ export default function AdminDashboard() {
       setFetching(true)
     }
 
-    const params = `start=${dateRange.from.toISOString()}&end=${dateRange.to.toISOString()}`
+    const tz = clientTimeZone()
+    const params = `start=${dateRange.from.toISOString()}&end=${dateRange.to.toISOString()}&tz=${encodeURIComponent(tz)}`
 
     try {
       const [statsRes, inventoryRes] = await Promise.all([
@@ -145,7 +147,9 @@ export default function AdminDashboard() {
 
   async function loadRecentOrders() {
     try {
-      const response = await fetch("/api/admin/orders/recent")
+      const response = await fetch(
+        `/api/admin/orders/recent?tz=${encodeURIComponent(clientTimeZone())}`
+      )
       if (response.ok) {
         const data = await response.json()
         setRecentOrders(data.orders || [])

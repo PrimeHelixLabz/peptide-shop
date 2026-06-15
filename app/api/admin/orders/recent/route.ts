@@ -5,6 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 export const GET = requireAdminMiddleware(async (req) => {
   try {
     const supabase = createAdminClient()
+    // Render the order date in the admin's tz so it matches the dashboard
+    // chart (which buckets by the same tz) instead of the server's UTC day.
+    const tz = new URL(req.url).searchParams.get("tz") || "UTC"
 
     // Get recent orders (including email column for guest orders)
     const { data: ordersData, error: ordersError } = await supabase
@@ -81,6 +84,7 @@ export const GET = requireAdminMiddleware(async (req) => {
           year: "numeric",
           month: "short",
           day: "numeric",
+          timeZone: tz,
         }),
       }
     })

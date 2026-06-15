@@ -7,6 +7,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { parseDayKey, formatDayKey } from "@/lib/admin/date-tz"
 
 interface ChartDataPoint {
   date: string
@@ -41,9 +42,12 @@ export function DashboardChart({
   groupBy,
 }: DashboardChartProps) {
   const chartData = useMemo(() => {
+    // point.date is a "YYYY-MM-DD" key already in the admin's tz. Parse it via
+    // parseDayKey (local midnight) rather than `new Date(str)` so the label
+    // doesn't drift a day earlier in negative-offset zones.
     if (groupBy === "daily") {
       return data.map((point) => ({
-        date: new Date(point.date).toLocaleDateString("en-US", {
+        date: parseDayKey(point.date).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
         }),
@@ -56,13 +60,13 @@ export function DashboardChart({
     const buckets: Record<string, { revenue: number; orders: number; demand: number }> = {}
 
     data.forEach((point) => {
-      const d = new Date(point.date)
+      const d = parseDayKey(point.date)
       let key: string
 
       if (groupBy === "weekly") {
         const weekStart = new Date(d)
         weekStart.setDate(d.getDate() - d.getDay())
-        key = weekStart.toISOString().split("T")[0]
+        key = formatDayKey(weekStart)
       } else {
         key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
       }
@@ -78,8 +82,8 @@ export function DashboardChart({
     return Object.entries(buckets).map(([key, values]) => ({
       date:
         groupBy === "weekly"
-          ? new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-          : new Date(key + "-01").toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+          ? parseDayKey(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          : parseDayKey(key + "-01").toLocaleDateString("en-US", { month: "short", year: "numeric" }),
       ...values,
     }))
   }, [data, groupBy])

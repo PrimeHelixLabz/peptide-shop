@@ -20,6 +20,8 @@ import {
 export const GET = requireAdminMiddleware(async (req) => {
   try {
     const supabase = createAdminClient()
+    // Render order dates in the admin's tz (matches the dashboard chart).
+    const tz = new URL(req.url).searchParams.get("tz") || "UTC"
 
     // Get all orders (including email column for guest orders)
     const { data: ordersData, error: ordersError } = await supabase
@@ -116,6 +118,7 @@ export const GET = requireAdminMiddleware(async (req) => {
           year: "numeric",
           month: "short",
           day: "numeric",
+          timeZone: tz,
         }),
         paymentStatus: paymentStatusMap[order.payment_status || "pending"] || "Pending",
         shippingStatus: shippingStatusMap[order.status || "pending"] || "Processing",

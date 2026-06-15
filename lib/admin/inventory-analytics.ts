@@ -5,6 +5,8 @@
  * chart-ready series for the admin dashboard.
  */
 
+import { dayKeyInTz } from "@/lib/admin/date-tz"
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -43,14 +45,21 @@ export interface InventoryKpis {
 // Series builders
 // ---------------------------------------------------------------------------
 
-/** Build a daily demand trend series from order items. */
+/**
+ * Build a daily demand trend series from order items.
+ *
+ * `tz` is the IANA timezone to bucket calendar days in — it must match the
+ * tz used by the stats route so the dashboard can merge the two series by
+ * date key. Defaults to UTC.
+ */
 export function buildDemandTrendSeries(
-  orders: Array<{ createdAt: string; items: Array<{ quantity: number }> }>
+  orders: Array<{ createdAt: string; items: Array<{ quantity: number }> }>,
+  tz: string = "UTC"
 ): DemandTrendPoint[] {
   const daily: Record<string, number> = {}
 
   for (const order of orders) {
-    const date = new Date(order.createdAt).toISOString().split("T")[0]
+    const date = dayKeyInTz(order.createdAt, tz)
     const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0)
     daily[date] = (daily[date] || 0) + totalQty
   }

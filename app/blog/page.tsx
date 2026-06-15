@@ -8,7 +8,11 @@ import { Section, Container, PageHeader } from "@/components/layout"
 import { Badge } from "@/components/common/badge"
 import { getPublishedPostsPaged } from "@/lib/blog/db"
 
-export const revalidate = 300 // 5 minutes — fast enough to reflect new posts
+// Rendered per-request: the page reads `?page=` from searchParams and may
+// redirect() out-of-range deep links, so it can't be a static/ISR shell —
+// combining `revalidate` with searchParams access trips a Next prerender
+// invariant. Dynamic rendering keeps the pagination + redirect correct.
+export const dynamic = "force-dynamic"
 
 const PAGE_SIZE = 9
 

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { dayKeyInTz, shiftDayKey, zonedDayStart } from "@/lib/admin/date-tz"
 
 export const GET = requireAdminMiddleware(async (req) => {
   try {
     const supabase = createAdminClient()
+    const tz = new URL(req.url).searchParams.get("tz") || "UTC"
 
     // Fetch all profiles (registered customers)
     const { data: profilesData, error: profilesError } = await supabase
@@ -109,9 +111,10 @@ export const GET = requireAdminMiddleware(async (req) => {
       }
     })
 
-    // Compute summary KPIs
-    const now = new Date()
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    // Compute summary KPIs. The "last 30 days" window is anchored to the
+    // start of the day 30 days ago in the admin's timezone, not 00:00 UTC.
+    const todayKey = dayKeyInTz(new Date(), tz)
+    const thirtyDaysAgo = zonedDayStart(shiftDayKey(todayKey, -30), tz)
 
     const totalCustomers = customers.length
     const customersWithOrders = customers.filter((c: any) => c.totalOrders > 0)

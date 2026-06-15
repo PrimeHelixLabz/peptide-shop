@@ -766,6 +766,65 @@ export async function getUnpaidConversionsForAffiliateAsAdmin(
   return ((data as unknown as ConversionRow[]) || []).map(rowToConversion)
 }
 
+/** A conversion plus the human-friendly order_number for linking to the order. */
+export interface AffiliateConversionWithOrder extends AffiliateConversion {
+  orderNumber: string | null
+}
+
+/**
+ * Admin-only: every conversion for an affiliate (all statuses), newest first,
+ * with the order_number joined in so the UI can link each row straight to the
+ * order detail page. Used by the affiliate detail page.
+ */
+export async function getConversionsWithOrderForAffiliateAsAdmin(
+  affiliateId: string
+): Promise<AffiliateConversionWithOrder[]> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("affiliate_conversions")
+    .select(
+      "id, affiliate_id, code, order_id, order_total, commission_base, commission_rate, commission_amount, status, source, admin_notes, paid_at, payout_reference, created_at, orders(order_number)"
+    )
+    .eq("affiliate_id", affiliateId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("getConversionsWithOrderForAffiliateAsAdmin failed:", error)
+    return []
+  }
+  const rows =
+    (data as unknown as (ConversionRow & {
+      orders: { order_number: string } | null
+    })[]) || []
+  return rows.map((row) => ({
+    ...rowToConversion(row),
+    orderNumber: row.orders?.order_number ?? null,
+  }))
+}
+
+/**
+ * Admin-only: the affiliate's most recent active referral code, or null if
+ * none has been minted yet (codes are created on approval).
+ */
+export async function getActiveCodeForAffiliateAsAdmin(
+  affiliateId: string
+): Promise<string | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("affiliate_codes")
+    .select("code")
+    .eq("affiliate_id", affiliateId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    console.error("getActiveCodeForAffiliateAsAdmin failed:", error)
+    return null
+  }
+  return (data as { code: string } | null)?.code ?? null
+}
+
 export interface MarkAsPaidResult {
   paidCount: number
   paidAmount: number

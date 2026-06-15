@@ -16,6 +16,9 @@ export const GET = requireAdminMiddleware(async (req) => {
 
     const startParam = searchParams.get("start")
     const endParam = searchParams.get("end")
+    // Bucket the demand trend by the admin's tz day so it aligns with the
+    // stats route's chart series when merged on the client.
+    const tz = searchParams.get("tz") || "UTC"
 
     if (!startParam || !endParam) {
       return NextResponse.json(
@@ -122,7 +125,7 @@ export const GET = requireAdminMiddleware(async (req) => {
     // -----------------------------------------------------------------------
     const kpis = computeKpis(requiredByProduct, stockByProduct)
 
-    const demandTrend = buildDemandTrendSeries(orders)
+    const demandTrend = buildDemandTrendSeries(orders, tz)
 
     const stockOverview = buildStockOverviewSeries(
       products.map((p) => ({

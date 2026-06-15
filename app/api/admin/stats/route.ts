@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { requireAdminMiddleware } from "@/lib/auth/middleware"
+import { dayKeyInTz, eachDayKey } from "@/lib/admin/date-tz"
 
 type Duration = "7d" | "30d" | "90d" | "1y" | "all"
 
@@ -42,7 +43,11 @@ export const GET = requireAdminMiddleware(async (req) => {
     const { createClient } = await import("@/lib/supabase/server")
     const supabase = await createClient()
     const { searchParams } = new URL(req.url)
-    
+
+    // Admin's browser timezone — calendar-day bucketing is done in this tz so
+    // an order placed late in the evening lands on the day the admin sees it.
+    const tz = searchParams.get("tz") || "UTC"
+
     // Support both old duration param and new date range params
     const startParam = searchParams.get("start")
     const endParam = searchParams.get("end")
@@ -105,19 +110,19 @@ export const GET = requireAdminMiddleware(async (req) => {
         ? ((ordersCount - previousOrdersCount) / previousOrdersCount) * 100
         : 0
 
-    // Calculate daily revenue for chart (current period)
+    // Calculate daily revenue for chart (current period), bucketed by tz day
     const dailyRevenue: Record<string, number> = {}
     orders
       .filter((o: any) => o.payment_status === "paid" || o.status === "delivered")
       .forEach((o: any) => {
-        const date = new Date(o.created_at).toISOString().split("T")[0]
+        const date = dayKeyInTz(o.created_at, tz)
         dailyRevenue[date] = (dailyRevenue[date] || 0) + parseFloat(o.total || "0")
       })
 
     // Calculate daily orders for chart (current period)
     const dailyOrders: Record<string, number> = {}
     orders.forEach((o: any) => {
-      const date = new Date(o.created_at).toISOString().split("T")[0]
+      const date = dayKeyInTz(o.created_at, tz)
       dailyOrders[date] = (dailyOrders[date] || 0) + 1
     })
 
@@ -126,40 +131,36 @@ export const GET = requireAdminMiddleware(async (req) => {
     previousOrders
       .filter((o: any) => o.payment_status === "paid" || o.status === "delivered")
       .forEach((o: any) => {
-        const date = new Date(o.created_at).toISOString().split("T")[0]
+        const date = dayKeyInTz(o.created_at, tz)
         previousDailyRevenue[date] = (previousDailyRevenue[date] || 0) + parseFloat(o.total || "0")
       })
 
     // Calculate daily orders for previous period
     const previousDailyOrders: Record<string, number> = {}
     previousOrders.forEach((o: any) => {
-      const date = new Date(o.created_at).toISOString().split("T")[0]
+      const date = dayKeyInTz(o.created_at, tz)
       previousDailyOrders[date] = (previousDailyOrders[date] || 0) + 1
     })
 
-    // Generate chart data points with comparison
-    const chartData = []
-    const currentDate = new Date(start)
-    const previousStart = new Date(previousPeriod.start)
-    
-    while (currentDate <= end) {
-      const dateStr = currentDate.toISOString().split("T")[0]
-      
-      // Find corresponding date in previous period (same day offset)
-      const daysDiff = Math.floor((currentDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-      const previousDate = new Date(previousStart)
-      previousDate.setDate(previousStart.getDate() + daysDiff)
-      const previousDateStr = previousDate.toISOString().split("T")[0]
-      
-      chartData.push({
+    // Generate chart data points with comparison. Axis days are the calendar
+    // days (in the admin's tz) spanning the selected window; each current day
+    // is compared to the previous-period day at the same offset.
+    const dayKeys = eachDayKey(dayKeyInTz(start, tz), dayKeyInTz(end, tz))
+    const previousDayKeys = eachDayKey(
+      dayKeyInTz(previousPeriod.start, tz),
+      dayKeyInTz(previousPeriod.end, tz)
+    )
+
+    const chartData = dayKeys.map((dateStr, i) => {
+      const previousDateStr = previousDayKeys[i]
+      return {
         date: dateStr,
         revenue: dailyRevenue[dateStr] || 0,
         orders: dailyOrders[dateStr] || 0,
-        previousRevenue: previousDailyRevenue[previousDateStr] || 0,
-        previousOrders: previousDailyOrders[previousDateStr] || 0,
-      })
-      currentDate.setDate(currentDate.getDate() + 1)
-    }
+        previousRevenue: previousDateStr ? previousDailyRevenue[previousDateStr] || 0 : 0,
+        previousOrders: previousDateStr ? previousDailyOrders[previousDateStr] || 0 : 0,
+      }
+    })
 
     // Get pending orders
     const pendingOrders = orders.filter(

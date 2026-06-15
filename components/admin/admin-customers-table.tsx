@@ -17,6 +17,7 @@ import { Select } from "@/components/common/select"
 import { StatCard, type StatCardData } from "./stat-card"
 import { useScrollRestoration } from "@/hooks/useScrollRestoration"
 import { usePersistentTableState } from "@/hooks/usePersistentTableState"
+import { clientTimeZone } from "@/lib/admin/date-tz"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -120,7 +121,9 @@ export function AdminCustomersTable({ onSelectCustomer }: AdminCustomersTablePro
   useEffect(() => {
     async function fetchCustomers() {
       try {
-        const response = await fetch("/api/admin/customers")
+        const response = await fetch(
+          `/api/admin/customers?tz=${encodeURIComponent(clientTimeZone())}`
+        )
         if (response.ok) {
           const data = await response.json()
           setCustomers(data.customers || [])
