@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { TrustpilotLink } from "@/components/trustpilot/trustpilot-link"
@@ -6,6 +7,19 @@ const policyLinks = [
   { label: "Privacy Policy", href: "/privacy-policy" },
   { label: "Terms of Service", href: "/terms-of-service" },
   { label: "Shipping Policy", href: "/shipping-policy" },
+]
+
+// Social / community links. Add a new platform by appending an entry with its
+// label, href, brand color, and an SVG icon (24x24 viewBox, fill="currentColor").
+const socialLinks: { label: string; href: string; color: string; icon: ReactNode }[] = [
+  {
+    label: "Discord",
+    href: "https://discord.gg/6UFnb6m6w",
+    color: "#5865F2", // Discord "blurple"
+    icon: (
+      <path d="M20.317 4.369A19.79 19.79 0 0 0 15.432 3a13.7 13.7 0 0 0-.617 1.27 18.27 18.27 0 0 0-5.631 0A13.7 13.7 0 0 0 8.567 3a19.736 19.736 0 0 0-4.886 1.369C.533 9.046-.32 13.58.106 18.057a19.9 19.9 0 0 0 6.066 3.058 14.7 14.7 0 0 0 1.299-2.111 12.9 12.9 0 0 1-2.045-.978c.172-.126.34-.257.502-.392a14.2 14.2 0 0 0 12.144 0c.164.14.332.27.502.392-.652.385-1.34.713-2.048.979a14.5 14.5 0 0 0 1.3 2.11 19.84 19.84 0 0 0 6.067-3.057c.5-5.19-.838-9.682-3.576-13.688ZM8.02 15.331c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.094 2.157 2.418 0 1.334-.956 2.419-2.157 2.419Zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.094 2.157 2.418 0 1.334-.946 2.419-2.157 2.419Z" />
+    ),
+  },
 ]
 
 const siteLinks = [
@@ -60,6 +74,33 @@ export function Footer() {
                 Trustpilot plan; this works on the free tier. Hidden when
                 NEXT_PUBLIC_TRUSTPILOT_DOMAIN is unset. */}
             <TrustpilotLink mode="read" />
+
+            {/* Social / community */}
+            {socialLinks.length > 0 && (
+              <div className="flex items-center gap-3">
+                {socialLinks.map((social) => (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Join us on ${social.label}`}
+                    title={social.label}
+                    style={{ "--brand": social.color } as CSSProperties}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-[var(--brand)] transition-colors duration-200 hover:border-[var(--brand)] hover:bg-[color-mix(in_srgb,var(--brand)_10%,transparent)]"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                      className="h-5 w-5"
+                    >
+                      {social.icon}
+                    </svg>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Navigation Column */}
