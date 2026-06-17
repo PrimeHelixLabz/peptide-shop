@@ -2,6 +2,10 @@ import { Resend } from "resend"
 import type { Order } from "@/lib/db/schema"
 import { formatPaymentMethod } from "@/lib/format-payment-method"
 import { buildUnsubscribeUrl } from "@/lib/newsletter/unsubscribe-token"
+import {
+  buildMarketingEmailHtml,
+  renderMarketingMarkdown,
+} from "@/lib/newsletter/marketing-template"
 import { buildTrackingUrl, carrierLabel } from "@/lib/shipping/carriers"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -1145,4 +1149,82 @@ export async function sendRestockNotificationEmail(
     console.error("Failed to send restock notification email:", error)
     throw new Error(error.message)
   }
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  Marketing campaigns
+ *  Sends a Markdown-composed blast to a list of subscriber emails.
+ *  Each message carries a per-recipient one-click unsubscribe link +
+ *  RFC 8058 List-Unsubscribe headers, so it stays CAN-SPAM compliant
+ *  and keeps Gmail/Outlook's native unsubscribe button working.
+ * ────────────────────────────────────────────────────────────── */
+
+export interface SendCampaignResult {
+  sent: number
+  failed: number
+  /** Emails we couldn't hand off to Resend, for surfacing in the UI/logs. */
+  failedEmails: string[]
+}
+
+// Resend caps batch sends at 100 messages per request.
+const CAMPAIGN_BATCH_SIZE = 100
+
+export async function sendCampaignEmails(params: {
+  subject: string
+  bodyMarkdown: string
+  recipients: string[]
+}): Promise<SendCampaignResult> {
+  const subject = params.subject.trim()
+  const contentHtml = renderMarketingMarkdown(params.bodyMarkdown)
+
+  // De-dupe + normalize so the same person never gets two copies.
+  const recipients = Array.from(
+    new Set(
+      params.recipients
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e.length > 0)
+    )
+  )
+
+  const result: SendCampaignResult = { sent: 0, failed: 0, failedEmails: [] }
+
+  for (let i = 0; i < recipients.length; i += CAMPAIGN_BATCH_SIZE) {
+    const chunk = recipients.slice(i, i + CAMPAIGN_BATCH_SIZE)
+    const messages = chunk.map((email) => {
+      const unsubscribeUrl = buildUnsubscribeUrl(email, SITE_ORIGIN)
+      return {
+        from: `PrimeHelix Labz <${FROM_EMAIL}>`,
+        to: [email],
+        replyTo: SUPPORT_EMAIL,
+        subject,
+        html: buildMarketingEmailHtml({
+          subject,
+          contentHtml,
+          recipientEmail: email,
+          unsubscribeUrl,
+        }),
+        headers: {
+          "List-Unsubscribe": `<${unsubscribeUrl}>, <mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
+      }
+    })
+
+    try {
+      const { error } = await resend.batch.send(messages)
+      if (error) {
+        console.error("Campaign batch send failed:", error)
+        result.failed += chunk.length
+        result.failedEmails.push(...chunk)
+      } else {
+        result.sent += chunk.length
+      }
+    } catch (err) {
+      console.error("Campaign batch send threw:", err)
+      result.failed += chunk.length
+      result.failedEmails.push(...chunk)
+    }
+  }
+
+  return result
 }

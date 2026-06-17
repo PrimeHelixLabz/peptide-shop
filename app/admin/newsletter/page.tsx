@@ -1,10 +1,14 @@
 import { getAllSubscribersAsAdmin } from "@/lib/db/newsletter"
-import { AdminNewsletterTable } from "@/components/admin/admin-newsletter-table"
+import { getAllCampaignsAsAdmin } from "@/lib/db/campaigns"
+import { AdminNewsletterManager } from "@/components/admin/admin-newsletter-manager"
 
 export const dynamic = "force-dynamic"
 
 export default async function AdminNewsletterPage() {
-  const subscribers = await getAllSubscribersAsAdmin()
+  const [subscribers, campaigns] = await Promise.all([
+    getAllSubscribersAsAdmin(),
+    getAllCampaignsAsAdmin(),
+  ])
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
@@ -13,13 +17,13 @@ export default async function AdminNewsletterPage() {
           Newsletter
         </h1>
         <p className="text-sm text-muted-foreground">
-          Email subscribers captured via the exit-intent popup and any other
-          opt-in surfaces. Export to CSV to bring the list into Mailchimp,
-          ConvertKit, or your campaign tool of choice.
+          Manage subscribers and send marketing emails directly. Import a CSV or
+          add your existing customers, select who to reach, compose with a live
+          preview, and send. Every email includes a one-click unsubscribe link.
         </p>
       </div>
 
-      <AdminNewsletterTable subscribers={subscribers} />
+      <AdminNewsletterManager subscribers={subscribers} campaigns={campaigns} />
     </div>
   )
 }
