@@ -74,6 +74,7 @@ export function NewsletterPopup() {
   const [website, setWebsite] = useState("") // honeypot
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle")
   const [errorMessage, setErrorMessage] = useState("")
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false)
   const armedRef = useRef(false)
 
   const open = useCallback(() => {
@@ -148,12 +149,14 @@ export function NewsletterPopup() {
         const data = (await res.json().catch(() => ({}))) as {
           error?: string
           ok?: boolean
+          alreadySubscribed?: boolean
         }
         if (!res.ok) {
           setStatus("error")
           setErrorMessage(data.error || "Could not subscribe. Please try again.")
           return
         }
+        setAlreadySubscribed(Boolean(data.alreadySubscribed))
         setStatus("success")
         writeStoredState({ ...readStoredState(), subscribedAt: Date.now() })
       } catch {
@@ -173,12 +176,22 @@ export function NewsletterPopup() {
               <CheckCircle2 className="h-7 w-7 text-success" />
             </div>
             <DialogTitle className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-              Check your inbox
+              {alreadySubscribed ? "You're already subscribed" : "Check your inbox"}
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-              Your peptide research guide is on its way to{" "}
-              <strong className="text-foreground">{email}</strong>. If you don&rsquo;t
-              see it within a couple of minutes, check your spam folder.
+              {alreadySubscribed ? (
+                <>
+                  <strong className="text-foreground">{email}</strong> is already on
+                  our list, so there&rsquo;s nothing else to do. Check your inbox (and
+                  spam folder) for the research guide we sent when you first signed up.
+                </>
+              ) : (
+                <>
+                  Your peptide research guide is on its way to{" "}
+                  <strong className="text-foreground">{email}</strong>. If you
+                  don&rsquo;t see it within a couple of minutes, check your spam folder.
+                </>
+              )}
             </DialogDescription>
             <Button
               type="button"
