@@ -66,6 +66,7 @@ export interface Product {
   updatedAt: string
   createdBy?: string // User ID
   isArchived?: boolean // Soft delete flag - archived products are hidden from store but kept for order history
+  isFeatured?: boolean // Admin-controlled flag: featured on the homepage "Featured Compounds" section (up to 3 shown, backfilled)
   variants?: ProductVariant[] // Product variants (e.g., different strengths)
 }
 

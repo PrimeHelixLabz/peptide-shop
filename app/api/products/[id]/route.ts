@@ -14,6 +14,7 @@ const updateProductSchema = z.object({
   categoryId: z.string().uuid().optional(),
   inStock: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
   stockQuantity: z.number().int().min(0).optional(),
   specifications: z.record(z.union([z.string(), z.number()])).optional(),
   usage: z.string().optional(),

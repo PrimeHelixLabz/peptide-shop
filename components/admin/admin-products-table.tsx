@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Search, Pencil, Plus, Trash2, Archive, RefreshCcw } from "lucide-react"
+import { Search, Pencil, Plus, Trash2, Archive, RefreshCcw, Star } from "lucide-react"
 import { toast } from "sonner"
 import type { AdminProduct } from "@/lib/api/admin-utils"
 import { getProductImageUrl } from "@/lib/storage/image-utils"
@@ -61,6 +61,13 @@ export function AdminProductsTable({
   const [deleting, setDeleting] = useState(false)
   const [sortBy, setSortBy] = useState<"name_asc" | "name_desc" | "price_asc" | "price_desc" | "date_asc" | "date_desc">("name_asc")
   const [syncingStripe, setSyncingStripe] = useState(false)
+  const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null)
+
+  // Homepage shows up to 3 featured products (the rest are backfilled).
+  const featuredCount = useMemo(
+    () => products.filter((p) => p.isFeatured && !p.isArchived).length,
+    [products]
+  )
 
   // Get unique categories from products
   const categories = useMemo(() => {
@@ -186,6 +193,37 @@ export function AdminProductsTable({
       })
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function toggleFeatured(product: AdminProduct) {
+    const next = !product.isFeatured
+    setTogglingFeaturedId(product.id)
+    // Optimistic update
+    setProducts((prev) =>
+      prev.map((p) => (p.id === product.id ? { ...p, isFeatured: next } : p))
+    )
+    try {
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isFeatured: next }),
+      })
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error || "Request failed")
+      }
+      toast.success(next ? `${product.name} is now featured` : `${product.name} removed from featured`)
+    } catch (error) {
+      // Roll back on failure
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, isFeatured: !next } : p))
+      )
+      toast.error("Failed to update featured status", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      })
+    } finally {
+      setTogglingFeaturedId(null)
     }
   }
 
@@ -351,10 +389,22 @@ export function AdminProductsTable({
         </div> */}
       </div>
 
-      {/* Results count */}
-      <div className="ml-auto text-sm text-muted-foreground">
-        {filtered.length} {filtered.length === 1 ? "product" : "products"}
-        {filtered.length !== products.length && ` of ${products.length}`}
+      {/* Results count + featured hint */}
+      <div className="flex flex-col items-end gap-1">
+        {featuredCount > 3 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {featuredCount} products featured — only the first 3 (by name) show on the homepage.
+          </p>
+        )}
+        {featuredCount === 0 && (
+          <p className="text-xs text-muted-foreground">
+            No featured products — homepage falls back to the first 3 products.
+          </p>
+        )}
+        <div className="text-sm text-muted-foreground">
+          {filtered.length} {filtered.length === 1 ? "product" : "products"}
+          {filtered.length !== products.length && ` of ${products.length}`}
+        </div>
       </div>
 
       {/* Table card */}
@@ -377,6 +427,9 @@ export function AdminProductsTable({
                 </th>
                 <th className="hidden px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">
                   Stock
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Featured
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Status
@@ -450,6 +503,28 @@ export function AdminProductsTable({
                     >
                       {product.stock}
                     </span>
+                  </td>
+
+                  {/* Featured toggle */}
+                  <td className="px-6 py-4 text-center">
+                    <button
+                      onClick={() => toggleFeatured(product)}
+                      disabled={togglingFeaturedId === product.id || product.isArchived}
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                        product.isFeatured
+                          ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                          : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-foreground"
+                      }`}
+                      aria-pressed={product.isFeatured}
+                      aria-label={
+                        product.isFeatured
+                          ? `Remove ${product.name} from featured`
+                          : `Feature ${product.name} on homepage`
+                      }
+                      title={product.isArchived ? "Archived products can't be featured" : undefined}
+                    >
+                      <Star className={`h-4 w-4 ${product.isFeatured ? "fill-current" : ""}`} />
+                    </button>
                   </td>
 
                   {/* Status */}

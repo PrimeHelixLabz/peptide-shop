@@ -115,6 +115,7 @@ function rowToProduct(row: any): Product {
     updatedAt: row.updated_at,
     createdBy: row.created_by,
     isArchived: row.is_archived || false,
+    isFeatured: row.is_featured ?? false,
     variants, // Include variants in product
   }
 }
@@ -169,6 +170,12 @@ function productToRow(product: Partial<Product>): any {
   // so partial updates don't accidentally reactivate disabled products.
   if (product.isActive !== undefined) {
     row.is_active = product.isActive
+  }
+
+  // Homepage feature flag. Only persist when explicitly provided so partial
+  // updates don't clear the flag.
+  if (product.isFeatured !== undefined) {
+    row.is_featured = product.isFeatured
   }
 
   return row

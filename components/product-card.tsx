@@ -32,6 +32,7 @@ export interface Product {
   images?: string[] // Array of image URLs
   category?: string
   inStock: boolean
+  isFeatured?: boolean // Flagged for the homepage "Featured Compounds" section
   specifications?: Record<string, string | number> // Dynamic specifications (e.g., { purity: "99.1%", weight: "5mg", form: "Lyophilized" })
   variants?: Array<{
     id: string

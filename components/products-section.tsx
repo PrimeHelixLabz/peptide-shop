@@ -12,8 +12,11 @@ import { getProductRatingSummaries } from "@/lib/db/reviews"
 
 export async function ProductsSection() {
   const allProducts = await getAllProducts()
-  // Show first 3 products as featured, or all if less than 3
-  const products = allProducts.slice(0, 3)
+  // Show admin-flagged featured products first (ordered by name, as returned),
+  // then backfill with the remaining products so the section always shows up to 3.
+  const featured = allProducts.filter((p) => p.isFeatured)
+  const rest = allProducts.filter((p) => !p.isFeatured)
+  const products = [...featured, ...rest].slice(0, 3)
   const summaries = await getProductRatingSummaries(products.map((p) => p.id))
   return (
     <Section id="products" background="muted" padding="md">
