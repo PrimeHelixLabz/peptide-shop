@@ -60,8 +60,26 @@ export function verifyUnsubscribeToken(email: string, token: string): boolean {
   return timingSafeEqualString(expected, token)
 }
 
+/**
+ * Human-facing unsubscribe link — points at the /unsubscribe page, which
+ * renders a confirm button. Use this for the visible "Unsubscribe" link in
+ * email bodies.
+ */
 export function buildUnsubscribeUrl(email: string, origin: string): string {
   const token = signUnsubscribeToken(email)
   const params = new URLSearchParams({ email: email.trim().toLowerCase(), token })
   return `${origin}/unsubscribe?${params.toString()}`
+}
+
+/**
+ * Machine-facing unsubscribe URL — points at the API route, which processes
+ * the unsubscribe directly (GET or one-click POST). Use this for the RFC 8058
+ * `List-Unsubscribe` header so Gmail/Outlook's native one-click button works.
+ * The page URL must NOT be used there: a one-click POST to a page route 405s
+ * and the subscriber is never removed.
+ */
+export function buildUnsubscribeApiUrl(email: string, origin: string): string {
+  const token = signUnsubscribeToken(email)
+  const params = new URLSearchParams({ email: email.trim().toLowerCase(), token })
+  return `${origin}/api/newsletter/unsubscribe?${params.toString()}`
 }

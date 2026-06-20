@@ -1,7 +1,10 @@
 import { Resend } from "resend"
 import type { Order } from "@/lib/db/schema"
 import { formatPaymentMethod } from "@/lib/format-payment-method"
-import { buildUnsubscribeUrl } from "@/lib/newsletter/unsubscribe-token"
+import {
+  buildUnsubscribeUrl,
+  buildUnsubscribeApiUrl,
+} from "@/lib/newsletter/unsubscribe-token"
 import {
   buildMarketingEmailHtml,
   renderMarketingMarkdown,
@@ -385,7 +388,9 @@ const SITE_ORIGIN = "https://www.primehelixlabz.com"
 
 export async function sendNewsletterWelcomeEmail(toEmail: string): Promise<void> {
   const safeEmail = escapeHtml(toEmail.trim())
+  // Body link → confirm page; header → API endpoint that handles one-click POST.
   const unsubscribeUrl = buildUnsubscribeUrl(toEmail.trim(), SITE_ORIGIN)
+  const unsubscribeApiUrl = buildUnsubscribeApiUrl(toEmail.trim(), SITE_ORIGIN)
 
   const articleCards = WELCOME_ARTICLES.map(
     (a) => `
@@ -471,7 +476,7 @@ export async function sendNewsletterWelcomeEmail(toEmail: string): Promise<void>
     // "Unsubscribe" button when these are present. Both header and one-click
     // POST URL are required for the one-click flow.
     headers: {
-      "List-Unsubscribe": `<${unsubscribeUrl}>, <mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
+      "List-Unsubscribe": `<${unsubscribeApiUrl}>, <mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },
   })
@@ -1191,7 +1196,9 @@ export async function sendCampaignEmails(params: {
   for (let i = 0; i < recipients.length; i += CAMPAIGN_BATCH_SIZE) {
     const chunk = recipients.slice(i, i + CAMPAIGN_BATCH_SIZE)
     const messages = chunk.map((email) => {
+      // Body link → confirm page; header → API endpoint for one-click POST.
       const unsubscribeUrl = buildUnsubscribeUrl(email, SITE_ORIGIN)
+      const unsubscribeApiUrl = buildUnsubscribeApiUrl(email, SITE_ORIGIN)
       return {
         from: `PrimeHelix Labz <${FROM_EMAIL}>`,
         to: [email],
@@ -1204,7 +1211,7 @@ export async function sendCampaignEmails(params: {
           unsubscribeUrl,
         }),
         headers: {
-          "List-Unsubscribe": `<${unsubscribeUrl}>, <mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
+          "List-Unsubscribe": `<${unsubscribeApiUrl}>, <mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
           "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         },
       }
