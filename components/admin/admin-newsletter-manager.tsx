@@ -67,6 +67,7 @@ export function AdminNewsletterManager({ subscribers, campaigns }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [importing, setImporting] = useState(false)
   const [addingCustomers, setAddingCustomers] = useState(false)
+  const [pendingStatusId, setPendingStatusId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const activeCount = useMemo(
@@ -117,6 +118,29 @@ export function AdminNewsletterManager({ subscribers, campaigns }: Props) {
     } finally {
       setImporting(false)
       if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  async function handleSetStatus(id: string, action: "disable" | "enable") {
+    setPendingStatusId(id)
+    try {
+      const res = await fetch(`/api/admin/newsletter/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Could not update subscriber")
+      toast.success(
+        action === "disable"
+          ? "Subscriber disabled — they'll no longer receive emails."
+          : "Subscriber enabled — they're back on the list."
+      )
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update subscriber")
+    } finally {
+      setPendingStatusId(null)
     }
   }
 
@@ -227,6 +251,8 @@ export function AdminNewsletterManager({ subscribers, campaigns }: Props) {
             selectedIds={selectedIds}
             onToggle={toggle}
             onToggleMany={toggleMany}
+            onSetStatus={handleSetStatus}
+            pendingStatusId={pendingStatusId}
           />
         </>
       )}

@@ -17,6 +17,8 @@ export interface BlogPost {
   tags: string[]
   readMinutes: number
   publishedAt: string | null
+  /** When the new-post announcement email was sent. Null = never sent. */
+  announcementSentAt: string | null
   createdAt: string
   updatedAt: string
 }

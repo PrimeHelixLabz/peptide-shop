@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { toast } from "sonner"
-import { ArrowLeft, Trash2, ImagePlus, X, Save, Eye } from "lucide-react"
+import { ArrowLeft, Trash2, ImagePlus, X, Save, Eye, Send, CheckCircle2, Loader2 } from "lucide-react"
 import type { BlogPost, BlogPostStatus } from "@/lib/blog/types"
 import { AdminCard } from "@/components/common/admin-card"
 import { FormInput } from "@/components/common/form-input"
@@ -56,6 +56,7 @@ export function AdminBlogForm({ initial }: AdminBlogFormProps) {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [announcing, setAnnouncing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isEdit = !!initial
 
@@ -203,10 +204,54 @@ export function AdminBlogForm({ initial }: AdminBlogFormProps) {
     }
   }, [initial, router])
 
+  const handleAnnounce = useCallback(async () => {
+    if (!initial) return
+    if (
+      !confirm(
+        "Email this article to all active newsletter subscribers? This sends once and can't be undone."
+      )
+    )
+      return
+    setAnnouncing(true)
+    try {
+      const res = await fetch(`/api/blog/posts/${initial.id}/announce`, {
+        method: "POST",
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string
+        sent?: number
+        failed?: number
+      }
+      if (!res.ok) {
+        toast.error(data.error || "Could not send announcement")
+        return
+      }
+      toast.success(
+        `Announcement sent to ${data.sent ?? 0} subscriber${
+          data.sent === 1 ? "" : "s"
+        }.${data.failed ? ` ${data.failed} failed.` : ""}`
+      )
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      toast.error("Network error")
+    } finally {
+      setAnnouncing(false)
+    }
+  }, [initial, router])
+
   const previewHref =
     initial && initial.status === "published"
       ? `/blog/${initial.slug}`
       : null
+
+  const announcementSentAt =
+    initial?.announcementSentAt &&
+    new Date(initial.announcementSentAt).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
@@ -315,6 +360,44 @@ export function AdminBlogForm({ initial }: AdminBlogFormProps) {
               </p>
             </div>
           </AdminCard>
+
+          {isEdit && initial?.status === "published" && (
+            <AdminCard title="Newsletter announcement">
+              {announcementSentAt ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-sm text-foreground">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    Sent on {announcementSentAt}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Subscribers have been emailed about this post. It can only be
+                    announced once.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    Email this article to every active newsletter subscriber.
+                    Each email includes a one-click unsubscribe. Sends once.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAnnounce}
+                    disabled={announcing}
+                    className="w-full"
+                  >
+                    {announcing ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <Send />
+                    )}
+                    Send announcement
+                  </Button>
+                </div>
+              )}
+            </AdminCard>
+          )}
 
           <AdminCard title="URL slug">
             <FormInput

@@ -1171,6 +1171,32 @@ export interface SendCampaignResult {
   failedEmails: string[]
 }
 
+/**
+ * Compose the subject + Markdown body for a "new blog post" announcement.
+ * Reuses the marketing-campaign pipeline (sendCampaignEmails) so the blast
+ * gets the same branded shell, one-click unsubscribe, and audit trail as any
+ * other newsletter send. The article link is a content link (not a shop CTA),
+ * so it intentionally carries no affiliate ref.
+ */
+export function buildBlogAnnouncement(post: {
+  title: string
+  description: string
+  slug: string
+}): { subject: string; bodyMarkdown: string } {
+  const url = `${SITE_ORIGIN}/blog/${post.slug}`
+  const subject = `New article: ${post.title.trim()}`
+  const bodyMarkdown = [
+    "A new article just went live on the PrimeHelix Labz research blog:",
+    "",
+    `## ${post.title.trim()}`,
+    "",
+    post.description.trim(),
+    "",
+    `[Read the full article →](${url})`,
+  ].join("\n")
+  return { subject, bodyMarkdown }
+}
+
 // Resend caps batch sends at 100 messages per request.
 const CAMPAIGN_BATCH_SIZE = 100
 

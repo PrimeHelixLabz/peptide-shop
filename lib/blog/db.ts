@@ -20,6 +20,7 @@ interface BlogPostRow {
   tags: string[]
   read_minutes: number
   published_at: string | null
+  announcement_sent_at: string | null
   created_at: string
   updated_at: string
 }
@@ -38,6 +39,7 @@ function rowToPost(row: BlogPostRow): BlogPost {
     tags: row.tags || [],
     readMinutes: row.read_minutes,
     publishedAt: row.published_at,
+    announcementSentAt: row.announcement_sent_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -61,7 +63,7 @@ function rowToSummary(row: BlogPostRow): BlogPostSummary {
 }
 
 const POST_SELECT =
-  "id, slug, title, description, body_html, featured_image, author_name, author_user_id, status, tags, read_minutes, published_at, created_at, updated_at"
+  "id, slug, title, description, body_html, featured_image, author_name, author_user_id, status, tags, read_minutes, published_at, announcement_sent_at, created_at, updated_at"
 
 /** Public reads: published posts only, newest first. Uses the anon client. */
 export async function getPublishedPosts(): Promise<BlogPostSummary[]> {
@@ -212,6 +214,39 @@ export async function updatePostAsAdmin(
 
   if (error) throw error
   return rowToPost(data as unknown as BlogPostRow)
+}
+
+/**
+ * Stamp the post as announced so the editor's "Send announcement" button
+ * can't fire a second blast. Only flips rows where announcement_sent_at is
+ * still null; returns true if this call was the one that claimed it (used as
+ * a lightweight guard against a double-click race).
+ */
+export async function markAnnouncementSentAsAdmin(id: string): Promise<boolean> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("blog_posts")
+    .update({ announcement_sent_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("announcement_sent_at", null)
+    .select("id")
+    .maybeSingle()
+
+  if (error) {
+    console.error("markAnnouncementSentAsAdmin failed:", error)
+    return false
+  }
+  return !!data
+}
+
+/** Undo the announcement claim so the admin can retry after a failed send. */
+export async function clearAnnouncementSentAsAdmin(id: string): Promise<void> {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from("blog_posts")
+    .update({ announcement_sent_at: null })
+    .eq("id", id)
+  if (error) console.error("clearAnnouncementSentAsAdmin failed:", error)
 }
 
 export async function deletePostAsAdmin(id: string): Promise<void> {

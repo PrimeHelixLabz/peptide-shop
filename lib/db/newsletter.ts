@@ -52,6 +52,43 @@ export async function getAllSubscribersAsAdmin(options?: {
 }
 
 /* ────────────────────────────────────────────────────────────────
+ *  Admin status toggle (disable / enable a single subscriber)
+ * ────────────────────────────────────────────────────────────── */
+
+/**
+ * Flip one subscriber's status from the admin UI.
+ *  - "disable" → mark unsubscribed (sets unsubscribed_at = now).
+ *  - "enable"  → re-subscribe (clears unsubscribed_at, refreshes subscribed_at
+ *    to mirror the bulk-reactivate path).
+ * Returns the updated subscriber, or null if the id wasn't found / on error.
+ */
+export async function setSubscriberStatusAsAdmin(
+  id: string,
+  action: "disable" | "enable"
+): Promise<NewsletterSubscriber | null> {
+  const supabase = createAdminClient()
+  const now = new Date().toISOString()
+
+  const { data, error } = await supabase
+    .from("newsletter_subscribers")
+    .update(
+      action === "disable"
+        ? { unsubscribed_at: now }
+        : { unsubscribed_at: null, subscribed_at: now }
+    )
+    .eq("id", id)
+    .select("id, email, source, subscribed_at, unsubscribed_at")
+    .maybeSingle()
+
+  if (error) {
+    console.error("setSubscriberStatusAsAdmin failed:", error)
+    return null
+  }
+  if (!data) return null
+  return rowToSubscriber(data as unknown as SubscriberRow)
+}
+
+/* ────────────────────────────────────────────────────────────────
  *  Recipient resolution (for marketing sends)
  * ────────────────────────────────────────────────────────────── */
 

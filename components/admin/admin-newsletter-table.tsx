@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import Link from "next/link"
-import { Download, Mail } from "lucide-react"
+import { Download, Mail, Ban, RotateCcw, Loader2 } from "lucide-react"
 import { AdminCard } from "@/components/common/admin-card"
 import { Button } from "@/components/ui/button"
 import { Select } from "@/components/common/select"
@@ -19,6 +19,10 @@ interface Props {
   selectedIds: Set<string>
   onToggle: (id: string) => void
   onToggleMany: (ids: string[], checked: boolean) => void
+  /** Disable (unsubscribe) / enable (re-subscribe) a single subscriber. */
+  onSetStatus: (id: string, action: "disable" | "enable") => void
+  /** Id currently being toggled, to show a spinner on its row. */
+  pendingStatusId: string | null
 }
 
 export type StatusFilter = "all" | SubscriberStatus
@@ -52,6 +56,8 @@ export function AdminNewsletterTable({
   selectedIds,
   onToggle,
   onToggleMany,
+  onSetStatus,
+  pendingStatusId,
 }: Props) {
   const counts = useMemo(() => {
     let active = 0
@@ -172,6 +178,9 @@ export function AdminNewsletterTable({
                   <th className="hidden px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">
                     Unsubscribed
                   </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -209,6 +218,37 @@ export function AdminNewsletterTable({
                       </td>
                       <td className="hidden px-6 py-4 text-sm text-muted-foreground lg:table-cell">
                         {formatDateTime(sub.unsubscribedAt)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {sub.unsubscribedAt ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pendingStatusId === sub.id}
+                            onClick={() => onSetStatus(sub.id, "enable")}
+                          >
+                            {pendingStatusId === sub.id ? (
+                              <Loader2 className="animate-spin" />
+                            ) : (
+                              <RotateCcw />
+                            )}
+                            Enable
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pendingStatusId === sub.id}
+                            onClick={() => onSetStatus(sub.id, "disable")}
+                          >
+                            {pendingStatusId === sub.id ? (
+                              <Loader2 className="animate-spin" />
+                            ) : (
+                              <Ban />
+                            )}
+                            Disable
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   )
