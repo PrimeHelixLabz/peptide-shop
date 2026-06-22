@@ -11,6 +11,10 @@ import {
   getProductRatingSummary,
 } from "@/lib/db/reviews"
 import { stripHtmlToPlainText } from "@/lib/blog/sanitize"
+import {
+  MERCHANT_RETURN_POLICY,
+  OFFER_SHIPPING_DETAILS,
+} from "@/lib/seo/product-offer"
 
 // Search-engine-friendly description length. Google truncates at ~160 chars
 // in SERPs; we keep a small safety margin to avoid mid-word cuts.
@@ -146,6 +150,8 @@ export default async function ProductPage({ params }: PageProps) {
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
           offerCount: product.variants.length,
+          hasMerchantReturnPolicy: MERCHANT_RETURN_POLICY,
+          shippingDetails: OFFER_SHIPPING_DETAILS,
         }
       : {
           "@type": "Offer",
@@ -154,6 +160,8 @@ export default async function ProductPage({ params }: PageProps) {
           availability: product.inStock
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
+          hasMerchantReturnPolicy: MERCHANT_RETURN_POLICY,
+          shippingDetails: OFFER_SHIPPING_DETAILS,
         },
     ...(product.category && {
       category: product.category,
