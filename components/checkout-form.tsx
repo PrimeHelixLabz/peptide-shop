@@ -125,7 +125,7 @@ export function CheckoutForm() {
   const watchedValues = watch()
   const linkMoneyCheckoutData: LinkMoneyCheckoutData = buildCheckoutData(watchedValues)
   const centryosCheckoutData: CentryOSCheckoutData = buildCheckoutData(watchedValues)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("link_money")
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("centryos")
 
   // Mirror OrderSummary's math so the Pay button can display the total
   // the customer will be charged. Shipping uses raw subtotal so a discount
@@ -320,6 +320,20 @@ export function CheckoutForm() {
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
+                onClick={() => setPaymentMethod("centryos")}
+                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                  paymentMethod === "centryos"
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div>
+                  <p className="text-sm font-medium">Pay with Credit/Debit card, Apple Pay/Google Pay, Cash App, or US Bank</p>
+                  <p className="text-xs text-muted-foreground">CentryOS</p>
+                </div>
+              </button>
+              <button
+                type="button"
                 onClick={() => setPaymentMethod("link_money")}
                 className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
                   paymentMethod === "link_money"
@@ -329,21 +343,7 @@ export function CheckoutForm() {
               >
                 <div>
                   <p className="text-sm font-medium">Pay by Bank</p>
-                  <p className="text-xs text-muted-foreground">Link Money &middot; ACH &middot; 5% service fee</p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("centryos")}
-                className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
-                  paymentMethod === "centryos"
-                    ? "border-primary bg-primary/5"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-medium">Pay with CentryOS</p>
-                  <p className="text-xs text-muted-foreground">Card via CentryOS &middot; no service fee</p>
+                  <p className="text-xs text-muted-foreground">Link Money &middot; ACH</p>
                 </div>
               </button>
             </div>
