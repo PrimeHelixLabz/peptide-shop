@@ -12,6 +12,7 @@ const pageTitles: Record<string, string> = {
   "/admin/categories": "Categories",
   "/admin/orders": "Orders",
   "/admin/customers": "Customers",
+  "/admin/settings": "Settings",
 }
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

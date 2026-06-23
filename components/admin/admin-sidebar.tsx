@@ -16,6 +16,7 @@ import {
   Star,
   Mail,
   Tag,
+  Settings,
 } from "lucide-react"
 
 const navItems = [
@@ -29,6 +30,7 @@ const navItems = [
   { label: "Affiliates", href: "/admin/affiliates", icon: Handshake },
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
 ]
 
 interface AdminSidebarProps {
